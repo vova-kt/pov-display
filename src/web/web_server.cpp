@@ -10,12 +10,21 @@ void PovWebServer::init(Config* cfg, HallSensor* hall, Framebuffer* fb, Motor* m
     fb_    = fb;
     motor_ = motor;
     cfgMutex_ = xSemaphoreCreateMutex();
+    Serial.printf("WebServer: mutex=%s\n", cfgMutex_ ? "OK" : "FAILED");
     setupRoutes();
+    Serial.println("WebServer: routes registered");
     server_.begin();
+    Serial.printf("WebServer: listening on port 80 (free heap: %u)\n", ESP.getFreeHeap());
 }
 
 void PovWebServer::setupRoutes() {
+    server_.onNotFound([](AsyncWebServerRequest* req) {
+        Serial.printf("WebServer: 404 %s %s\n", req->methodToString(), req->url().c_str());
+        req->send(404, "text/plain", "Not found");
+    });
+
     server_.on("/", HTTP_GET, [](AsyncWebServerRequest* req) {
+        Serial.printf("WebServer: GET / from %s\n", req->client()->remoteIP().toString().c_str());
         req->send_P(200, "text/html", INDEX_HTML);
     });
 
@@ -42,7 +51,7 @@ void PovWebServer::setupRoutes() {
 
     server_.on("/api/config", HTTP_POST,
         [this](AsyncWebServerRequest* req) {
-            // Parse accumulated body
+            Serial.printf("WebServer: POST /api/config (%u bytes)\n", bodyBuffer.length());
             JsonDocument doc;
             DeserializationError err = deserializeJson(doc, bodyBuffer);
             if (err) {

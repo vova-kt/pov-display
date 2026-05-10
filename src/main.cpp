@@ -113,13 +113,17 @@ void setup() {
 
     // Start WiFi AP
     WiFi.mode(WIFI_AP);
-    WiFi.softAP("POV-Display");
-    Serial.print("AP IP: ");
-    Serial.println(WiFi.softAPIP());
+    bool apOk = WiFi.softAP("POV-Display");
+    Serial.printf("softAP: %s\n", apOk ? "OK" : "FAILED");
+    Serial.printf("AP IP: %s  MAC: %s\n",
+                  WiFi.softAPIP().toString().c_str(),
+                  WiFi.softAPmacAddress().c_str());
 
     // Start web server
+    Serial.println("Starting web server...");
     webServer.init(&cfg, &hall, &fb, &motor);
     webServer.onConfigChange(onConfigChanged);
+    Serial.println("Web server started on port 80");
 
     // Create pattern task on Core 1
     xTaskCreatePinnedToCore(patternTaskFunc, "pattern", 8192, nullptr, 10, nullptr, 1);
