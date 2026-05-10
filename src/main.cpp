@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <esp_heap_caps.h>
 
 #include "config.h"
 #include "framebuffer.h"
@@ -13,6 +14,7 @@
 #include "patterns/solid.h"
 #include "patterns/rainbow.h"
 #include "patterns/text.h"
+#include "patterns/scanner.h"
 
 // --- Globals ---
 static Config         cfg;
@@ -26,9 +28,10 @@ static PovWebServer   webServer;
 static SolidPattern   solidPattern;
 static RainbowPattern rainbowPattern;
 static TextPattern    textPattern;
+static ScannerPattern scannerPattern;
 
-static constexpr uint8_t NUM_PATTERNS = 3;
-static Pattern* patterns[NUM_PATTERNS] = { &solidPattern, &rainbowPattern, &textPattern };
+static constexpr uint8_t NUM_PATTERNS = 4;
+static Pattern* patterns[NUM_PATTERNS] = { &solidPattern, &rainbowPattern, &textPattern, &scannerPattern };
 
 static volatile bool configDirty = false;
 
@@ -39,15 +42,28 @@ static void onConfigChanged() {
 
 // --- Pattern task (Core 1, lower priority than render) ---
 static void patternTaskFunc(void*) {
+    bool wasDirectMode = false;
+
     for (;;) {
         if (configDirty) {
             configDirty = false;
 
             // Resize framebuffer if LED count or slice count changed
             if (cfg.numLeds != fb.numLeds() || cfg.numSlices != fb.numSlices()) {
+                size_t need = (size_t)cfg.numSlices * cfg.numLeds * sizeof(Pixel) * 2;
+                size_t dmaFree = heap_caps_get_free_size(MALLOC_CAP_DMA);
+                Serial.printf("[pattern] resize fb: %ux%u -> %ux%u (need=%u, dma_free=%u)\n",
+                              fb.numSlices(), fb.numLeds(), cfg.numSlices, cfg.numLeds,
+                              need, dmaFree);
                 scheduler.stop();
-                fb.resize(cfg.numSlices, cfg.numLeds);
-                scheduler.setNumSlices(cfg.numSlices);
+                bool ok = fb.resize(cfg.numSlices, cfg.numLeds);
+                if (ok) {
+                    Serial.printf("[pattern] resize OK (heap=%u)\n", ESP.getFreeHeap());
+                    scheduler.setNumSlices(cfg.numSlices);
+                } else {
+                    Serial.printf("[pattern] resize FAILED — keeping %ux%u (heap=%u)\n",
+                                  fb.numSlices(), fb.numLeds(), ESP.getFreeHeap());
+                }
                 scheduler.start();
             }
 
@@ -58,6 +74,21 @@ static void patternTaskFunc(void*) {
         uint8_t pi = cfg.activePattern;
         if (pi >= NUM_PATTERNS) pi = 0;
         patterns[pi]->generate(fb, cfg, millis());
+
+        // When not spinning, push slice 0 directly to the strip
+        uint32_t lastHall = hall.lastTriggerMs();
+        bool spinning = (lastHall > 0) && ((millis() - lastHall) < 500);
+        if (!spinning) {
+            if (!wasDirectMode) {
+                Serial.printf("[pattern] direct mode: pushing slice 0 to strip (%u leds)\n", fb.numLeds());
+                wasDirectMode = true;
+            }
+            const Pixel* data = fb.getSlice(0);
+            leds.sendSlice(data, fb.numLeds());
+        } else if (wasDirectMode) {
+            Serial.println("[pattern] scheduler mode: hall sensor active");
+            wasDirectMode = false;
+        }
 
         // ~30 fps for animated patterns
         vTaskDelay(pdMS_TO_TICKS(33));
@@ -89,6 +120,10 @@ void setup() {
     leds.allOff(cfg.numLeds);
 
     // Init framebuffer
+    size_t dmaFree = heap_caps_get_free_size(MALLOC_CAP_DMA);
+    size_t fbNeed  = (size_t)cfg.numSlices * cfg.numLeds * sizeof(Pixel) * 2;
+    Serial.printf("DMA free: %u bytes, FB needs: %u bytes (%ux%u)\n",
+                  dmaFree, fbNeed, cfg.numSlices, cfg.numLeds);
     if (!fb.init(cfg.numSlices, cfg.numLeds)) {
         Serial.println("Framebuffer alloc failed!");
         return;

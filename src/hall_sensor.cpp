@@ -17,6 +17,7 @@ void IRAM_ATTR HallSensor::isr(void* arg) {
     self->rotPeriodUs_   = (uint32_t)delta;
     self->rpm_           = 60000000UL / (uint32_t)delta;
     self->lastTriggerUs_ = now;
+    self->lastTriggerMs_ = (uint32_t)(now / 1000);
     self->newRotation_   = true;
 }
 

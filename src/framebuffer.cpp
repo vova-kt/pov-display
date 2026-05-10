@@ -33,8 +33,25 @@ void Framebuffer::release() {
 }
 
 bool Framebuffer::resize(uint16_t numSlices, uint16_t numLeds) {
+    size_t sz = (size_t)numSlices * numLeds * sizeof(Pixel);
+
+    Pixel* newBufs[2] = {nullptr, nullptr};
+    for (int i = 0; i < 2; i++) {
+        newBufs[i] = (Pixel*)heap_caps_malloc(sz, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+        if (!newBufs[i]) {
+            for (int j = 0; j < i; j++) heap_caps_free(newBufs[j]);
+            return false;
+        }
+        memset(newBufs[i], 0, sz);
+    }
+
     release();
-    return init(numSlices, numLeds);
+    buffers_[0] = newBufs[0];
+    buffers_[1] = newBufs[1];
+    numSlices_ = numSlices;
+    numLeds_   = numLeds;
+    front_     = 0;
+    return true;
 }
 
 void Framebuffer::setPixel(uint16_t slice, uint16_t led,

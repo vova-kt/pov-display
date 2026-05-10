@@ -51,6 +51,7 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
   <option value="0">Solid Color</option>
   <option value="1">Rainbow</option>
   <option value="2">Text</option>
+  <option value="3">Scanner</option>
  </select>
 
  <label>Color</label>
@@ -68,7 +69,7 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
  <div class="row">
   <div>
    <label>LEDs</label>
-   <input type="number" id="numLeds" min="1" max="144" value="36">
+   <input type="number" id="numLeds" min="1" max="144" value="144">
   </div>
   <div>
    <label>Slices</label>
