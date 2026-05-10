@@ -1,0 +1,102 @@
+#include "web_server.h"
+#include "web_ui.h"
+#include <ArduinoJson.h>
+
+static String bodyBuffer;
+
+void PovWebServer::init(Config* cfg, HallSensor* hall, Framebuffer* fb, Motor* motor) {
+    cfg_   = cfg;
+    hall_  = hall;
+    fb_    = fb;
+    motor_ = motor;
+    cfgMutex_ = xSemaphoreCreateMutex();
+    setupRoutes();
+    server_.begin();
+}
+
+void PovWebServer::setupRoutes() {
+    server_.on("/", HTTP_GET, [](AsyncWebServerRequest* req) {
+        req->send_P(200, "text/html", INDEX_HTML);
+    });
+
+    server_.on("/api/config", HTTP_GET, [this](AsyncWebServerRequest* req) {
+        JsonDocument doc;
+        xSemaphoreTake(cfgMutex_, portMAX_DELAY);
+        doc["numLeds"]       = cfg_->numLeds;
+        doc["numSlices"]     = cfg_->numSlices;
+        doc["brightness"]    = cfg_->brightness;
+        doc["maxBrightness"] = cfg_->maxBrightness;
+        doc["phaseOffset"]   = cfg_->phaseOffset;
+        doc["activePattern"] = cfg_->activePattern;
+        doc["colorR"]        = cfg_->colorR;
+        doc["colorG"]        = cfg_->colorG;
+        doc["colorB"]        = cfg_->colorB;
+        doc["text"]          = cfg_->text;
+        doc["escPulseUs"]    = cfg_->escPulseUs;
+        xSemaphoreGive(cfgMutex_);
+
+        String out;
+        serializeJson(doc, out);
+        req->send(200, "application/json", out);
+    });
+
+    server_.on("/api/config", HTTP_POST,
+        [this](AsyncWebServerRequest* req) {
+            // Parse accumulated body
+            JsonDocument doc;
+            DeserializationError err = deserializeJson(doc, bodyBuffer);
+            if (err) {
+                req->send(400, "application/json", "{\"error\":\"bad json\"}");
+                bodyBuffer = "";
+                return;
+            }
+            JsonObject obj = doc.as<JsonObject>();
+            xSemaphoreTake(cfgMutex_, portMAX_DELAY);
+
+            if (obj["numLeds"].is<uint16_t>())       cfg_->numLeds       = obj["numLeds"].as<uint16_t>();
+            if (obj["numSlices"].is<uint16_t>())     cfg_->numSlices     = obj["numSlices"].as<uint16_t>();
+            if (obj["brightness"].is<uint8_t>()) {
+                uint8_t b = obj["brightness"].as<uint8_t>();
+                cfg_->brightness = (b > cfg_->maxBrightness) ? cfg_->maxBrightness : b;
+            }
+            if (obj["phaseOffset"].is<int16_t>())    cfg_->phaseOffset   = obj["phaseOffset"].as<int16_t>();
+            if (obj["activePattern"].is<uint8_t>())  cfg_->activePattern = obj["activePattern"].as<uint8_t>();
+            if (obj["colorR"].is<uint8_t>())         cfg_->colorR        = obj["colorR"].as<uint8_t>();
+            if (obj["colorG"].is<uint8_t>())         cfg_->colorG        = obj["colorG"].as<uint8_t>();
+            if (obj["colorB"].is<uint8_t>())         cfg_->colorB        = obj["colorB"].as<uint8_t>();
+            if (obj["escPulseUs"].is<uint16_t>())    cfg_->escPulseUs    = obj["escPulseUs"].as<uint16_t>();
+            if (obj["text"].is<const char*>()) {
+                strlcpy(cfg_->text, obj["text"].as<const char*>(), sizeof(cfg_->text));
+            }
+
+            xSemaphoreGive(cfgMutex_);
+            bodyBuffer = "";
+
+            if (configCb_) configCb_();
+
+            req->send(200, "application/json", "{\"ok\":true}");
+        },
+        nullptr,
+        [](AsyncWebServerRequest*, uint8_t* data, size_t len, size_t index, size_t) {
+            if (index == 0) bodyBuffer = "";
+            bodyBuffer += String((char*)data, len);
+        }
+    );
+
+    server_.on("/api/status", HTTP_GET, [this](AsyncWebServerRequest* req) {
+        JsonDocument doc;
+        doc["rpm"]      = hall_->rpm();
+        doc["freeHeap"] = ESP.getFreeHeap();
+        doc["uptime"]   = millis();
+        String out;
+        serializeJson(doc, out);
+        req->send(200, "application/json", out);
+    });
+
+    server_.on("/api/save", HTTP_POST, [this](AsyncWebServerRequest* req) {
+        xSemaphoreTake(cfgMutex_, portMAX_DELAY);
+        cfg_->saveToNvs();
+        xSemaphoreGive(cfgMutex_);
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+}
