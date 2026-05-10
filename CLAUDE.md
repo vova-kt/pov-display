@@ -24,6 +24,18 @@ pio device monitor   # serial console (115200 baud)
 ./deploy.sh --monitor-only # just open serial monitor
 ```
 
+## Tests
+
+```bash
+pio test -e native              # run all tests
+./test.sh                       # same, via script
+./test.sh --filter test_patterns  # run one suite
+./test.sh -v                    # verbose
+```
+
+Tests run natively (no ESP32 needed). ESP32 APIs are stubbed in `test/stubs/`.
+Two suites: `test_framebuffer` (double-buffer, swap, resize) and `test_patterns` (solid, rainbow, scanner, text).
+
 ## Architecture snapshot
 
 - **PlatformIO + Arduino framework** on ESP32.
