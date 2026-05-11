@@ -1,0 +1,1 @@
+- [User background](user_background.md) — learning EE/ME, explain domain concepts, don't assume prior knowledge
