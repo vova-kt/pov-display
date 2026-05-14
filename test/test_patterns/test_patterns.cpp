@@ -220,29 +220,19 @@ void test_text_renders_pixels() {
     TEST_ASSERT_GREATER_THAN(0, litCount);
 }
 
-void test_text_single_char_occupies_five_columns() {
-    // Single char = 5 columns, centered in 36 slices at (36-5)/2 = 15
+void test_text_single_char_produces_lit_pixels() {
     TextPattern text;
     strcpy(cfg.text, "I");
     text.generate(fb, cfg, 0);
 
-    uint16_t startSlice = (36 - 5) / 2;
-
-    // Slice 0 (well before text) should be blank
-    const Pixel* before = fb.getSlice(0);
-    for (uint16_t l = 0; l < fb.numLeds(); l++) {
-        TEST_ASSERT_EQUAL_UINT8(0, before[l].brightness);
-    }
-
-    // Text region should have some lit pixels
-    int litInRange = 0;
-    for (uint16_t s = startSlice; s < startSlice + 5; s++) {
+    int litCount = 0;
+    for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            if (slice[l].brightness != 0) litInRange++;
+            if (slice[l].brightness != 0) litCount++;
         }
     }
-    TEST_ASSERT_GREATER_THAN(0, litInRange);
+    TEST_ASSERT_GREATER_THAN(0, litCount);
 }
 
 void test_text_uses_config_color() {
@@ -269,19 +259,25 @@ void test_text_uses_config_color() {
     TEST_ASSERT_TRUE_MESSAGE(found, "No lit pixel found");
 }
 
-void test_text_vertical_centering() {
-    // Font height=7, numLeds=10, ledOffset=(10-7)/2=1
-    // Rows 0 and 8-9 should always be blank
+void test_text_centered_on_disc() {
     TextPattern text;
-    strcpy(cfg.text, "H"); // 'H': {0x7F,...} — uses all 7 rows
+    strcpy(cfg.text, "H");
     text.generate(fb, cfg, 0);
 
-    uint16_t startSlice = (36 - 5) / 2;
-    for (uint16_t s = startSlice; s < startSlice + 5; s++) {
+    int litInner = 0;
+    int litOuter = 0;
+    uint16_t midLed = fb.numLeds() / 2;
+    for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
-        TEST_ASSERT_EQUAL_UINT8(0, slice[0].brightness);
-        TEST_ASSERT_EQUAL_UINT8(0, slice[9].brightness);
+        for (uint16_t l = 0; l < fb.numLeds(); l++) {
+            if (slice[l].brightness != 0) {
+                if (l < midLed) litInner++;
+                else litOuter++;
+            }
+        }
     }
+    TEST_ASSERT_GREATER_THAN(0, litInner);
+    TEST_ASSERT_GREATER_THAN(0, litOuter);
 }
 
 void test_text_name() {
@@ -312,9 +308,9 @@ int main() {
 
     RUN_TEST(test_text_empty_string_blank);
     RUN_TEST(test_text_renders_pixels);
-    RUN_TEST(test_text_single_char_occupies_five_columns);
+    RUN_TEST(test_text_single_char_produces_lit_pixels);
     RUN_TEST(test_text_uses_config_color);
-    RUN_TEST(test_text_vertical_centering);
+    RUN_TEST(test_text_centered_on_disc);
     RUN_TEST(test_text_name);
 
     return UNITY_END();

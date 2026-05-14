@@ -36,7 +36,7 @@ python3 check_defaults.py       # verify config defaults haven't diverged
 ```
 
 Tests run natively (no ESP32 needed). ESP32 APIs are stubbed in `test/stubs/`.
-Two suites: `test_framebuffer` (double-buffer, swap, resize) and `test_patterns` (solid, rainbow, scanner, text).
+Three suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, text), and `test_transform` (Canvas, PolarTransform, IdentityTransform).
 
 ## Config defaults
 
@@ -71,5 +71,5 @@ C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates 
 - `docs/architecture.md` — single-core scheduling rationale, timer vs loop, double-buffer design, timing budget.
 - `docs/led-strip-and-driver.md` — HD107S wire protocol, SPI DMA data flow, why 20 MHz, end frame sizing.
 - `docs/wiring-and-parts.md` — pin map, parts list, power topology (3S + buck), slip ring channels, and why each part was chosen.
-- `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, power budget & runtime estimates, perception rendering.
+- `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, power budget & runtime estimates, perception rendering, polar distortion correction.
 - `docs/simulator.md` — WASM simulator architecture, timing model, how to extend.

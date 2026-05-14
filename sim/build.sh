@@ -51,6 +51,8 @@ em++ -O2 \
   -I../src \
   -I. \
   ../src/framebuffer.cpp \
+  ../src/canvas.cpp \
+  ../src/transforms/polar_transform.cpp \
   ../src/patterns/solid.cpp \
   ../src/patterns/rainbow.cpp \
   ../src/patterns/scanner.cpp \

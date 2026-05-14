@@ -46,5 +46,7 @@ SPI LED driver: `src/hal_spi_leds.h`, `src/hal_spi_leds.cpp`
 Hall sensor: `src/hall_sensor.h`, `src/hall_sensor.cpp`
 Slice scheduler: `src/slice_scheduler.h`, `src/slice_scheduler.cpp`
 Patterns: `src/patterns/`
+Canvas (rectangular pixel buffer): `src/canvas.h`, `src/canvas.cpp`
+Coordinate transforms: `src/coord_transform.h`, `src/transforms/`
 Motor ESC: `src/motor.h`, `src/motor.cpp`
 Web server + UI: `src/web/`

@@ -31,7 +31,7 @@ struct Config {
     char     text[64]       = "FUSION";
 
     uint8_t  numArms        = 2;      // 1, 2, or 4 — physical arm count
-    uint8_t  targetHz       = 24;     // target refresh rate (12, 24, 25, 30, 60)
+    uint8_t  targetHz       = 60;     // target refresh rate (12, 24, 25, 30, 60)
     uint16_t escPulseUs     = 1000;   // 1000=stop, 2000=full
     uint8_t  spiClockMhz    = 20;
     bool     mirrorPattern  = true;
