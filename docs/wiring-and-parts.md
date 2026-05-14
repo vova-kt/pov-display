@@ -10,8 +10,8 @@ Seeed Studio XIAO ESP32-C6 — single-core RISC-V, WiFi 6, BLE 5, USB-C. Small f
 - **Hall sensor** — unipolar (e.g. A3144), one pulse per rotation. Triggers the slice scheduler to sync the image to the arm position.
 - **ESC + brushless motor** — standard RC ESC accepting 50 Hz PWM (1000–2000 µs pulse). Spins the arm.
 - **Hollow slip ring** — 3 channels minimum: 5 V power (for LEDs), GND, ESC PWM signal. Power channel must handle 2.5 A+.
-- **3S LiPo + BMS** — 11.1 V nominal, powers the motor (direct to ESC) and LEDs (via buck converter). BMS handles cell balancing and over-discharge protection.
-- **Buck converter** — 3S (8–12.6 V) → 5 V, 3 A+. Powers both the LED strip and the XIAO through the slip ring. An MP1584-based module works; add bulk capacitance (470 µF) on the 5 V output for current spikes during full-white frames. Add a second 470 µF cap on the rotating side near the XIAO's 5V pin to guard against brown-outs from LED current spikes.
+- **3S1P 18650 pack** — 3× Samsung INR18650-35E (3500 mAh, 8 A max continuous, 10.8 V nominal) + BMS for cell balancing and over-discharge protection. Powers the motor (direct to ESC) and LEDs (via buck converter). See `docs/concepts/power-budget.md` for runtime estimates.
+- **Buck converter** — 3S (7.5–12.6 V) → 5 V, 3 A+. Powers both the LED strip and the XIAO through the slip ring. An MP1584-based module works; add bulk capacitance (470 µF) on the 5 V output for current spikes during full-white frames. Add a second 470 µF cap on the rotating side near the XIAO's 5V pin to guard against brown-outs from LED current spikes.
 
 ## Pin map
 
@@ -32,7 +32,7 @@ Two independent power domains — one stationary, one rotating.
 ### Stationary side
 
 ```
-3S LiPo ──┬── ESC power in (direct, 11.1 V)
+3S 18650 pack ──┬── ESC power in (direct, 10.8 V nom)
     │      └── Motor phases A/B/C
     │
     └── Buck converter (3S → 5 V)
@@ -78,8 +78,8 @@ The ESC sits on the stationary side. The PWM signal crosses the slip ring from t
 XIAO D3 ────── Slip ring channel 3 ────── ESC signal wire
 Slip ring GND ────── ESC signal GND
 
-3S LiPo (+) ───── ESC power in (+)
-3S LiPo (−) ───── ESC power in (−)
+3S pack (+) ───── ESC power in (+)
+3S pack (−) ───── ESC power in (−)
 
 ESC motor-out A ───── Motor phase A
 ESC motor-out B ───── Motor phase B

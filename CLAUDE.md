@@ -53,4 +53,4 @@ Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3. See `src/config.h`.
 - `docs/architecture.md` — single-core scheduling rationale, timer vs loop, double-buffer design, timing budget.
 - `docs/led-strip-and-driver.md` — HD107S wire protocol, SPI DMA data flow, why 20 MHz, end frame sizing.
 - `docs/wiring-and-parts.md` — pin map, parts list, power topology (3S + buck), slip ring channels, and why each part was chosen.
-- `docs/concepts/` — short explainers on EE/ME/physics concepts referenced by the project.
+- `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, power budget & runtime estimates.
