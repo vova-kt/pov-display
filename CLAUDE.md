@@ -48,9 +48,21 @@ Two suites: `test_framebuffer` (double-buffer, swap, resize) and `test_patterns`
 
 Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3. See `src/config.h`.
 
+## Browser simulator
+
+```bash
+cd sim && ./build.sh        # compile C++ patterns to WASM (auto-installs emsdk)
+python3 -m http.server 8080 # serve sim/ then open http://localhost:8080
+```
+
+Compiles the real `src/patterns/*.cpp` + `src/framebuffer.cpp` to WebAssembly via Emscripten — zero code duplication. Uses the same `test/stubs/` headers as native tests. A thin `sim/sim_bridge.cpp` exports C-linkage functions to JS.
+
+JS side: timing model simulates hardware pipeline (RPM jitter, hall sensor noise, SPI budget overruns, pattern lag). Radial canvas renderer shows what the eye sees.
+
 ## Docs
 
 - `docs/architecture.md` — single-core scheduling rationale, timer vs loop, double-buffer design, timing budget.
 - `docs/led-strip-and-driver.md` — HD107S wire protocol, SPI DMA data flow, why 20 MHz, end frame sizing.
 - `docs/wiring-and-parts.md` — pin map, parts list, power topology (3S + buck), slip ring channels, and why each part was chosen.
 - `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, power budget & runtime estimates.
+- `docs/simulator.md` — WASM simulator architecture, timing model, how to extend.

@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"
+
+EMSDK_DIR="${EMSDK:-$HOME/emsdk}"
+
+if ! command -v emcc &>/dev/null; then
+    echo "emcc not found — bootstrapping emsdk into $EMSDK_DIR ..."
+    if [ ! -d "$EMSDK_DIR" ]; then
+        git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
+    fi
+    (cd "$EMSDK_DIR" && ./emsdk install latest && ./emsdk activate latest)
+    source "$EMSDK_DIR/emsdk_env.sh"
+fi
+
+EXPORTED='[
+  "_sim_init","_sim_resize","_sim_generate","_sim_get_framebuffer",
+  "_sim_num_slices","_sim_num_leds",
+  "_sim_set_brightness","_sim_set_color","_sim_set_phase_offset","_sim_set_text",
+  "_sim_num_patterns","_sim_pattern_name",
+  "_malloc","_free"
+]'
+EXPORTED=$(echo "$EXPORTED" | tr -d ' \n')
+
+em++ -O2 \
+  -s WASM=1 \
+  -s MODULARIZE=1 \
+  -s EXPORT_NAME='PovSimModule' \
+  -s ALLOW_MEMORY_GROWTH=1 \
+  -s "EXPORTED_FUNCTIONS=$EXPORTED" \
+  -s "EXPORTED_RUNTIME_METHODS=['ccall','cwrap','HEAPU8','UTF8ToString']" \
+  -s NO_EXIT_RUNTIME=1 \
+  -DMAX_LEDS=144 \
+  -DMAX_SLICES=720 \
+  -I../test/stubs \
+  -I../src \
+  ../src/framebuffer.cpp \
+  ../src/patterns/solid.cpp \
+  ../src/patterns/rainbow.cpp \
+  ../src/patterns/scanner.cpp \
+  ../src/patterns/text.cpp \
+  sim_bridge.cpp \
+  sim_config_stub.cpp \
+  -o pov_sim.js
+
+echo "Build complete: sim/pov_sim.js + sim/pov_sim.wasm"
+echo "Serve with:  cd sim && python3 -m http.server 8080"
