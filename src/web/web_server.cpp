@@ -65,12 +65,20 @@ void PovWebServer::setupRoutes() {
             xSemaphoreTake(cfgMutex_, portMAX_DELAY);
 
             if (obj["numLeds"].is<uint16_t>())       cfg_->numLeds       = obj["numLeds"].as<uint16_t>();
-            if (obj["numSlices"].is<uint16_t>())     cfg_->numSlices     = obj["numSlices"].as<uint16_t>();
+            if (obj["numSlices"].is<uint16_t>()) {
+                uint16_t s = obj["numSlices"].as<uint16_t>();
+                if (s == 90 || s == 180 || s == 270 || s == 360)
+                    cfg_->numSlices = s;
+            }
             if (obj["brightness"].is<uint8_t>()) {
                 uint8_t b = obj["brightness"].as<uint8_t>();
                 cfg_->brightness = (b > cfg_->maxBrightness) ? cfg_->maxBrightness : b;
             }
-            if (obj["phaseOffset"].is<int16_t>())    cfg_->phaseOffset   = obj["phaseOffset"].as<int16_t>();
+            if (obj["phaseOffset"].is<int16_t>()) {
+                int16_t p = obj["phaseOffset"].as<int16_t>();
+                if (p == -90 || p == 0 || p == 90 || p == 180)
+                    cfg_->phaseOffset = p;
+            }
             if (obj["activePattern"].is<uint8_t>())  cfg_->activePattern = obj["activePattern"].as<uint8_t>();
             if (obj["colorR"].is<uint8_t>())         cfg_->colorR        = obj["colorR"].as<uint8_t>();
             if (obj["colorG"].is<uint8_t>())         cfg_->colorG        = obj["colorG"].as<uint8_t>();

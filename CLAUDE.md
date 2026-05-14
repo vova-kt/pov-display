@@ -32,10 +32,17 @@ pio test -e native              # run all tests
 ./test.sh                       # same, via script
 ./test.sh --filter test_patterns  # run one suite
 ./test.sh -v                    # verbose
+python3 check_defaults.py       # verify config defaults haven't diverged
 ```
 
 Tests run natively (no ESP32 needed). ESP32 APIs are stubbed in `test/stubs/`.
 Two suites: `test_framebuffer` (double-buffer, swap, resize) and `test_patterns` (solid, rainbow, scanner, text).
+
+## Config defaults
+
+`src/config.h` is the single source of truth for runtime defaults (the `Config` struct member initializers). Several files duplicate these values — `sim/timing.h`, `sim/index.html`, `sim/js/main.js`, `src/web/web_ui.h`, `src/config.cpp`. When changing a default in `config.h`, update all consumer files to match. `python3 check_defaults.py` catches drift — it also runs as a pre-push hook (`.githooks/pre-push`).
+
+One-time setup: `git config core.hooksPath .githooks`
 
 ## Architecture snapshot
 
@@ -57,7 +64,7 @@ python3 -m http.server 8080 # serve sim/ then open http://localhost:8080
 
 Compiles the real `src/patterns/*.cpp` + `src/framebuffer.cpp` to WebAssembly via Emscripten — zero code duplication. Uses the same `test/stubs/` headers as native tests. A thin `sim/sim_bridge.cpp` exports C-linkage functions to JS.
 
-C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates hardware pipeline (RPM jitter, hall sensor noise, SPI budget overruns, pattern lag). Refresh rate (12/24/25/30/60 Hz) and arm count (1/2/4) replace raw RPM — motor RPM is derived as `refreshRate × 60 / numArms`. Multi-arm rendering uses modular angle math in the fragment shader. Game-style HUD overlay shows RPM, effective Hz, and render FPS. Display Hz selector (60/120/144/240) controls observer persistence — decouples visible arc width from browser frame rate. Geometry sliders use physical mm units matching the actual build — 57 LEDs on a 60 LEDs/m strip, hub radius = 0.
+C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates hardware pipeline (RPM jitter, hall sensor noise, SPI budget overruns, pattern lag). Refresh rate (12/24/25/30/60 Hz) and arm count (1/2/4) replace raw RPM — motor RPM is derived as `refreshRate × 60 / numArms`. Multi-arm rendering uses modular angle math in the fragment shader. Game-style HUD overlay shows RPM, effective Hz, and render FPS. Display Hz selector (60/120/144/240) controls observer persistence — decouples visible arc width from browser frame rate. Geometry sliders use physical mm units matching the actual build — defaults from `src/config.h`, hub radius = 0.
 
 ## Docs
 

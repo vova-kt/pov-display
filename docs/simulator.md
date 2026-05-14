@@ -70,3 +70,5 @@ The SPI transfer time formula matches the real HD107S wire protocol: `(4 + numLe
 **New timing effect**: Add a parameter to `TimingState` in `sim/timing.h`, wire a slider in `index.html`, apply the effect in `timing_frame()`.
 
 **New config field**: Add a setter in `sim/sim_bridge.cpp` (e.g. `sim_set_foo()`), export it in `build.sh`, wrap it in `js/wasm-engine.js`, wire the UI control.
+
+**Changing a default**: `src/config.h` is the source of truth. Update the Config struct initializer there, then update all consumer files (`sim/timing.h`, `sim/index.html`, `sim/js/main.js`, `src/web/web_ui.h`, `src/config.cpp`). Run `python3 check_defaults.py` to verify — it also runs as a pre-push hook.

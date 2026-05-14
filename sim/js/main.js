@@ -6,8 +6,8 @@ let simTimeMs = 0;
 let lastFrameTime = null;
 let simSpeed = 1.0;
 let paused = false;
-let refreshRate = 30;
-let numArms = 1;
+let refreshRate = 24;
+let numArms = 2;
 let fpsFrameCount = 0;
 let fpsLastTime = 0;
 let currentFps = 0;
@@ -54,6 +54,7 @@ async function init() {
   numArms = +document.getElementById('num-arms').value;
   sim.setNumArms(numArms);
   sim.setRpm(refreshRate * 60 / numArms);
+  sim.setPhaseOffset(+document.getElementById('phase-offset').value - 90);
 
   buildPatternSelector();
   bindControls();
@@ -112,15 +113,11 @@ function bindControls() {
   });
 
   on('num-slices', 'change', e => {
-    const v = clamp(+e.target.value, 36, 720);
-    e.target.value = v;
-    sim.resize(v, sim.numLeds);
+    sim.resize(+e.target.value, sim.numLeds);
   });
 
-  on('phase-offset', 'input', e => {
-    const v = +e.target.value;
-    sim.setPhaseOffset(v);
-    document.getElementById('phase-val').textContent = v + '\u00B0';
+  on('phase-offset', 'change', e => {
+    sim.setPhaseOffset(+e.target.value - 90);
   });
 
   on('led-size', 'input', e => {
@@ -165,9 +162,8 @@ function bindControls() {
     sim.setPatternLag(+e.target.value);
     document.getElementById('pattern-lag-val').textContent = e.target.value + ' ms';
   });
-  on('spi-clock', 'input', e => {
+  on('spi-clock', 'change', e => {
     sim.setSpiClock(+e.target.value);
-    document.getElementById('spi-clock-val').textContent = e.target.value + ' MHz';
   });
 
   on('display-hz', 'change', e => { sim.setDisplayHz(+e.target.value); });
@@ -232,22 +228,19 @@ function loop(timestamp) {
 
 function updateReadouts() {
   const actualRpm = sim.actualRpm;
-  document.getElementById('ro-rpm').textContent = actualRpm.toFixed(0);
-  document.getElementById('ro-eff-hz').textContent = (actualRpm * numArms / 60).toFixed(1) + ' Hz';
-  document.getElementById('ro-slice-interval').textContent = sim.sliceIntervalUs.toFixed(1);
-  document.getElementById('ro-spi-time').textContent = sim.spiTransferUs.toFixed(1);
-
-  const headroomEl = document.getElementById('ro-headroom');
-  headroomEl.textContent = sim.headroomUs.toFixed(1);
-  headroomEl.className = sim.headroomUs < 0 ? 'negative' : '';
-
-  document.getElementById('ro-frame-age').textContent = sim.frameAge;
-  document.getElementById('ro-pattern-gen').textContent = sim.patternGenMs.toFixed(1);
-  document.getElementById('ro-hall-missed').textContent = sim.hallMissed ? 'YES' : 'no';
-
   document.getElementById('hud-rpm').textContent = actualRpm.toFixed(0);
   document.getElementById('hud-hz').textContent = (actualRpm * numArms / 60).toFixed(1);
   document.getElementById('hud-fps').textContent = currentFps;
+  document.getElementById('hud-slice-int').textContent = sim.sliceIntervalUs.toFixed(1);
+  document.getElementById('hud-spi').textContent = sim.spiTransferUs.toFixed(1);
+
+  const headroomEl = document.getElementById('hud-headroom');
+  headroomEl.textContent = sim.headroomUs.toFixed(1);
+  headroomEl.style.color = sim.headroomUs < 0 ? '#f44' : '';
+
+  document.getElementById('hud-frame-age').textContent = sim.frameAge;
+  document.getElementById('hud-pattern-gen').textContent = sim.patternGenMs.toFixed(1);
+  document.getElementById('hud-hall-missed').textContent = sim.hallMissed ? 'YES' : 'no';
 }
 
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }

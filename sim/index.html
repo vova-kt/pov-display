@@ -84,6 +84,12 @@
     <div><span class="hud-val" id="hud-rpm">--</span> <span class="hud-lbl">RPM</span></div>
     <div><span class="hud-val" id="hud-hz">--</span> <span class="hud-lbl">Hz</span></div>
     <div><span class="hud-val" id="hud-fps">--</span> <span class="hud-lbl">FPS</span></div>
+    <div><span class="hud-val" id="hud-slice-int">--</span> <span class="hud-lbl">&micro;s/slice</span></div>
+    <div><span class="hud-val" id="hud-spi">--</span> <span class="hud-lbl">&micro;s SPI</span></div>
+    <div><span class="hud-val" id="hud-headroom">--</span> <span class="hud-lbl">&micro;s headroom</span></div>
+    <div><span class="hud-val" id="hud-frame-age">--</span> <span class="hud-lbl">frame age</span></div>
+    <div><span class="hud-val" id="hud-pattern-gen">--</span> <span class="hud-lbl">ms pat.gen</span></div>
+    <div><span class="hud-val" id="hud-hall-missed">--</span> <span class="hud-lbl">hall miss</span></div>
   </div>
 </div>
 
@@ -104,13 +110,13 @@
   </div>
   <div class="row">
     <label>Text</label>
-    <input type="text" id="text" value="HELLO" maxlength="63">
+    <input type="text" id="text" value="FUSION" maxlength="63">
   </div>
 
   <h2>Geometry (mm)</h2>
   <div class="row">
     <label>LEDs</label>
-    <input type="number" id="num-leds" min="1" max="144" value="57">
+    <input type="number" id="num-leds" min="1" max="144" value="26">
   </div>
   <div class="row">
     <label>LED size</label>
@@ -129,18 +135,27 @@
   </div>
   <dl class="readouts" style="margin: 8px 0 4px;">
     <dt>LED pitch</dt>     <dd id="ro-pitch">6.5 mm</dd>
-    <dt>Arm radius</dt>    <dd id="ro-arm-radius">371 mm</dd>
+    <dt>Arm radius</dt>    <dd id="ro-arm-radius">169 mm</dd>
   </dl>
 
   <h2>Display</h2>
   <div class="row">
     <label>Slices</label>
-    <input type="number" id="num-slices" min="36" max="720" value="360">
+    <select id="num-slices">
+      <option value="90">90</option>
+      <option value="180">180</option>
+      <option value="270">270</option>
+      <option value="360" selected>360</option>
+    </select>
   </div>
   <div class="row">
     <label>Phase</label>
-    <input type="range" id="phase-offset" min="-180" max="180" value="0">
-    <span class="val" id="phase-val">0&deg;</span>
+    <select id="phase-offset">
+      <option value="0" selected>0&deg;</option>
+      <option value="90">90&deg;</option>
+      <option value="180">180&deg;</option>
+      <option value="270">270&deg;</option>
+    </select>
   </div>
 
   <h2>Timing Simulation</h2>
@@ -148,17 +163,17 @@
     <label>Refresh rate</label>
     <select id="refresh-rate">
       <option value="12">12 Hz</option>
-      <option value="24">24 Hz</option>
+      <option value="24" selected>24 Hz</option>
       <option value="25">25 Hz</option>
-      <option value="30" selected>30 Hz</option>
+      <option value="30">30 Hz</option>
       <option value="60">60 Hz</option>
     </select>
   </div>
   <div class="row">
     <label>Arms</label>
     <select id="num-arms">
-      <option value="1" selected>1 arm</option>
-      <option value="2">2 arms</option>
+      <option value="1">1 arm</option>
+      <option value="2" selected>2 arms</option>
       <option value="4">4 arms</option>
     </select>
   </div>
@@ -189,21 +204,11 @@
   </div>
   <div class="row">
     <label>SPI clock</label>
-    <input type="range" id="spi-clock" min="1" max="40" value="20">
-    <span class="val" id="spi-clock-val">20 MHz</span>
+    <select id="spi-clock">
+      <option value="20" selected>20 MHz</option>
+      <option value="40">40 MHz</option>
+    </select>
   </div>
-
-  <h2>Readouts</h2>
-  <dl class="readouts">
-    <dt>RPM (actual)</dt>     <dd id="ro-rpm">—</dd>
-    <dt>Eff. refresh</dt>    <dd id="ro-eff-hz">— Hz</dd>
-    <dt>Slice interval</dt>   <dd id="ro-slice-interval">— &micro;s</dd>
-    <dt>SPI transfer</dt>     <dd id="ro-spi-time">— &micro;s</dd>
-    <dt>Headroom</dt>         <dd id="ro-headroom">— &micro;s</dd>
-    <dt>Frame age</dt>        <dd id="ro-frame-age">—</dd>
-    <dt>Pattern gen</dt>      <dd id="ro-pattern-gen">— ms</dd>
-    <dt>Hall missed</dt>      <dd id="ro-hall-missed">—</dd>
-  </dl>
 
   <h2>Overlays</h2>
   <div class="overlays">

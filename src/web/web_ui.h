@@ -59,7 +59,7 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
  <input type="color" id="color" value="#ff0000">
 
  <label>Text (for text pattern)</label>
- <input type="text" id="text" maxlength="63" value="HELLO">
+ <input type="text" id="text" maxlength="63" value="FUSION">
 </div>
 
 <div class="card">
@@ -89,19 +89,29 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
  <label>Brightness (<span id="brVal">16</span>/31)</label>
  <input type="range" id="brightness" min="0" max="31" value="16" oninput="$('#brVal').textContent=this.value">
 
+ <label>LEDs</label>
+ <input type="number" id="numLeds" min="1" max="144" value="26">
+
  <div class="row">
   <div>
-   <label>LEDs</label>
-   <input type="number" id="numLeds" min="1" max="144" value="144">
+   <label>Slices</label>
+   <select id="numSlices">
+    <option value="90">90</option>
+    <option value="180">180</option>
+    <option value="270">270</option>
+    <option value="360" selected>360</option>
+   </select>
   </div>
   <div>
-   <label>Slices</label>
-   <input type="number" id="numSlices" min="36" max="720" value="360">
+   <label>Phase Offset</label>
+   <select id="phaseOffset">
+    <option value="0">0&deg;</option>
+    <option value="90">90&deg;</option>
+    <option value="180">180&deg;</option>
+    <option value="270">270&deg;</option>
+   </select>
   </div>
  </div>
-
- <label>Phase Offset (<span id="phVal">0</span>)</label>
- <input type="range" id="phaseOffset" min="-180" max="180" value="0" oninput="$('#phVal').textContent=this.value">
 </div>
 
 <div class="card">
@@ -140,7 +150,7 @@ async function loadConfig(){
   $('#brightness').value=c.brightness;$('#brVal').textContent=c.brightness;
   $('#numLeds').value=c.numLeds;
   $('#numSlices').value=c.numSlices;
-  $('#phaseOffset').value=c.phaseOffset;$('#phVal').textContent=c.phaseOffset;
+  $('#phaseOffset').value=((c.phaseOffset+90)%360+360)%360;
   $('#escPulse').value=c.escPulseUs;$('#escVal').textContent=c.escPulseUs;
  }catch(e){console.error(e);}
 }
@@ -156,7 +166,7 @@ async function apply(){
   brightness:+$('#brightness').value,
   numLeds:+$('#numLeds').value,
   numSlices:+$('#numSlices').value,
-  phaseOffset:+$('#phaseOffset').value,
+  phaseOffset:+$('#phaseOffset').value-90,
   escPulseUs:+$('#escPulse').value
  };
  await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

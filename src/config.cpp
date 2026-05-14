@@ -32,7 +32,7 @@ void Config::loadFromNvs() {
 
     // Text pattern string — fall back to "HELLO" if never saved
     size_t len = prefs.getString("text", text, sizeof(text));
-    if (len == 0) strcpy(text, "HELLO");
+    if (len == 0) strcpy(text, "FUSION");
 
     prefs.end();
 }
