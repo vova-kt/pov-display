@@ -93,6 +93,8 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
  <label>Brightness (<span id="brVal">16</span>/31)</label>
  <input type="range" id="brightness" min="0" max="31" value="16" oninput="$('#brVal').textContent=this.value">
 
+ <div class="chk"><input type="checkbox" id="radialBalance" checked><label for="radialBalance">Radial Balance</label></div>
+
  <label>LEDs</label>
  <input type="number" id="numLeds" min="1" max="144" value="26">
 
@@ -153,6 +155,7 @@ async function loadConfig(){
   $('#numArms').value=c.numArms||1;
   updateTargetRpm();
   $('#brightness').value=c.brightness;$('#brVal').textContent=c.brightness;
+  $('#radialBalance').checked=c.radialBalance!==false;
   $('#numLeds').value=c.numLeds;
   $('#numSlices').value=c.numSlices;
   $('#phaseOffset').value=((c.phaseOffset+90)%360+360)%360;
@@ -170,6 +173,7 @@ async function apply(){
   numArms:+$('#numArms').value,
   targetHz:+$('#targetHz').value,
   brightness:+$('#brightness').value,
+  radialBalance:$('#radialBalance').checked,
   numLeds:+$('#numLeds').value,
   numSlices:+$('#numSlices').value,
   phaseOffset:+$('#phaseOffset').value-90,

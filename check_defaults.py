@@ -128,6 +128,8 @@ def check_sim_html(d):
              expected_phase, extract_selected_option(html, 'phase-offset'))
     mismatch(errors, 'sim/index.html', 'mirror',
              d['mirrorPattern'], extract_checkbox_checked(html, 'mirror'))
+    mismatch(errors, 'sim/index.html', 'radial-balance',
+             d['radialBalance'], extract_checkbox_checked(html, 'radial-balance'))
     return errors
 
 
@@ -169,6 +171,8 @@ def check_web_ui(d):
              expected_hex, extract_input_val(html, 'color'))
     mismatch(errors, 'src/web/web_ui.h', 'mirror',
              d['mirrorPattern'], extract_checkbox_checked(html, 'mirror'))
+    mismatch(errors, 'src/web/web_ui.h', 'radialBalance',
+             d['radialBalance'], extract_checkbox_checked(html, 'radialBalance'))
     return errors
 
 

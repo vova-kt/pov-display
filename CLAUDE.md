@@ -39,7 +39,7 @@ python3 check_defaults.py       # verify config defaults haven't diverged
 ```
 
 Tests run natively (no ESP32 needed). ESP32 APIs are stubbed in `test/stubs/`.
-Three suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, text), and `test_transform` (Canvas, PolarTransform, IdentityTransform).
+Four suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, text), `test_transform` (Canvas, PolarTransform, IdentityTransform), and `test_output_scale` (radial balance LUT, overcompensation guard).
 
 ## Config defaults
 
@@ -52,6 +52,7 @@ One-time setup: `git config core.hooksPath .githooks`
 - **PlatformIO + Arduino framework** on XIAO ESP32-C6 (single-core RISC-V).
 - **Single-core**: WiFi, render task (HW timer ISR → SPI DMA), and pattern task share one core via FreeRTOS priorities. DMA and hardware timers keep rendering jitter-free.
 - **Double-buffered framebuffer** in DMA memory — patterns write back, renderer reads front.
+- **Output scale pipeline** (`src/output_scale.h`) — composable per-LED brightness LUT applied in `buildFrame()` at SPI output. Currently: radial balance (compensates 1/r brightness falloff). Falls back to `memcpy` when no corrections are active.
 - **Power**: 3S LiPo (stationary) → buck converter → 5 V through hollow slip ring. LEDs and XIAO share the same 5 V rail on the rotating arm.
 - **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, refresh rate, arm count, motor control. No reflash needed.
 - **Config persists** to NVS via "Save to Flash" button.

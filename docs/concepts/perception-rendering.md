@@ -51,9 +51,21 @@ The wedge approach avoids both problems. The shader renders exactly what the har
 
 Every LED on the arm emits the same luminous intensity, but LEDs at different radii sweep arcs of different length in the same time. Linear velocity is `v = ω × r`, so the arc length an LED covers during one slice is proportional to its radius. Inner LEDs deposit the same photons over a shorter arc — making them appear brighter to the observer. Perceived brightness per unit area scales as **1 / r**, normalized to the outer edge.
 
-The fragment shader applies this correction per LED: it computes the center radius of each LED in normalized coordinates (`ledCenter = hubFrac + (led + 0.5) × ledHeight`) and multiplies the color by `1.0 / ledCenter`. With hub fraction near zero and many LEDs, the innermost LEDs can be an order of magnitude brighter than the outermost — this matches reality, where the center of a POV display is visibly brighter and can appear washed-out.
+The fragment shader models this per LED: it computes the center radius of each LED in normalized coordinates (`ledCenter = hubFrac + (led + 0.5) × ledHeight`) and multiplies the color by `min(1.0 / ledCenter, 3.0)`. The 3× cap prevents the innermost LEDs from dominating the image unrealistically — below a certain radius the model saturates rather than climbing toward infinity.
 
-Values exceeding 1.0 are clamped by the GPU, which causes saturation (hue shift toward white) on the brightest inner pixels. This is a reasonable visual approximation of the real effect, where the inner region of a spinning display often appears overexposed.
+### MCU radial balance
+
+The firmware can compensate for this falloff by pre-dimming inner LEDs so the perceived brightness is approximately uniform. When `Config::radialBalance` is true (default), `compute_output_scale()` in `src/output_scale.h` builds a per-LED scale LUT:
+
+```
+scale[i] = max( (i + 0.5) / (numLeds − 0.5),  1/3 ) × 255
+```
+
+The 1/3 floor matches the shader's 3× distortion cap — without it, center LEDs would be dimmed to ~2% (physically correct for an uncapped 1/r model, but visually invisible and producing quantization artifacts in 8-bit color). With the floor, the innermost LEDs are dimmed to 33% at most, and `min(1/r, 3) × max(r_norm, 1/3) ≈ 1.0` everywhere.
+
+The LUT is applied in `LedDriver::buildFrame()` at the SPI output stage — patterns write unmodified colors to the framebuffer, and the driver scales RGB channels during the memcpy into the DMA buffer. When no corrections are active (`applyScale_ = false`), `buildFrame` falls back to a plain `memcpy` with zero overhead. The architecture supports composing multiple future per-LED corrections into the same `outputScale_[]` array — one multiply-shift per channel regardless of how many corrections are stacked.
+
+The simulator applies the same correction in its fragment shader (`max(rNorm, 1.0/3.0)`) so the visual result matches what the hardware produces.
 
 ## Practical takeaway
 

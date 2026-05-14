@@ -35,6 +35,7 @@ uniform float uArmAngle;
 uniform float uArmSweep;
 uniform int uNumArms;
 uniform bool uMirror;
+uniform bool uRadialBalance;
 
 const float TAU = 6.283185307179586;
 const vec3 BG = vec3(10.0 / 255.0);
@@ -90,6 +91,11 @@ void main() {
     float radialScale = min(1.0 / ledCenter, 3.0);
     scale *= radialScale;
 
+    if (uRadialBalance) {
+        float rNorm = (float(led) + 0.5) / (float(uNumLeds) - 0.5);
+        scale *= max(rNorm, 1.0 / 3.0);
+    }
+
     fragColor = vec4(t.a * scale, t.b * scale, t.g * scale, 1.0);
 }
 )";
@@ -127,6 +133,7 @@ static struct {
     struct {
         GLint fb, numSlices, numLeds, hubFrac, gapFrac;
         GLint phaseSlices, armAngle, armSweep, numArms, mirror;
+        GLint radialBalance;
     } loc;
 
     struct {
@@ -236,6 +243,7 @@ bool renderer_init() {
     g.loc.armSweep   = glGetUniformLocation(g.mainProg, "uArmSweep");
     g.loc.numArms    = glGetUniformLocation(g.mainProg, "uNumArms");
     g.loc.mirror     = glGetUniformLocation(g.mainProg, "uMirror");
+    g.loc.radialBalance = glGetUniformLocation(g.mainProg, "uRadialBalance");
 
     g.overlayProg = link_program(OVERLAY_VERT_SRC, OVERLAY_FRAG_SRC);
     g.overlayLoc.color = glGetUniformLocation(g.overlayProg, "uColor");
@@ -339,6 +347,7 @@ void renderer_render(const Framebuffer& fb, const Config& cfg,
     glUniform1f(g.loc.armSweep, armSweep);
     glUniform1i(g.loc.numArms, g.numArms);
     glUniform1i(g.loc.mirror, cfg.mirrorPattern ? 1 : 0);
+    glUniform1i(g.loc.radialBalance, cfg.radialBalance ? 1 : 0);
 
     glBindVertexArray(g.quadVao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

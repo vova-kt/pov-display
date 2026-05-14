@@ -109,6 +109,10 @@ function bindControls() {
 
   on('text', 'input', e => { sim.setText(e.target.value); });
 
+  on('radial-balance', 'change', e => {
+    sim.setRadialBalance(e.target.checked);
+  });
+
   on('num-leds', 'change', e => {
     const v = clamp(+e.target.value, 1, 144);
     e.target.value = v;

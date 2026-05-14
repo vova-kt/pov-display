@@ -35,6 +35,7 @@ struct Config {
     uint16_t escPulseUs     = 1000;   // 1000=stop, 2000=full
     uint8_t  spiClockMhz    = 20;
     bool     mirrorPattern  = true;
+    bool     radialBalance  = true;
 
     void loadFromNvs();
     void saveToNvs();

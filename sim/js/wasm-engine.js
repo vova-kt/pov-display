@@ -11,6 +11,7 @@ export class PovSim {
     this._simSetPhaseOffset = module.cwrap('sim_set_phase_offset', null, ['number']);
     this._simSetText       = module.cwrap('sim_set_text', null, ['string']);
     this._simSetMirror     = module.cwrap('sim_set_mirror_pattern', null, ['number']);
+    this._simSetRadialBalance = module.cwrap('sim_set_radial_balance', null, ['number']);
     this._simNumPatterns   = module.cwrap('sim_num_patterns', 'number', []);
     this._simPatternName   = module.cwrap('sim_pattern_name', 'string', ['number']);
 
@@ -67,6 +68,7 @@ export class PovSim {
   setPhaseOffset(o)   { this._simSetPhaseOffset(o); }
   setText(t)          { this._simSetText(t); }
   setMirror(m)        { this._simSetMirror(m ? 1 : 0); }
+  setRadialBalance(v) { this._simSetRadialBalance(v ? 1 : 0); }
 
   rendererResize(w, h) { this._rendererResize(w, h); }
   setHubFraction(f)    { this._rendererSetHubFrac(f); }

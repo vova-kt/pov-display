@@ -59,6 +59,9 @@ EMSCRIPTEN_KEEPALIVE
 void sim_set_mirror_pattern(bool m) { cfg.mirrorPattern = m; }
 
 EMSCRIPTEN_KEEPALIVE
+void sim_set_radial_balance(bool v) { cfg.radialBalance = v; }
+
+EMSCRIPTEN_KEEPALIVE
 void sim_set_text(const char* t) {
     strncpy(cfg.text, t, sizeof(cfg.text) - 1);
     cfg.text[sizeof(cfg.text) - 1] = '\0';

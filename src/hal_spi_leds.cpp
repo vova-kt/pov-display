@@ -1,9 +1,15 @@
 #include "hal_spi_leds.h"
+#include "output_scale.h"
 #include <cstring>
 #include <esp_heap_caps.h>
 
+void LedDriver::recomputeScale(uint16_t numLeds, bool radialBalance) {
+    applyScale_ = compute_output_scale(outputScale_, maxLeds_, numLeds, radialBalance);
+}
+
 bool LedDriver::init(uint8_t clkPin, uint8_t mosiPin, uint8_t clockMhz, uint16_t maxLeds) {
     maxLeds_ = maxLeds;
+    memset(outputScale_, 255, sizeof(outputScale_));
 
     spi_bus_config_t bus = {};
     bus.mosi_io_num   = mosiPin;
@@ -31,15 +37,22 @@ bool LedDriver::init(uint8_t clkPin, uint8_t mosiPin, uint8_t clockMhz, uint16_t
 }
 
 uint16_t LedDriver::buildFrame(const Pixel* pixels, uint16_t count) {
-    // Start frame: 4 bytes of 0x00
     memset(txBuf_, 0x00, 4);
     uint16_t pos = 4;
 
-    // LED data — already in wire format (brightness|BGR)
-    memcpy(txBuf_ + pos, pixels, count * sizeof(Pixel));
-    pos += count * sizeof(Pixel);
+    if (applyScale_) {
+        for (uint16_t i = 0; i < count; i++) {
+            uint16_t s = outputScale_[i];
+            txBuf_[pos++] = pixels[i].brightness;
+            txBuf_[pos++] = (uint8_t)((pixels[i].blue  * s) >> 8);
+            txBuf_[pos++] = (uint8_t)((pixels[i].green * s) >> 8);
+            txBuf_[pos++] = (uint8_t)((pixels[i].red   * s) >> 8);
+        }
+    } else {
+        memcpy(txBuf_ + pos, pixels, count * sizeof(Pixel));
+        pos += count * sizeof(Pixel);
+    }
 
-    // End frame: ceil(count/2) bits of 1, packed into bytes
     uint16_t endBytes = (count + 15) / 16;
     memset(txBuf_ + pos, 0xFF, endBytes);
     pos += endBytes;

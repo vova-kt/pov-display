@@ -43,6 +43,7 @@ void PovWebServer::setupRoutes() {
         doc["targetHz"]      = cfg_->targetHz;
         doc["escPulseUs"]    = cfg_->escPulseUs;
         doc["mirrorPattern"] = cfg_->mirrorPattern;
+        doc["radialBalance"] = (bool)cfg_->radialBalance;
         xSemaphoreGive(cfgMutex_);
 
         String out;
@@ -107,6 +108,7 @@ void PovWebServer::setupRoutes() {
                 if (v >= 1000 && v <= 2000) cfg_->escPulseUs = v;
             }
             if (obj["mirrorPattern"].is<bool>())     cfg_->mirrorPattern = obj["mirrorPattern"].as<bool>();
+            if (obj["radialBalance"].is<bool>())     cfg_->radialBalance = obj["radialBalance"].as<bool>();
             if (obj["text"].is<const char*>()) {
                 strlcpy(cfg_->text, obj["text"].as<const char*>(), sizeof(cfg_->text));
             }

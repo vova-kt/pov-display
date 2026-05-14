@@ -69,6 +69,7 @@ static void patternTaskFunc(void*) {
 
             scheduler.setPhaseOffset(cfg.phaseOffset);
             scheduler.setMirror(cfg.mirrorPattern);
+            leds.recomputeScale(cfg.numLeds, cfg.radialBalance);
             motor.setPulseUs(cfg.escPulseUs);
         }
 
@@ -119,6 +120,7 @@ void setup() {
         return;
     }
     leds.allOff(cfg.numLeds);
+    leds.recomputeScale(cfg.numLeds, cfg.radialBalance);
 
     // Init framebuffer
     size_t dmaFree = heap_caps_get_free_size(MALLOC_CAP_DMA);
