@@ -13,7 +13,7 @@ bool LedDriver::init(uint8_t clkPin, uint8_t mosiPin, uint8_t clockMhz, uint16_t
     bus.quadhd_io_num = -1;
     bus.max_transfer_sz = (4 + maxLeds * 4 + ((maxLeds + 15) / 16)) ;
 
-    if (spi_bus_initialize(VSPI_HOST, &bus, SPI_DMA_CH_AUTO) != ESP_OK)
+    if (spi_bus_initialize(SPI2_HOST, &bus, SPI_DMA_CH_AUTO) != ESP_OK)
         return false;
 
     spi_device_interface_config_t dev = {};
@@ -22,7 +22,7 @@ bool LedDriver::init(uint8_t clkPin, uint8_t mosiPin, uint8_t clockMhz, uint16_t
     dev.spics_io_num   = -1;
     dev.queue_size     = 1;
 
-    if (spi_bus_add_device(VSPI_HOST, &dev, &spi_) != ESP_OK)
+    if (spi_bus_add_device(SPI2_HOST, &dev, &spi_) != ESP_OK)
         return false;
 
     size_t bufSz = 4 + maxLeds * 4 + ((maxLeds + 15) / 16);

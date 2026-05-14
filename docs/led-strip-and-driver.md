@@ -2,7 +2,7 @@
 
 ## HD107S protocol
 
-HD107S is a clock-and-data addressable LED, electrically identical to APA102 / SK9822. Unlike WS2812 (single-wire, timing-sensitive), HD107S uses SPI: a clock line lets the controller set the data rate, and the protocol tolerates jitter — critical for POV where slice timing already varies.
+HD107S is a clock-and-data addressable LED, electrically identical to APA102 / SK9822. Unlike WS2812 (single-wire, timing-sensitive), HD107S uses SPI: a clock line lets the controller set the data rate, and the protocol tolerates jitter — critical for POV where slice timing already varies. The firmware uses `SPI2_HOST` on the ESP32-C6 with DMA.
 
 Each SPI frame on the wire looks like:
 
@@ -21,13 +21,13 @@ The 5-bit "global brightness" field (0–31) drives a constant-current sink per 
 
 ## Why SPI with DMA
 
-A 36-LED slice is 4 (start) + 144 (pixels) + 3 (end) = 151 bytes. At 20 MHz that takes ~60 µs. The ESP32 SPI peripheral has built-in DMA, so the CPU kicks off the transfer and is free during those 60 µs — the render task just calls `spi_device_transmit()` and blocks until DMA completes. No bit-banging, no busy-wait.
+A 36-LED slice is 4 (start) + 144 (pixels) + 3 (end) = 151 bytes. At 20 MHz that takes ~60 µs. The ESP32-C6 SPI peripheral has built-in DMA, so the CPU kicks off the transfer and is free during those 60 µs — the render task just calls `spi_device_transmit()` and blocks until DMA completes. No bit-banging, no busy-wait.
 
-The TX buffer is allocated once at init with `MALLOC_CAP_DMA` (must be in DMA-capable SRAM, not PSRAM). It's reused every slice — `buildFrame()` writes start frame + pixel data + end frame, then the same buffer is handed to the SPI peripheral.
+The TX buffer is allocated once at init with `MALLOC_CAP_DMA` (must be in DMA-capable SRAM). It's reused every slice — `buildFrame()` writes start frame + pixel data + end frame, then the same buffer is handed to the SPI peripheral.
 
 ## Why 20 MHz clock (not 40 MHz)
 
-HD107S is rated to 40 MHz, but the signal travels through a 4-wire slip ring and potentially long wires on the rotating arm. Slip rings add capacitance and resistance that degrade signal integrity at high frequencies. 20 MHz is conservative and reliable; it can be increased via the `spiClockMhz` config field if the wiring is clean.
+HD107S is rated to 40 MHz, but the wires on the rotating arm are subject to vibration and centrifugal stress. 20 MHz is conservative and reliable; it can be increased via the `spiClockMhz` config field if the wiring is clean. Note: SPI data no longer crosses the slip ring (both the XIAO and LED strip are on the rotating arm), so signal integrity is better than the old layout.
 
 ## Why no chip-select pin
 
@@ -46,7 +46,7 @@ Pattern generator
   → swap()
   → front buffer
   → sendSlice() memcpy into TX buffer
-  → SPI DMA → CLK/MOSI pins → slip ring → LED strip
+  → SPI DMA → CLK/MOSI pins → LED strip
 ```
 
 Source: `src/hal_spi_leds.h`, `src/hal_spi_leds.cpp`, `src/framebuffer.h`

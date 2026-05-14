@@ -132,7 +132,7 @@ void setup() {
     // Init hall sensor
     hall.init(PIN_HALL);
 
-    // Init slice scheduler (creates render task on Core 1)
+    // Init slice scheduler (creates render task)
     scheduler.init(&fb, &leds, &hall);
     scheduler.setNumSlices(cfg.numSlices);
     scheduler.setPhaseOffset(cfg.phaseOffset);
@@ -160,11 +160,8 @@ void setup() {
     webServer.onConfigChange(onConfigChanged);
     Serial.println("Web server started on port 80");
 
-    // Create pattern task on Core 1
-    xTaskCreatePinnedToCore(patternTaskFunc, "pattern", 8192, nullptr, 10, nullptr, 1);
-
-    // Create hall polling task on Core 1
-    xTaskCreatePinnedToCore(hallPollTaskFunc, "hallpoll", 2048, nullptr, 20, nullptr, 1);
+    xTaskCreate(patternTaskFunc, "pattern", 8192, nullptr, 10, nullptr);
+    xTaskCreate(hallPollTaskFunc, "hallpoll", 2048, nullptr, 20, nullptr);
 
     Serial.println("Ready.");
 }

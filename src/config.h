@@ -1,11 +1,12 @@
 #pragma once
 #include <cstdint>
+#include <Arduino.h>
 
-// --- Pin assignments ---
-constexpr uint8_t PIN_LED_CLK  = 18;  // VSPI_CLK
-constexpr uint8_t PIN_LED_MOSI = 23;  // VSPI_MOSI
-constexpr uint8_t PIN_HALL     = 27;
-constexpr uint8_t PIN_ESC      = 25;
+// --- Pin assignments (XIAO ESP32-C6 board labels) ---
+constexpr uint8_t PIN_LED_CLK  = D8;   // SPI SCK
+constexpr uint8_t PIN_LED_MOSI = D10;  // SPI MOSI
+constexpr uint8_t PIN_HALL     = D2;
+constexpr uint8_t PIN_ESC      = D3;
 
 // --- Compile-time limits ---
 #ifndef MAX_LEDS

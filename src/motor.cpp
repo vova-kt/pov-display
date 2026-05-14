@@ -9,24 +9,22 @@ static constexpr uint32_t US_TO_DUTY(uint16_t us) {
 }
 
 void Motor::init(uint8_t pin) {
-    pin_     = pin;
-    channel_ = 0;
-    ledcSetup(channel_, ESC_FREQ, ESC_RESOLUTION);
-    ledcAttachPin(pin_, channel_);
+    pin_ = pin;
+    ledcAttach(pin_, ESC_FREQ, ESC_RESOLUTION);
     stop();
 }
 
 void Motor::arm() {
-    ledcWrite(channel_, US_TO_DUTY(1000));
+    ledcWrite(pin_, US_TO_DUTY(1000));
     delay(3000);
 }
 
 void Motor::setPulseUs(uint16_t pulseUs) {
     if (pulseUs < 1000) pulseUs = 1000;
     if (pulseUs > 2000) pulseUs = 2000;
-    ledcWrite(channel_, US_TO_DUTY(pulseUs));
+    ledcWrite(pin_, US_TO_DUTY(pulseUs));
 }
 
 void Motor::stop() {
-    ledcWrite(channel_, US_TO_DUTY(1000));
+    ledcWrite(pin_, US_TO_DUTY(1000));
 }

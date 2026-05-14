@@ -9,6 +9,5 @@ public:
     void stop();
 
 private:
-    uint8_t pin_     = 0;
-    uint8_t channel_ = 0;
+    uint8_t pin_ = 0;
 };

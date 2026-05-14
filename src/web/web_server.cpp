@@ -25,7 +25,7 @@ void PovWebServer::setupRoutes() {
 
     server_.on("/", HTTP_GET, [](AsyncWebServerRequest* req) {
         Serial.printf("WebServer: GET / from %s\n", req->client()->remoteIP().toString().c_str());
-        req->send_P(200, "text/html", INDEX_HTML);
+        req->send(200, "text/html", INDEX_HTML);
     });
 
     server_.on("/api/config", HTTP_GET, [this](AsyncWebServerRequest* req) {

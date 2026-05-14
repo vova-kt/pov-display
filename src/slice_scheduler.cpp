@@ -13,7 +13,7 @@ void SliceScheduler::init(Framebuffer* fb, LedDriver* leds, HallSensor* hall) {
     args.name     = "slice";
     esp_timer_create(&args, &timer_);
 
-    xTaskCreatePinnedToCore(renderTaskFunc, "render", 4096, this, 24, &renderTask_, 1);
+    xTaskCreate(renderTaskFunc, "render", 4096, this, 24, &renderTask_);
 }
 
 void SliceScheduler::start() {
