@@ -68,6 +68,7 @@ static void patternTaskFunc(void*) {
             }
 
             scheduler.setPhaseOffset(cfg.phaseOffset);
+            scheduler.setMirror(cfg.mirrorPattern);
             motor.setPulseUs(cfg.escPulseUs);
         }
 
@@ -136,6 +137,7 @@ void setup() {
     scheduler.init(&fb, &leds, &hall);
     scheduler.setNumSlices(cfg.numSlices);
     scheduler.setPhaseOffset(cfg.phaseOffset);
+    scheduler.setMirror(cfg.mirrorPattern);
     scheduler.start();
 
     // Init motor

@@ -31,6 +31,8 @@ def parse_config_h():
         name, raw = m.group(1), m.group(2).strip()
         if raw.startswith('"'):
             defaults[name] = raw[1:-1]
+        elif raw in ('true', 'false'):
+            defaults[name] = raw == 'true'
         elif '.' in raw:
             defaults[name] = float(raw.rstrip('f'))
         else:
@@ -48,6 +50,13 @@ def mismatch(errors, file, field, expected, actual):
 def extract_input_val(html, id_attr):
     m = re.search(rf'id="{id_attr}"[^>]*\bvalue="([^"]*)"', html)
     return m.group(1) if m else None
+
+
+def extract_checkbox_checked(html, id_attr):
+    m = re.search(rf'id="{id_attr}"[^>]*>', html)
+    if not m:
+        return None
+    return 'checked' in m.group(0)
 
 
 def extract_selected_option(html, id_attr):
@@ -117,6 +126,8 @@ def check_sim_html(d):
     expected_phase = str((d['phaseOffset'] + 90 + 360) % 360)
     mismatch(errors, 'sim/index.html', 'phase-offset',
              expected_phase, extract_selected_option(html, 'phase-offset'))
+    mismatch(errors, 'sim/index.html', 'mirror',
+             d['mirrorPattern'], extract_checkbox_checked(html, 'mirror'))
     return errors
 
 
@@ -156,6 +167,8 @@ def check_web_ui(d):
     expected_hex = f"#{d['colorR']:02x}{d['colorG']:02x}{d['colorB']:02x}"
     mismatch(errors, 'src/web/web_ui.h', 'color',
              expected_hex, extract_input_val(html, 'color'))
+    mismatch(errors, 'src/web/web_ui.h', 'mirror',
+             d['mirrorPattern'], extract_checkbox_checked(html, 'mirror'))
     return errors
 
 

@@ -67,7 +67,9 @@ void SliceScheduler::renderTaskFunc(void* param) {
         self->currentSlice_++;
 
         if (slice < self->fb_->numSlices()) {
-            const Pixel* data = self->fb_->getSlice(slice);
+            uint16_t fbSlice = self->mirror_
+                ? (self->numSlices_ - 1 - slice) : slice;
+            const Pixel* data = self->fb_->getSlice(fbSlice);
             self->leds_->sendSlice(data, self->fb_->numLeds());
         }
     }

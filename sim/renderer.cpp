@@ -34,6 +34,7 @@ uniform int uPhaseSlices;
 uniform float uArmAngle;
 uniform float uArmSweep;
 uniform int uNumArms;
+uniform bool uMirror;
 
 const float TAU = 6.283185307179586;
 const vec3 BG = vec3(10.0 / 255.0);
@@ -74,6 +75,7 @@ void main() {
 
     int nomSlice = int(floor(angle / TAU * float(uNumSlices))) % uNumSlices;
     int fbSlice = ((nomSlice + uPhaseSlices) % uNumSlices + uNumSlices) % uNumSlices;
+    if (uMirror) fbSlice = uNumSlices - 1 - fbSlice;
 
     float u = (float(led) + 0.5) / float(uNumLeds);
     float v = (float(fbSlice) + 0.5) / float(uNumSlices);
@@ -117,7 +119,7 @@ static struct {
 
     struct {
         GLint fb, numSlices, numLeds, hubFrac, gapFrac;
-        GLint phaseSlices, armAngle, armSweep, numArms;
+        GLint phaseSlices, armAngle, armSweep, numArms, mirror;
     } loc;
 
     struct {
@@ -226,6 +228,7 @@ bool renderer_init() {
     g.loc.armAngle   = glGetUniformLocation(g.mainProg, "uArmAngle");
     g.loc.armSweep   = glGetUniformLocation(g.mainProg, "uArmSweep");
     g.loc.numArms    = glGetUniformLocation(g.mainProg, "uNumArms");
+    g.loc.mirror     = glGetUniformLocation(g.mainProg, "uMirror");
 
     g.overlayProg = link_program(OVERLAY_VERT_SRC, OVERLAY_FRAG_SRC);
     g.overlayLoc.color = glGetUniformLocation(g.overlayProg, "uColor");
@@ -328,6 +331,7 @@ void renderer_render(const Framebuffer& fb, const Config& cfg,
     glUniform1f(g.loc.armAngle, armAngle);
     glUniform1f(g.loc.armSweep, armSweep);
     glUniform1i(g.loc.numArms, g.numArms);
+    glUniform1i(g.loc.mirror, cfg.mirrorPattern ? 1 : 0);
 
     glBindVertexArray(g.quadVao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

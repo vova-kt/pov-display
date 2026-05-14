@@ -13,6 +13,7 @@ public:
     void stop();
     void setPhaseOffset(int16_t offset) { phaseOffset_ = offset; }
     void setNumSlices(uint16_t n)       { numSlices_ = n; }
+    void setMirror(bool m)              { mirror_ = m; }
 
     static void renderTaskFunc(void* param);
     void onNewRotation();
@@ -29,5 +30,6 @@ private:
     volatile uint16_t currentSlice_ = 0;
     volatile uint16_t numSlices_    = 360;
     volatile int16_t  phaseOffset_  = 0;
+    volatile bool     mirror_       = true;
     volatile bool     running_      = false;
 };

@@ -44,6 +44,7 @@ void PovWebServer::setupRoutes() {
         doc["numArms"]       = cfg_->numArms;
         doc["targetHz"]      = cfg_->targetHz;
         doc["escPulseUs"]    = cfg_->escPulseUs;
+        doc["mirrorPattern"] = cfg_->mirrorPattern;
         xSemaphoreGive(cfgMutex_);
 
         String out;
@@ -86,6 +87,7 @@ void PovWebServer::setupRoutes() {
             if (obj["numArms"].is<uint8_t>())         cfg_->numArms       = obj["numArms"].as<uint8_t>();
             if (obj["targetHz"].is<uint8_t>())       cfg_->targetHz      = obj["targetHz"].as<uint8_t>();
             if (obj["escPulseUs"].is<uint16_t>())    cfg_->escPulseUs    = obj["escPulseUs"].as<uint16_t>();
+            if (obj["mirrorPattern"].is<bool>())     cfg_->mirrorPattern = obj["mirrorPattern"].as<bool>();
             if (obj["text"].is<const char*>()) {
                 strlcpy(cfg_->text, obj["text"].as<const char*>(), sizeof(cfg_->text));
             }

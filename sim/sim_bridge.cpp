@@ -56,6 +56,9 @@ EMSCRIPTEN_KEEPALIVE
 void sim_set_phase_offset(int16_t offset) { cfg.phaseOffset = offset; }
 
 EMSCRIPTEN_KEEPALIVE
+void sim_set_mirror_pattern(bool m) { cfg.mirrorPattern = m; }
+
+EMSCRIPTEN_KEEPALIVE
 void sim_set_text(const char* t) {
     strncpy(cfg.text, t, sizeof(cfg.text) - 1);
     cfg.text[sizeof(cfg.text) - 1] = '\0';

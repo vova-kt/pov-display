@@ -31,6 +31,8 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
 .stat .lbl{font-size:.75em;color:#888}
 .btns{display:flex;gap:8px;margin-top:8px}
 .btns>*{flex:1}
+.chk{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:.85em}
+.chk input{width:auto;margin:0}
 </style>
 </head>
 <body>
@@ -60,6 +62,8 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
 
  <label>Text (for text pattern)</label>
  <input type="text" id="text" maxlength="63" value="FUSION">
+
+ <div class="chk"><input type="checkbox" id="mirror" checked><label for="mirror">Mirror</label></div>
 </div>
 
 <div class="card">
@@ -144,6 +148,7 @@ async function loadConfig(){
   $('#pattern').value=c.activePattern;
   $('#color').value=rgbToHex(c.colorR,c.colorG,c.colorB);
   $('#text').value=c.text;
+  $('#mirror').checked=c.mirrorPattern!==false;
   $('#targetHz').value=c.targetHz||30;
   $('#numArms').value=c.numArms||1;
   updateTargetRpm();
@@ -161,6 +166,7 @@ async function apply(){
   activePattern:+$('#pattern').value,
   colorR:rgb[0],colorG:rgb[1],colorB:rgb[2],
   text:$('#text').value,
+  mirrorPattern:$('#mirror').checked,
   numArms:+$('#numArms').value,
   targetHz:+$('#targetHz').value,
   brightness:+$('#brightness').value,

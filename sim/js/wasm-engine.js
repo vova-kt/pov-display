@@ -10,6 +10,7 @@ export class PovSim {
     this._simSetColor      = module.cwrap('sim_set_color', null, ['number', 'number', 'number']);
     this._simSetPhaseOffset = module.cwrap('sim_set_phase_offset', null, ['number']);
     this._simSetText       = module.cwrap('sim_set_text', null, ['string']);
+    this._simSetMirror     = module.cwrap('sim_set_mirror_pattern', null, ['number']);
     this._simNumPatterns   = module.cwrap('sim_num_patterns', 'number', []);
     this._simPatternName   = module.cwrap('sim_pattern_name', 'string', ['number']);
 
@@ -65,6 +66,7 @@ export class PovSim {
   setColor(r, g, b)   { this._simSetColor(r, g, b); }
   setPhaseOffset(o)   { this._simSetPhaseOffset(o); }
   setText(t)          { this._simSetText(t); }
+  setMirror(m)        { this._simSetMirror(m ? 1 : 0); }
 
   rendererResize(w, h) { this._rendererResize(w, h); }
   setHubFraction(f)    { this._rendererSetHubFrac(f); }

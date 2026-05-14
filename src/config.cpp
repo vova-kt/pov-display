@@ -29,6 +29,7 @@ void Config::loadFromNvs() {
     targetHz      = prefs.getUChar("targetHz",     targetHz);
     escPulseUs    = prefs.getUShort("escPulse",    escPulseUs);
     spiClockMhz   = prefs.getUChar("spiClk",      spiClockMhz);
+    mirrorPattern = prefs.getBool("mirror",       mirrorPattern);
 
     // Text pattern string — fall back to "HELLO" if never saved
     size_t len = prefs.getString("text", text, sizeof(text));
@@ -61,6 +62,7 @@ void Config::saveToNvs() {
     prefs.putUChar("targetHz",    targetHz);
     prefs.putUShort("escPulse",   escPulseUs);
     prefs.putUChar("spiClk",      spiClockMhz);
+    prefs.putBool("mirror",       mirrorPattern);
     prefs.putString("text",       text);
 
     prefs.end();

@@ -116,6 +116,8 @@ function bindControls() {
     sim.resize(+e.target.value, sim.numLeds);
   });
 
+  on('mirror', 'change', e => { sim.setMirror(e.target.checked); });
+
   on('phase-offset', 'change', e => {
     sim.setPhaseOffset(+e.target.value - 90);
   });
