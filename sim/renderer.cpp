@@ -83,6 +83,13 @@ void main() {
 
     int br5 = int(t.r * 255.0) & 0x1F;
     float scale = float(br5) / 31.0;
+
+    // Inner LEDs sweep shorter arcs → more photons per unit area → brighter.
+    // Perceived brightness ∝ 1/r; normalize to outer edge (r=1).
+    float ledCenter = innerR + (float(led) + 0.5) * ledH;
+    float radialScale = min(1.0 / ledCenter, 3.0);
+    scale *= radialScale;
+
     fragColor = vec4(t.a * scale, t.b * scale, t.g * scale, 1.0);
 }
 )";

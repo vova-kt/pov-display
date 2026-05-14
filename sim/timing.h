@@ -2,17 +2,17 @@
 #include <cstdint>
 
 struct TimingState {
-    float rpm            = 720.0f;
+    float rpm            = 1800.0f;
     float rpmJitter      = 0.0f;
     float hallJitterUs   = 0.0f;
     float hallMissRate   = 0.0f;
     float timerDriftPpm  = 0.0f;
     float patternLagMs   = 0.0f;
     float spiClockMhz    = 20.0f;
-    float displayHz      = 120.0f;
+    float displayHz      = 60.0f;
     int   numLeds        = 26;
     int   numSlices      = 360;
-    float patternFps     = 24.0f;
+    float patternFps     = 60.0f;
 
     float armAngle         = 0.0f;
     int   frameAge         = 0;

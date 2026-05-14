@@ -47,6 +47,14 @@ Many POV simulators fake persistence with exponential pixel decay — each frame
 
 The wedge approach avoids both problems. The shader renders exactly what the hardware emits (lit pixels in a narrow arc), and the observer's perception is reproduced naturally by the monitor + eye integration chain.
 
+## Radial brightness falloff
+
+Every LED on the arm emits the same luminous intensity, but LEDs at different radii sweep arcs of different length in the same time. Linear velocity is `v = ω × r`, so the arc length an LED covers during one slice is proportional to its radius. Inner LEDs deposit the same photons over a shorter arc — making them appear brighter to the observer. Perceived brightness per unit area scales as **1 / r**, normalized to the outer edge.
+
+The fragment shader applies this correction per LED: it computes the center radius of each LED in normalized coordinates (`ledCenter = hubFrac + (led + 0.5) × ledHeight`) and multiplies the color by `1.0 / ledCenter`. With hub fraction near zero and many LEDs, the innermost LEDs can be an order of magnitude brighter than the outermost — this matches reality, where the center of a POV display is visibly brighter and can appear washed-out.
+
+Values exceeding 1.0 are clamped by the GPU, which causes saturation (hue shift toward white) on the brightest inner pixels. This is a reasonable visual approximation of the real effect, where the inner region of a spinning display often appears overexposed.
+
 ## Practical takeaway
 
 - **Display Hz** is the main perception knob. Lower values (60 Hz) show a fuller, more solid-looking disc — matching what you'd see on a slow monitor. Higher values (240 Hz) show a narrower arc, closer to what a fast monitor reveals.
