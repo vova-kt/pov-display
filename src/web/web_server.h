@@ -24,4 +24,7 @@ private:
     Motor*         motor_ = nullptr;
     ConfigCallback configCb_ = nullptr;
     SemaphoreHandle_t cfgMutex_ = nullptr;
+    String bodyBuffer_;
+    bool   bodyOverflow_ = false;
+    static constexpr size_t kMaxBodySize = 2048;
 };

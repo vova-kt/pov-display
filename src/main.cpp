@@ -150,7 +150,7 @@ void setup() {
 
     // Start WiFi AP
     WiFi.mode(WIFI_AP);
-    bool apOk = WiFi.softAP("POV-Display");
+    bool apOk = WiFi.softAP("POV-Display", "756Rhebpv!");
     Serial.printf("softAP: %s\n", apOk ? "OK" : "FAILED");
     Serial.printf("AP IP: %s  MAC: %s\n",
                   WiFi.softAPIP().toString().c_str(),

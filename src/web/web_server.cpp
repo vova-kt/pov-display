@@ -2,8 +2,6 @@
 #include "web_ui.h"
 #include <ArduinoJson.h>
 
-static String bodyBuffer;
-
 void PovWebServer::init(Config* cfg, HallSensor* hall, Framebuffer* fb, Motor* motor) {
     cfg_   = cfg;
     hall_  = hall;
@@ -54,18 +52,27 @@ void PovWebServer::setupRoutes() {
 
     server_.on("/api/config", HTTP_POST,
         [this](AsyncWebServerRequest* req) {
-            Serial.printf("WebServer: POST /api/config (%u bytes)\n", bodyBuffer.length());
+            if (bodyOverflow_) {
+                req->send(413, "application/json", "{\"error\":\"body too large\"}");
+                bodyBuffer_ = "";
+                bodyOverflow_ = false;
+                return;
+            }
+            Serial.printf("WebServer: POST /api/config (%u bytes)\n", bodyBuffer_.length());
             JsonDocument doc;
-            DeserializationError err = deserializeJson(doc, bodyBuffer);
+            DeserializationError err = deserializeJson(doc, bodyBuffer_);
             if (err) {
                 req->send(400, "application/json", "{\"error\":\"bad json\"}");
-                bodyBuffer = "";
+                bodyBuffer_ = "";
                 return;
             }
             JsonObject obj = doc.as<JsonObject>();
             xSemaphoreTake(cfgMutex_, portMAX_DELAY);
 
-            if (obj["numLeds"].is<uint16_t>())       cfg_->numLeds       = obj["numLeds"].as<uint16_t>();
+            if (obj["numLeds"].is<uint16_t>()) {
+                uint16_t v = obj["numLeds"].as<uint16_t>();
+                if (v >= 1 && v <= MAX_LEDS) cfg_->numLeds = v;
+            }
             if (obj["numSlices"].is<uint16_t>()) {
                 uint16_t s = obj["numSlices"].as<uint16_t>();
                 if (s == 90 || s == 180 || s == 270 || s == 360)
@@ -80,29 +87,45 @@ void PovWebServer::setupRoutes() {
                 if (p == -90 || p == 0 || p == 90 || p == 180)
                     cfg_->phaseOffset = p;
             }
-            if (obj["activePattern"].is<uint8_t>())  cfg_->activePattern = obj["activePattern"].as<uint8_t>();
+            if (obj["activePattern"].is<uint8_t>()) {
+                uint8_t v = obj["activePattern"].as<uint8_t>();
+                if (v <= 3) cfg_->activePattern = v;
+            }
             if (obj["colorR"].is<uint8_t>())         cfg_->colorR        = obj["colorR"].as<uint8_t>();
             if (obj["colorG"].is<uint8_t>())         cfg_->colorG        = obj["colorG"].as<uint8_t>();
             if (obj["colorB"].is<uint8_t>())         cfg_->colorB        = obj["colorB"].as<uint8_t>();
-            if (obj["numArms"].is<uint8_t>())         cfg_->numArms       = obj["numArms"].as<uint8_t>();
-            if (obj["targetHz"].is<uint8_t>())       cfg_->targetHz      = obj["targetHz"].as<uint8_t>();
-            if (obj["escPulseUs"].is<uint16_t>())    cfg_->escPulseUs    = obj["escPulseUs"].as<uint16_t>();
+            if (obj["numArms"].is<uint8_t>()) {
+                uint8_t v = obj["numArms"].as<uint8_t>();
+                if (v == 1 || v == 2 || v == 4) cfg_->numArms = v;
+            }
+            if (obj["targetHz"].is<uint8_t>()) {
+                uint8_t v = obj["targetHz"].as<uint8_t>();
+                if (v == 12 || v == 24 || v == 25 || v == 30 || v == 60) cfg_->targetHz = v;
+            }
+            if (obj["escPulseUs"].is<uint16_t>()) {
+                uint16_t v = obj["escPulseUs"].as<uint16_t>();
+                if (v >= 1000 && v <= 2000) cfg_->escPulseUs = v;
+            }
             if (obj["mirrorPattern"].is<bool>())     cfg_->mirrorPattern = obj["mirrorPattern"].as<bool>();
             if (obj["text"].is<const char*>()) {
                 strlcpy(cfg_->text, obj["text"].as<const char*>(), sizeof(cfg_->text));
             }
 
             xSemaphoreGive(cfgMutex_);
-            bodyBuffer = "";
+            bodyBuffer_ = "";
 
             if (configCb_) configCb_();
 
             req->send(200, "application/json", "{\"ok\":true}");
         },
         nullptr,
-        [](AsyncWebServerRequest*, uint8_t* data, size_t len, size_t index, size_t) {
-            if (index == 0) bodyBuffer = "";
-            bodyBuffer += String((char*)data, len);
+        [this](AsyncWebServerRequest*, uint8_t* data, size_t len, size_t index, size_t total) {
+            if (index == 0) {
+                bodyBuffer_ = "";
+                bodyOverflow_ = false;
+            }
+            if (total > kMaxBodySize) { bodyOverflow_ = true; return; }
+            bodyBuffer_ += String((char*)data, len);
         }
     );
 
