@@ -40,6 +40,7 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
  <h2>Status</h2>
  <div class="status">
   <div class="stat"><div class="num" id="rpm">--</div><div class="lbl">RPM</div></div>
+  <div class="stat"><div class="num" id="effHz">--</div><div class="lbl">Hz (actual)</div></div>
   <div class="stat"><div class="num" id="heap">--</div><div class="lbl">Free KB</div></div>
  </div>
 </div>
@@ -63,6 +64,28 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
 
 <div class="card">
  <h2>Display</h2>
+ <div class="row">
+  <div>
+   <label>Refresh Rate</label>
+   <select id="targetHz" onchange="updateTargetRpm()">
+    <option value="12">12 Hz</option>
+    <option value="24">24 Hz</option>
+    <option value="25">25 Hz</option>
+    <option value="30">30 Hz</option>
+    <option value="60">60 Hz</option>
+   </select>
+  </div>
+  <div>
+   <label>Arms</label>
+   <select id="numArms" onchange="updateTargetRpm()">
+    <option value="1">1 arm</option>
+    <option value="2">2 arms</option>
+    <option value="4">4 arms</option>
+   </select>
+  </div>
+ </div>
+ <span class="val">Target RPM: <span id="tgtRpm">1800</span></span>
+
  <label>Brightness (<span id="brVal">16</span>/31)</label>
  <input type="range" id="brightness" min="0" max="31" value="16" oninput="$('#brVal').textContent=this.value">
 
@@ -99,6 +122,11 @@ const $=s=>document.querySelector(s);
 function rgbToHex(r,g,b){return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');}
 function hexToRgb(h){const m=h.match(/\w\w/g);return m?m.map(x=>parseInt(x,16)):[255,0,0];}
 
+function updateTargetRpm(){
+ const hz=+$('#targetHz').value, arms=+$('#numArms').value;
+ $('#tgtRpm').textContent=Math.round(hz*60/arms);
+}
+
 async function loadConfig(){
  try{
   const r=await fetch('/api/config');
@@ -106,6 +134,9 @@ async function loadConfig(){
   $('#pattern').value=c.activePattern;
   $('#color').value=rgbToHex(c.colorR,c.colorG,c.colorB);
   $('#text').value=c.text;
+  $('#targetHz').value=c.targetHz||30;
+  $('#numArms').value=c.numArms||1;
+  updateTargetRpm();
   $('#brightness').value=c.brightness;$('#brVal').textContent=c.brightness;
   $('#numLeds').value=c.numLeds;
   $('#numSlices').value=c.numSlices;
@@ -120,6 +151,8 @@ async function apply(){
   activePattern:+$('#pattern').value,
   colorR:rgb[0],colorG:rgb[1],colorB:rgb[2],
   text:$('#text').value,
+  numArms:+$('#numArms').value,
+  targetHz:+$('#targetHz').value,
   brightness:+$('#brightness').value,
   numLeds:+$('#numLeds').value,
   numSlices:+$('#numSlices').value,
@@ -144,6 +177,8 @@ async function pollStatus(){
   const r=await fetch('/api/status');
   const s=await r.json();
   $('#rpm').textContent=s.rpm;
+  const arms=+$('#numArms').value||1;
+  $('#effHz').textContent=(s.rpm*arms/60).toFixed(1);
   $('#heap').textContent=Math.round(s.freeHeap/1024);
  }catch(e){}
 }

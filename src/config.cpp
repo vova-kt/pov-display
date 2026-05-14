@@ -25,6 +25,8 @@ void Config::loadFromNvs() {
     colorB        = prefs.getUChar("colorB",       colorB);
 
     // Motor / hardware
+    numArms       = prefs.getUChar("numArms",      numArms);
+    targetHz      = prefs.getUChar("targetHz",     targetHz);
     escPulseUs    = prefs.getUShort("escPulse",    escPulseUs);
     spiClockMhz   = prefs.getUChar("spiClk",      spiClockMhz);
 
@@ -55,6 +57,8 @@ void Config::saveToNvs() {
     prefs.putUChar("colorB",      colorB);
 
     // Motor / hardware
+    prefs.putUChar("numArms",     numArms);
+    prefs.putUChar("targetHz",    targetHz);
     prefs.putUShort("escPulse",   escPulseUs);
     prefs.putUChar("spiClk",      spiClockMhz);
     prefs.putString("text",       text);

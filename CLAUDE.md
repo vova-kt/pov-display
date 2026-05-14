@@ -43,7 +43,7 @@ Two suites: `test_framebuffer` (double-buffer, swap, resize) and `test_patterns`
 - **Single-core**: WiFi, render task (HW timer ISR → SPI DMA), and pattern task share one core via FreeRTOS priorities. DMA and hardware timers keep rendering jitter-free.
 - **Double-buffered framebuffer** in DMA memory — patterns write back, renderer reads front.
 - **Power**: 3S LiPo (stationary) → buck converter → 5 V through hollow slip ring. LEDs and XIAO share the same 5 V rail on the rotating arm.
-- **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, motor control. No reflash needed.
+- **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, refresh rate, arm count, motor control. No reflash needed.
 - **Config persists** to NVS via "Save to Flash" button.
 
 Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3. See `src/config.h`.
@@ -57,7 +57,7 @@ python3 -m http.server 8080 # serve sim/ then open http://localhost:8080
 
 Compiles the real `src/patterns/*.cpp` + `src/framebuffer.cpp` to WebAssembly via Emscripten — zero code duplication. Uses the same `test/stubs/` headers as native tests. A thin `sim/sim_bridge.cpp` exports C-linkage functions to JS.
 
-JS side: timing model simulates hardware pipeline (RPM jitter, hall sensor noise, SPI budget overruns, pattern lag). Radial canvas renderer shows what the eye sees.
+C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates hardware pipeline (RPM jitter, hall sensor noise, SPI budget overruns, pattern lag). Refresh rate (12/24/25/30/60 Hz) and arm count (1/2/4) replace raw RPM — motor RPM is derived as `refreshRate × 60 / numArms`. Multi-arm rendering uses modular angle math in the fragment shader. Game-style HUD overlay shows RPM and render FPS. Geometry sliders use physical mm units matching the actual build — 57 LEDs on a 60 LEDs/m strip, hub radius = 0.
 
 ## Docs
 

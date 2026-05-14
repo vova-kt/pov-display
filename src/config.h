@@ -18,7 +18,7 @@ constexpr uint8_t PIN_ESC      = D3;
 
 // --- Runtime configuration ---
 struct Config {
-    uint16_t numLeds        = 144;
+    uint16_t numLeds        = 57;
     uint16_t numSlices      = 360;
     uint8_t  brightness     = 16;     // 0..31 HD107S global brightness
     uint8_t  maxBrightness  = 31;
@@ -30,6 +30,8 @@ struct Config {
     uint8_t  colorB         = 0;
     char     text[64]       = "HELLO";
 
+    uint8_t  numArms        = 1;      // 1, 2, or 4 — physical arm count
+    uint8_t  targetHz       = 30;     // target refresh rate (12, 24, 25, 30, 60)
     uint16_t escPulseUs     = 1000;   // 1000=stop, 2000=full
     uint8_t  spiClockMhz    = 20;
 

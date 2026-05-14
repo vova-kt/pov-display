@@ -6,7 +6,7 @@ Seeed Studio XIAO ESP32-C6 — single-core RISC-V, WiFi 6, BLE 5, USB-C. Small f
 
 ## Parts
 
-- **LED strip** — HD107S (APA102-compatible), 5 V, SPI clock+data. 40 LEDs for MVP; up to 144 supported at reduced slice count.
+- **LED strip** — HD107S (APA102-compatible), 5 V, SPI clock+data. 57 LEDs on a 60 LEDs/m strip (6.5 mm pitch: 3.0 mm LED + 3.5 mm gap); up to 144 supported at reduced slice count.
 - **Hall sensor** — unipolar (e.g. A3144), one pulse per rotation. Triggers the slice scheduler to sync the image to the arm position.
 - **ESC + brushless motor** — standard RC ESC accepting 50 Hz PWM (1000–2000 µs pulse). Spins the arm.
 - **Hollow slip ring** — 3 channels minimum: 5 V power (for LEDs), GND, ESC PWM signal. Power channel must handle 2.5 A+.

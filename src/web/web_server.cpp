@@ -41,6 +41,8 @@ void PovWebServer::setupRoutes() {
         doc["colorG"]        = cfg_->colorG;
         doc["colorB"]        = cfg_->colorB;
         doc["text"]          = cfg_->text;
+        doc["numArms"]       = cfg_->numArms;
+        doc["targetHz"]      = cfg_->targetHz;
         doc["escPulseUs"]    = cfg_->escPulseUs;
         xSemaphoreGive(cfgMutex_);
 
@@ -73,6 +75,8 @@ void PovWebServer::setupRoutes() {
             if (obj["colorR"].is<uint8_t>())         cfg_->colorR        = obj["colorR"].as<uint8_t>();
             if (obj["colorG"].is<uint8_t>())         cfg_->colorG        = obj["colorG"].as<uint8_t>();
             if (obj["colorB"].is<uint8_t>())         cfg_->colorB        = obj["colorB"].as<uint8_t>();
+            if (obj["numArms"].is<uint8_t>())         cfg_->numArms       = obj["numArms"].as<uint8_t>();
+            if (obj["targetHz"].is<uint8_t>())       cfg_->targetHz      = obj["targetHz"].as<uint8_t>();
             if (obj["escPulseUs"].is<uint16_t>())    cfg_->escPulseUs    = obj["escPulseUs"].as<uint16_t>();
             if (obj["text"].is<const char*>()) {
                 strlcpy(cfg_->text, obj["text"].as<const char*>(), sizeof(cfg_->text));

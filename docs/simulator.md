@@ -13,21 +13,40 @@ sim/
   build.sh              ← Emscripten build (auto-installs emsdk if missing)
   sim_bridge.cpp        ← C-linkage API exposing patterns/framebuffer to JS
   sim_config_stub.cpp   ← no-op NVS methods (Config::loadFromNvs/saveToNvs)
+  timing.h / timing.cpp ← hardware timing simulation (C++, compiled to WASM)
+  renderer.h / renderer.cpp ← WebGL 2 polar renderer with multi-arm sweep
   index.html            ← single-page UI
   js/
     wasm-engine.js      ← loads WASM, typed JS wrapper over C exports
-    timing-model.js     ← hardware timing simulation (all JS)
-    radial-renderer.js  ← Canvas 2D polar rendering via ImageData
-    main.js             ← animation loop, control wiring
+    main.js             ← animation loop, control wiring, HUD overlay
 ```
 
-### Why the timing model is in JS, not C++
+### Why the timing model is in C++
 
-The real firmware timing uses FreeRTOS tasks + `esp_timer` hardware timers. Porting those to WASM would mean building an RTOS simulator. Instead, the JS timing model mathematically simulates the scheduling pipeline: hall sensor triggers → slice interval calculation → SPI transfer budget check. This is accurate enough to surface the real tradeoffs (RPM vs slice count vs SPI speed) while being easy to extend with new distortion knobs.
+The timing model mathematically simulates the scheduling pipeline: hall sensor triggers → slice interval calculation → SPI transfer budget check. Running in C++ alongside the pattern code means it compiles to WASM and shares types with the rest of the sim — no JS/C++ boundary crossing for timing state.
 
 ### Rendering approach
 
-The renderer uses an `ImageData` buffer with a precomputed polar lookup table: for each canvas pixel `(x, y)`, it stores the corresponding `(slice, led)` index. On each frame, it scans the lookup table and reads pixel data directly from WASM linear memory (zero-copy via `Module.HEAPU8`). The lookup table is rebuilt only when canvas size or LED/slice count changes.
+WebGL 2 fragment shader maps each canvas pixel to polar `(slice, led)` coordinates and samples the WASM framebuffer texture directly — no CPU-side pixel loop. The canvas auto-sizes at `devicePixelRatio` for crisp HiDPI rendering. The shader supports 1, 2, or 4 arms via `mod(angleBehind, TAU/numArms)` — no loop needed.
+
+Geometry is driven by physical mm values (LED size 3.0 mm, gap 3.5 mm, hub radius 0 mm). The renderer derives gap fraction and hub-to-arm ratio so the display matches the real strip spacing. Computed readouts (pitch, arm radius) update live as sliders move.
+
+A game-style HUD overlay shows motor RPM and render FPS in the top-right corner of the canvas.
+
+### Refresh rate and arm count
+
+Instead of setting RPM directly, the simulator uses **refresh rate** (12, 24, 25, 30, 60 Hz) and **arm count** (1, 2, 4). Motor RPM is derived: `RPM = refreshRate × 60 / numArms`. This matches how you'd design a real POV display — pick a target flicker-free rate, then choose the arm count to keep motor speed practical.
+
+Hardware arm configurations:
+- **1 arm** — one LED strip, length = radius. Balanced by a second arm without LEDs.
+- **2 arms** — one LED strip, length = diameter (passes through center).
+- **4 arms** — two LED strips, each = diameter (forming a +).
+
+### POV perception model
+
+The renderer lights only the angular wedge each arm swept since the previous frame. With N arms, the circle fills N× faster per revolution. The arm angle advances by `dt / revolutionPeriod × 360°` per frame.
+
+The monitor's sample-and-hold pixel behavior provides the first temporal integration stage; the viewer's eye provides the second. Higher refresh rate → more solid image; lower rate → visible sweeping arm. See [persistence of vision concept](concepts/persistence-of-vision.md) for the full explanation.
 
 ## Timing distortions
 
@@ -48,6 +67,6 @@ The SPI transfer time formula matches the real HD107S wire protocol: `(4 + numLe
 
 **New pattern**: Add it in `src/patterns/`, register in the `patterns[]` array in `sim/sim_bridge.cpp`, rebuild WASM. The simulator picks it up automatically via `sim_num_patterns()` / `sim_pattern_name()`.
 
-**New timing effect**: Add a parameter to `TimingModel` in `js/timing-model.js`, wire a slider in `index.html`, apply the effect in `simulateRevolution()`.
+**New timing effect**: Add a parameter to `TimingState` in `sim/timing.h`, wire a slider in `index.html`, apply the effect in `timing_frame()`.
 
 **New config field**: Add a setter in `sim/sim_bridge.cpp` (e.g. `sim_set_foo()`), export it in `build.sh`, wrap it in `js/wasm-engine.js`, wire the UI control.
