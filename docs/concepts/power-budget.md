@@ -72,6 +72,69 @@ The 35E is rated 3500 mAh at 0.2C (0.67 A) discharge. At higher currents capacit
 
 All scenarios are well within the 35E's 8 A continuous limit (worst case is 2.8 A = 0.8C).
 
+## Alternative: USB PD powerbank
+
+A "fat" USB-C powerbank with Power Delivery can replace the 3S 18650 pack entirely. The idea: negotiate 12 V from the powerbank via a PD trigger board, feed it into the same wiring — ESC direct, buck converter to 5 V. Nothing else changes.
+
+### Why it works
+
+PD 3.0 powerbanks commonly support 5 / 9 / 12 / 15 / 20 V output profiles. The 12 V profile lands right in the 3S operating range (10.8 V nominal, 12.6 V full), so the ESC and buck converter accept it without modification. The voltage is fixed at 12.0 V rather than sagging from 12.6 → 7.5 V over discharge — the buck converter is more efficient at a stable input, and the motor gets consistent power throughout the run.
+
+### PD trigger board
+
+The powerbank's USB-C port defaults to 5 V. To get 12 V you need a PD trigger (also called PD decoy) — a tiny board that negotiates the requested voltage during the USB-C handshake. Common options:
+
+- **CH224K** — ~$1, set voltage via resistor or I2C. Widely available on breakout boards.
+- **IP2721** — similar, resistor-selectable.
+- **ZY12PDN** — pre-built module with a display, useful for prototyping.
+
+Wire the trigger board's VBUS/GND output to an XT60 male connector (matching the system's XT60 female inlet). Add a polyfuse (3–5 A) between the trigger board and the connector — the powerbank has internal protection, but the trigger board doesn't. To swap sources, unplug one XT60 and plug in the other. See `docs/wiring-and-parts.md` for the full connector topology.
+
+### Capacity and runtime
+
+A 20,000 mAh powerbank stores energy at its internal cell voltage (3.7 V nominal), not at the negotiated output voltage. Delivered capacity at 12 V:
+
+```
+Delivered Ah at 12 V = (20,000 mAh × 3.7 V) / (12 V × η)
+
+With η ≈ 0.90 (internal DC-DC):
+  = (20 × 3.7) / (12 × 0.9)
+  ≈ 6.9 Ah at 12 V
+```
+
+Compare to the 3S1P 35E pack's ~3.2 Ah usable — the 20 Ah powerbank delivers roughly **2× the energy**.
+
+| Scenario | Draw | Runtime (20 Ah PB) | Runtime (3S1P 35E) |
+|----------|------|---------------------|---------------------|
+| Typical pattern | 1.9 A | **~3 h 38 min** | ~1 h 41 min |
+| Full white | 2.8 A | **~2 h 28 min** | ~1 h 7 min |
+| Dim pattern | 1.7 A | **~4 h 3 min** | ~1 h 53 min |
+
+### Power budget check
+
+Most 12 V PD profiles supply 3 A (36 W). Worst-case system draw is 2.8 A × 12 V = 33.6 W — fits within 36 W with ~7% headroom. Typical draw (1.9 A = 22.8 W) is well within budget. If the powerbank supports PPS (Programmable Power Supply) at 11–12 V / 5 A, there's even more margin.
+
+### Tradeoffs vs 3S 18650 pack
+
+| | 3S1P 18650 | 20 Ah PD powerbank |
+|---|---|---|
+| Energy | ~37.8 Wh (3.5 Ah × 10.8 V) | ~74 Wh |
+| Weight | ~150 g (cells) + BMS | ~400–500 g |
+| Volume | Custom pack, compact | Brick form factor |
+| BMS / charging | Must build or buy 3S BMS + charger | Built-in, charge from any USB-C |
+| Voltage profile | Sags 12.6 → 7.5 V over discharge | Fixed 12.0 V until empty |
+| Extra parts | BMS, balance charger | PD trigger board (~$1), fuse |
+| Failure modes | Cell imbalance, over-discharge if BMS fails | PD negotiation failure (falls back to 5 V — ESC won't arm, safe fail) |
+| Swappability | Swap the pack | Swap any PD powerbank |
+| Auto-shutoff | N/A | Some powerbanks shut off below ~50–100 mA — not an issue at 1.7+ A operating draw, but may cut out if motor is off and LEDs are dim |
+
+### When to pick which
+
+- **Powerbank** if you want long runtime, no custom battery work, and don't mind the extra weight. Good for demos and bench testing. Dead simple to set up — buy a trigger board, wire to an XT60 male.
+- **18650 pack** if you need compact size, light weight, or are building the display into a finished enclosure where form factor matters.
+
+Both plug into the same XT60 female inlet on the system side, so swapping takes seconds. Both live on the stationary side — weight doesn't affect arm balance or motor load. During a swap the system reboots briefly (config persists in NVS).
+
 ## Practical notes
 
 - **Measure the motor.** It dominates the budget and varies wildly. A watt meter on the battery lead during spinning gives the real number. Everything else is predictable.

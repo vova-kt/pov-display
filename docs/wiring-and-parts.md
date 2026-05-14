@@ -10,8 +10,10 @@ Seeed Studio XIAO ESP32-C6 — single-core RISC-V, WiFi 6, BLE 5, USB-C. Small f
 - **Hall sensor** — unipolar (e.g. A3144), one pulse per rotation. Triggers the slice scheduler to sync the image to the arm position.
 - **ESC + brushless motor** — standard RC ESC accepting 50 Hz PWM (1000–2000 µs pulse). Spins the arm.
 - **Hollow slip ring** — 3 channels minimum: 5 V power (for LEDs), GND, ESC PWM signal. Power channel must handle 2.5 A+.
-- **3S1P 18650 pack** — 3× Samsung INR18650-35E (3500 mAh, 8 A max continuous, 10.8 V nominal) + BMS for cell balancing and over-discharge protection. Powers the motor (direct to ESC) and LEDs (via buck converter). See `docs/concepts/power-budget.md` for runtime estimates.
-- **Buck converter** — 3S (7.5–12.6 V) → 5 V, 3 A+. Powers both the LED strip and the XIAO through the slip ring. An MP1584-based module works; add bulk capacitance (470 µF) on the 5 V output for current spikes during full-white frames. Add a second 470 µF cap on the rotating side near the XIAO's 5V pin to guard against brown-outs from LED current spikes.
+- **XT60 connector (power inlet)** — female on the system side, male on each power source. Keyed (reverse-polarity impossible), rated 60 A continuous. Lets you swap between the 3S pack and a PD powerbank in seconds. Mount the female connector where the battery lead enters the stationary chassis.
+- **3S1P 18650 pack** — 3× Samsung INR18650-35E (3500 mAh, 8 A max continuous, 10.8 V nominal) + BMS for cell balancing and over-discharge protection. XT60 male on the output. See `docs/concepts/power-budget.md` for runtime estimates.
+- **PD powerbank + trigger board** (alternative source) — any 20+ Ah USB-C powerbank supporting 12 V PD. A PD trigger board (CH224K or similar, ~$1) negotiates 12 V from the USB-C port. Wire the trigger board's VBUS/GND output to an XT60 male. Add a 3–5 A polyfuse between the trigger board and the connector. See `docs/concepts/power-budget.md` for capacity comparison and runtime estimates.
+- **Buck converter** — XL4015-based module, 8–36 V input → 5 V output, 5 A max. Handles the full input range from both 3S pack (7.5–12.6 V) and PD powerbank (12 V). 5 A rating leaves comfortable headroom even at full white brightness 31 (~2.53 A on the 5 V rail). Add bulk capacitance (470 µF) on the 5 V output for current spikes during full-white frames. Add a second 470 µF cap on the rotating side near the XIAO's 5V pin to guard against brown-outs from LED current spikes.
 
 ## Pin map
 
@@ -32,14 +34,20 @@ Two independent power domains — one stationary, one rotating.
 ### Stationary side
 
 ```
-3S 18650 pack ──┬── ESC power in (direct, 10.8 V nom)
-    │      └── Motor phases A/B/C
-    │
-    └── Buck converter (3S → 5 V)
-           └── Slip ring 5 V channel ──→ rotating side
+3S 18650 pack ──── XT60 male ─┐
+                               │
+PD powerbank ── PD trigger ── XT60 male ─┘  (only one connected at a time)
+                  (CH224K)        │
+                               XT60 female (system inlet)
+                                  │
+                    ┌─────────────┤
+                    │             │
+              ESC power in    Buck converter (→ 5 V)
+                │                └── Slip ring 5 V channel ──→ rotating side
+          Motor phases A/B/C
 ```
 
-The ESC takes 3S voltage directly. The buck converter steps down to 5 V for the LED strip, fed through the slip ring.
+The XT60 connector is the single power inlet. Either the 3S pack or the PD powerbank plugs in — both deliver ~12 V, so the ESC and buck converter work identically with either source. Swap by unplugging one XT60 and plugging in the other.
 
 ### Rotating side
 
@@ -78,8 +86,8 @@ The ESC sits on the stationary side. The PWM signal crosses the slip ring from t
 XIAO D3 ────── Slip ring channel 3 ────── ESC signal wire
 Slip ring GND ────── ESC signal GND
 
-3S pack (+) ───── ESC power in (+)
-3S pack (−) ───── ESC power in (−)
+XT60 female (+) ───── ESC power in (+)
+XT60 female (−) ───── ESC power in (−)
 
 ESC motor-out A ───── Motor phase A
 ESC motor-out B ───── Motor phase B
@@ -95,6 +103,7 @@ ESC motor-out C ───── Motor phase C
 ## Why these choices
 
 - **XIAO ESP32-C6 over ESP32 DevKit**: Small enough (21×17.5 mm) to mount on the rotating arm alongside the LED strip. WiFi 6 and BLE 5 are bonuses. Single-core is sufficient — the firmware uses cooperative FreeRTOS tasks, and the timing-critical work (SPI DMA, timer ISR) runs in hardware/interrupts regardless of core count.
+- **XT60 power inlet**: Standard RC connector, keyed, rated far above our ~3 A draw. Lets you swap between the 3S pack and a PD powerbank without rewiring. Both sources output ~12 V, so everything downstream is source-agnostic. The system loses power for a few seconds during swap — ESP32 reboots (config survives in NVS), ESC re-arms (3 s), motor spins back up. Acceptable for demos and bench use.
 - **Single 3S battery (not separate 2S for LEDs)**: One battery, one BMS, one buck converter. Motor current spikes don't brown out LEDs because the buck converter + capacitor filtering isolates the 5 V rail. Simpler wiring and fewer failure points.
 - **XIAO on the same 5 V rail as LEDs**: The XIAO draws ~80 mA — negligible next to the LEDs' 2.2 A. A 470 µF cap near the XIAO's 5V pin absorbs transient dips from full-white LED frames and prevents brown-outs. No separate battery needed on the rotating arm, which saves weight and complexity.
 - **Hollow slip ring**: Lets the motor shaft or cable bundle pass through the center. Only 3 channels needed (was 4 with the old layout where SPI data crossed the slip ring). Fewer channels = less friction, less noise, longer life.
