@@ -71,5 +71,5 @@ C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates 
 - `docs/architecture.md` — single-core scheduling rationale, timer vs loop, double-buffer design, timing budget.
 - `docs/led-strip-and-driver.md` — HD107S wire protocol, SPI DMA data flow, why 20 MHz, end frame sizing.
 - `docs/wiring-and-parts.md` — pin map, parts list, power topology (3S + buck), slip ring channels, and why each part was chosen.
-- `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, power budget & runtime estimates.
+- `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, power budget & runtime estimates, perception rendering.
 - `docs/simulator.md` — WASM simulator architecture, timing model, how to extend.

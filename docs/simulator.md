@@ -46,7 +46,7 @@ Hardware arm configurations:
 
 The renderer lights only the angular wedge each arm swept during one "persistence frame." The arm angle advances by `dt / revolutionPeriod × 360°` per simulation frame, but the visible arc width is based on the **Display Hz** setting (default 120 Hz), not the browser frame rate. This decoupling keeps the visual appearance consistent across monitors of different refresh rates.
 
-With N arms, the circle fills N× faster per revolution. A **Display Hz** selector (60, 120, 144, 240 Hz) controls the observer persistence — lower Hz = wider arc per frame = fuller disc appearance, higher Hz = narrower arc = more visible sweep. See [persistence of vision concept](concepts/persistence-of-vision.md) for the full explanation.
+With N arms, the circle fills N× faster per revolution. A **Display Hz** selector (60, 120, 144, 240 Hz) controls the observer persistence — lower Hz = wider arc per frame = fuller disc appearance, higher Hz = narrower arc = more visible sweep. See [persistence of vision concept](concepts/persistence-of-vision.md) for the physics and [perception rendering concept](concepts/perception-rendering.md) for how the simulator reproduces it.
 
 ## Timing distortions
 
