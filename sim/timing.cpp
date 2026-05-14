@@ -61,8 +61,10 @@ FrameResult timing_frame(TimingState& ts, float dtMs, float simTimeMs) {
 
     float armSweep = 0.0f;
     if (dtMs > 0.0f) {
-        armSweep = fminf((dtMs / periodMs) * TAU, TAU);
-        ts.armAngle = fmodf(ts.armAngle + armSweep, TAU);
+        float armAdvance = fminf((dtMs / periodMs) * TAU, TAU);
+        float persistenceMs = 1000.0f / ts.displayHz;
+        armSweep = fminf((persistenceMs / periodMs) * TAU, TAU);
+        ts.armAngle = fmodf(ts.armAngle + armAdvance, TAU);
     }
 
     FrameResult r;

@@ -31,7 +31,7 @@ WebGL 2 fragment shader maps each canvas pixel to polar `(slice, led)` coordinat
 
 Geometry is driven by physical mm values (LED size 3.0 mm, gap 3.5 mm, hub radius 0 mm). The renderer derives gap fraction and hub-to-arm ratio so the display matches the real strip spacing. Computed readouts (pitch, arm radius) update live as sliders move.
 
-A game-style HUD overlay shows motor RPM and render FPS in the top-right corner of the canvas.
+A game-style HUD overlay shows motor RPM, effective refresh Hz (RPM × arms / 60), and render FPS in the top-right corner of the canvas.
 
 ### Refresh rate and arm count
 
@@ -44,9 +44,9 @@ Hardware arm configurations:
 
 ### POV perception model
 
-The renderer lights only the angular wedge each arm swept since the previous frame. With N arms, the circle fills N× faster per revolution. The arm angle advances by `dt / revolutionPeriod × 360°` per frame.
+The renderer lights only the angular wedge each arm swept during one "persistence frame." The arm angle advances by `dt / revolutionPeriod × 360°` per simulation frame, but the visible arc width is based on the **Display Hz** setting (default 120 Hz), not the browser frame rate. This decoupling keeps the visual appearance consistent across monitors of different refresh rates.
 
-The monitor's sample-and-hold pixel behavior provides the first temporal integration stage; the viewer's eye provides the second. Higher refresh rate → more solid image; lower rate → visible sweeping arm. See [persistence of vision concept](concepts/persistence-of-vision.md) for the full explanation.
+With N arms, the circle fills N× faster per revolution. A **Display Hz** selector (60, 120, 144, 240 Hz) controls the observer persistence — lower Hz = wider arc per frame = fuller disc appearance, higher Hz = narrower arc = more visible sweep. See [persistence of vision concept](concepts/persistence-of-vision.md) for the full explanation.
 
 ## Timing distortions
 

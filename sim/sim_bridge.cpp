@@ -124,6 +124,9 @@ EMSCRIPTEN_KEEPALIVE
 void sim_timing_set_spi_clock(float v) { ts.spiClockMhz = v; }
 
 EMSCRIPTEN_KEEPALIVE
+void sim_timing_set_display_hz(float v) { ts.displayHz = v; }
+
+EMSCRIPTEN_KEEPALIVE
 void sim_frame(float dtMs, float simTimeMs, uint8_t patternIndex) {
     lastFrame = timing_frame(ts, dtMs, simTimeMs);
 

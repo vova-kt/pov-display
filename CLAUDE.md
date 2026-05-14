@@ -57,7 +57,7 @@ python3 -m http.server 8080 # serve sim/ then open http://localhost:8080
 
 Compiles the real `src/patterns/*.cpp` + `src/framebuffer.cpp` to WebAssembly via Emscripten — zero code duplication. Uses the same `test/stubs/` headers as native tests. A thin `sim/sim_bridge.cpp` exports C-linkage functions to JS.
 
-C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates hardware pipeline (RPM jitter, hall sensor noise, SPI budget overruns, pattern lag). Refresh rate (12/24/25/30/60 Hz) and arm count (1/2/4) replace raw RPM — motor RPM is derived as `refreshRate × 60 / numArms`. Multi-arm rendering uses modular angle math in the fragment shader. Game-style HUD overlay shows RPM and render FPS. Geometry sliders use physical mm units matching the actual build — 57 LEDs on a 60 LEDs/m strip, hub radius = 0.
+C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates hardware pipeline (RPM jitter, hall sensor noise, SPI budget overruns, pattern lag). Refresh rate (12/24/25/30/60 Hz) and arm count (1/2/4) replace raw RPM — motor RPM is derived as `refreshRate × 60 / numArms`. Multi-arm rendering uses modular angle math in the fragment shader. Game-style HUD overlay shows RPM, effective Hz, and render FPS. Display Hz selector (60/120/144/240) controls observer persistence — decouples visible arc width from browser frame rate. Geometry sliders use physical mm units matching the actual build — 57 LEDs on a 60 LEDs/m strip, hub radius = 0.
 
 ## Docs
 

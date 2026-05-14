@@ -170,6 +170,8 @@ function bindControls() {
     document.getElementById('spi-clock-val').textContent = e.target.value + ' MHz';
   });
 
+  on('display-hz', 'change', e => { sim.setDisplayHz(+e.target.value); });
+
   on('sim-speed', 'input', e => {
     simSpeed = +e.target.value;
     document.getElementById('sim-speed-val').textContent = simSpeed.toFixed(1) + 'x';
@@ -244,6 +246,7 @@ function updateReadouts() {
   document.getElementById('ro-hall-missed').textContent = sim.hallMissed ? 'YES' : 'no';
 
   document.getElementById('hud-rpm').textContent = actualRpm.toFixed(0);
+  document.getElementById('hud-hz').textContent = (actualRpm * numArms / 60).toFixed(1);
   document.getElementById('hud-fps').textContent = currentFps;
 }
 

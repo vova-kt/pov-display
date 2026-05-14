@@ -82,6 +82,7 @@
   <canvas id="pov-canvas"></canvas>
   <div id="hud">
     <div><span class="hud-val" id="hud-rpm">--</span> <span class="hud-lbl">RPM</span></div>
+    <div><span class="hud-val" id="hud-hz">--</span> <span class="hud-lbl">Hz</span></div>
     <div><span class="hud-val" id="hud-fps">--</span> <span class="hud-lbl">FPS</span></div>
   </div>
 </div>
@@ -212,6 +213,15 @@
   </div>
 
   <h2>Playback</h2>
+  <div class="row">
+    <label>Display Hz</label>
+    <select id="display-hz">
+      <option value="60">60 Hz</option>
+      <option value="120" selected>120 Hz</option>
+      <option value="144">144 Hz</option>
+      <option value="240">240 Hz</option>
+    </select>
+  </div>
   <div class="row">
     <label>Speed</label>
     <input type="range" id="sim-speed" min="0.1" max="5" step="0.1" value="1">

@@ -29,6 +29,7 @@ export class PovSim {
     this._timingSetTimerDrift = module.cwrap('sim_timing_set_timer_drift', null, ['number']);
     this._timingSetPatternLag = module.cwrap('sim_timing_set_pattern_lag', null, ['number']);
     this._timingSetSpiClock   = module.cwrap('sim_timing_set_spi_clock', null, ['number']);
+    this._timingSetDisplayHz  = module.cwrap('sim_timing_set_display_hz', null, ['number']);
 
     this._simFrame = module.cwrap('sim_frame', null, ['number', 'number', 'number']);
 
@@ -80,6 +81,7 @@ export class PovSim {
   setTimerDrift(v)   { this._timingSetTimerDrift(v); }
   setPatternLag(v)   { this._timingSetPatternLag(v); }
   setSpiClock(v)     { this._timingSetSpiClock(v); }
+  setDisplayHz(v)    { this._timingSetDisplayHz(v); }
 
   frame(dtMs, simTimeMs, patternIndex) {
     this._simFrame(dtMs, simTimeMs, patternIndex);
