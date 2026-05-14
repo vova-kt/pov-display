@@ -8,9 +8,12 @@ let simSpeed = 1.0;
 let paused = false;
 let refreshRate = 24;
 let numArms = 2;
+let displayHz = 120;
 let fpsFrameCount = 0;
 let fpsLastTime = 0;
 let currentFps = 0;
+let lastRenderTimestamp = null;
+let accumulatedDt = 0;
 
 function sizeCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
@@ -52,6 +55,7 @@ async function init() {
   sizeCanvas(canvas);
   refreshRate = +document.getElementById('refresh-rate').value;
   numArms = +document.getElementById('num-arms').value;
+  displayHz = +document.getElementById('display-hz').value;
   sim.setNumArms(numArms);
   sim.setRpm(refreshRate * 60 / numArms);
   sim.setPhaseOffset(+document.getElementById('phase-offset').value - 90);
@@ -168,7 +172,10 @@ function bindControls() {
     sim.setSpiClock(+e.target.value);
   });
 
-  on('display-hz', 'change', e => { sim.setDisplayHz(+e.target.value); });
+  on('display-hz', 'change', e => {
+    displayHz = +e.target.value;
+    sim.setDisplayHz(displayHz);
+  });
 
   on('sim-speed', 'input', e => {
     simSpeed = +e.target.value;
@@ -179,6 +186,8 @@ function bindControls() {
     document.getElementById('pause-btn').textContent = paused ? 'Resume' : 'Pause';
     if (!paused) {
       lastFrameTime = null;
+      lastRenderTimestamp = null;
+      accumulatedDt = 0;
       requestAnimationFrame(loop);
     }
   });
@@ -191,40 +200,32 @@ function bindControls() {
 function loop(timestamp) {
   if (paused) return;
 
-  if (lastFrameTime === null) lastFrameTime = timestamp;
+  if (lastFrameTime === null) {
+    lastFrameTime = timestamp;
+    lastRenderTimestamp = timestamp;
+  }
   const dt = (timestamp - lastFrameTime) * simSpeed;
   lastFrameTime = timestamp;
   simTimeMs += dt;
+  accumulatedDt += dt;
 
-  fpsFrameCount++;
-  if (timestamp - fpsLastTime >= 1000) {
-    currentFps = fpsFrameCount;
-    fpsFrameCount = 0;
-    fpsLastTime = timestamp;
-  }
+  const renderInterval = 1000.0 / displayHz;
+  if (timestamp - lastRenderTimestamp >= renderInterval) {
+    lastRenderTimestamp += renderInterval * Math.floor((timestamp - lastRenderTimestamp) / renderInterval);
 
-  sim.frame(dt, simTimeMs, activePattern);
+    sim.frame(accumulatedDt, simTimeMs, activePattern);
+    accumulatedDt = 0;
 
-  if (simTimeMs < 50) {
-    const canvas = document.getElementById('pov-canvas');
-    const gl = canvas.getContext('webgl2');
-    if (gl) {
-      const w = canvas.width, h = canvas.height;
-      const spots = [
-        ['center', w/2, h/2],
-        ['mid-right', Math.round(w*0.75), h/2],
-        ['mid-up', w/2, Math.round(h*0.75)],
-        ['led-area', Math.round(w*0.65), h/2],
-      ];
-      for (const [name, x, y] of spots) {
-        const px = new Uint8Array(4);
-        gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
-        console.log(name + ':', px[0], px[1], px[2], px[3]);
-      }
+    fpsFrameCount++;
+    if (timestamp - fpsLastTime >= 1000) {
+      currentFps = fpsFrameCount;
+      fpsFrameCount = 0;
+      fpsLastTime = timestamp;
     }
+
+    updateReadouts();
   }
 
-  updateReadouts();
   requestAnimationFrame(loop);
 }
 
