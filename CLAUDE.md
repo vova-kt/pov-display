@@ -42,7 +42,7 @@ Two suites: `test_framebuffer` (double-buffer, swap, resize) and `test_patterns`
 - **PlatformIO + Arduino framework** on XIAO ESP32-C6 (single-core RISC-V).
 - **Single-core**: WiFi, render task (HW timer ISR → SPI DMA), and pattern task share one core via FreeRTOS priorities. DMA and hardware timers keep rendering jitter-free.
 - **Double-buffered framebuffer** in DMA memory — patterns write back, renderer reads front.
-- **Power**: 3S LiPo (stationary) → buck converter → 5 V through hollow slip ring for LEDs. XIAO runs on its own 500 mAh LiPo on the rotating arm.
+- **Power**: 3S LiPo (stationary) → buck converter → 5 V through hollow slip ring. LEDs and XIAO share the same 5 V rail on the rotating arm.
 - **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, motor control. No reflash needed.
 - **Config persists** to NVS via "Save to Flash" button.
 

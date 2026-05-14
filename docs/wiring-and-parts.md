@@ -2,7 +2,7 @@
 
 ## Board
 
-Seeed Studio XIAO ESP32-C6 — single-core RISC-V, WiFi 6, BLE 5, USB-C. Small form factor (21×17.5 mm) fits on the rotating arm. Onboard single-cell LiPo charger and 3.3 V regulator.
+Seeed Studio XIAO ESP32-C6 — single-core RISC-V, WiFi 6, BLE 5, USB-C. Small form factor (21×17.5 mm) fits on the rotating arm. Powered from the 5 V slip ring rail via the 5V pin.
 
 ## Parts
 
@@ -11,8 +11,7 @@ Seeed Studio XIAO ESP32-C6 — single-core RISC-V, WiFi 6, BLE 5, USB-C. Small f
 - **ESC + brushless motor** — standard RC ESC accepting 50 Hz PWM (1000–2000 µs pulse). Spins the arm.
 - **Hollow slip ring** — 3 channels minimum: 5 V power (for LEDs), GND, ESC PWM signal. Power channel must handle 2.5 A+.
 - **3S LiPo + BMS** — 11.1 V nominal, powers the motor (direct to ESC) and LEDs (via buck converter). BMS handles cell balancing and over-discharge protection.
-- **Buck converter** — 3S (8–12.6 V) → 5 V, 3 A+. Powers the LED strip through the slip ring. An MP1584-based module works; add bulk capacitance (470 µF) on the 5 V output for current spikes during full-white frames.
-- **500 mAh LiPo cell** — single-cell (3.7 V), connects directly to the XIAO battery pads on the rotating arm. The XIAO's onboard charger tops it up over USB-C when not spinning.
+- **Buck converter** — 3S (8–12.6 V) → 5 V, 3 A+. Powers both the LED strip and the XIAO through the slip ring. An MP1584-based module works; add bulk capacitance (470 µF) on the 5 V output for current spikes during full-white frames. Add a second 470 µF cap on the rotating side near the XIAO's 5V pin to guard against brown-outs from LED current spikes.
 
 ## Pin map
 
@@ -46,16 +45,16 @@ The ESC takes 3S voltage directly. The buck converter steps down to 5 V for the 
 
 ```
 Slip ring 5 V ──┬── LED strip VCC
+                ├── XIAO 5V pin (with 470 µF cap to GND)
                 └── Common GND
 
-XIAO ESP32-C6 ──── 500 mAh LiPo (battery pads, onboard charger)
-      │
+XIAO ESP32-C6
       ├── D8/D10 (SPI) ── LED strip (direct, short wires)
       ├── D2 ── Hall sensor
       └── D3 ── Slip ring ── ESC signal wire (stationary side)
 ```
 
-The XIAO runs on its own single-cell LiPo. SPI data goes directly to the LED strip — both are on the rotating arm, so no slip ring channels needed for data. The ESC signal wire is the only control signal that crosses the slip ring.
+The XIAO and LEDs share the same 5 V rail from the slip ring. SPI data goes directly to the LED strip — both are on the rotating arm, so no slip ring channels needed for data. The ESC signal wire is the only control signal that crosses the slip ring.
 
 ### Slip ring channels
 
@@ -69,7 +68,7 @@ A hollow slip ring with 3+ channels is enough. The hollow bore lets the motor sh
 
 ### Voltage converters needed
 
-Only one: **3S → 5 V buck** on the stationary side. No converter needed for the XIAO (single-cell LiPo connects directly to battery pads with onboard regulation) or the ESC (takes battery voltage directly).
+Only one: **3S → 5 V buck** on the stationary side. The XIAO taps the same 5 V rail as the LEDs (via its 5V pin, which feeds the onboard 3.3 V regulator). The ESC takes battery voltage directly — no converter needed.
 
 ## Motor wiring
 
@@ -95,10 +94,10 @@ ESC motor-out C ───── Motor phase C
 
 ## Why these choices
 
-- **XIAO ESP32-C6 over ESP32 DevKit**: Small enough (21×17.5 mm) to mount on the rotating arm alongside the LED strip. Onboard LiPo charger eliminates a separate charging circuit. WiFi 6 and BLE 5 are bonuses. Single-core is sufficient — the firmware uses cooperative FreeRTOS tasks, and the timing-critical work (SPI DMA, timer ISR) runs in hardware/interrupts regardless of core count.
+- **XIAO ESP32-C6 over ESP32 DevKit**: Small enough (21×17.5 mm) to mount on the rotating arm alongside the LED strip. WiFi 6 and BLE 5 are bonuses. Single-core is sufficient — the firmware uses cooperative FreeRTOS tasks, and the timing-critical work (SPI DMA, timer ISR) runs in hardware/interrupts regardless of core count.
 - **Single 3S battery (not separate 2S for LEDs)**: One battery, one BMS, one buck converter. Motor current spikes don't brown out LEDs because the buck converter + capacitor filtering isolates the 5 V rail. Simpler wiring and fewer failure points.
+- **XIAO on the same 5 V rail as LEDs**: The XIAO draws ~80 mA — negligible next to the LEDs' 2.2 A. A 470 µF cap near the XIAO's 5V pin absorbs transient dips from full-white LED frames and prevents brown-outs. No separate battery needed on the rotating arm, which saves weight and complexity.
 - **Hollow slip ring**: Lets the motor shaft or cable bundle pass through the center. Only 3 channels needed (was 4 with the old layout where SPI data crossed the slip ring). Fewer channels = less friction, less noise, longer life.
-- **500 mAh LiPo on rotating arm**: Decouples the MCU power from the slip ring entirely. The XIAO draws ~80 mA average — 500 mAh gives ~5 hours of runtime. Charged via USB-C when stationary.
 - **HD107S over WS2812**: SPI clock means no timing-sensitive bit-bang — critical on a spinning arm where ISR jitter is unavoidable. See `docs/led-strip-and-driver.md`.
 - **Hall sensor over encoder**: One magnet + one sensor gives a single sync pulse per revolution — all the POV display needs.
 - **ESC + brushless over DC motor**: High RPM, low vibration, ESC handles commutation. PWM control via LEDC is trivial.
