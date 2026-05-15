@@ -1,7 +1,6 @@
 #include "text.h"
 #include "../fonts/font5x7.h"
 #include <cstring>
-#include <pgmspace.h>
 
 static const ParamOption kTextModeOptions[] = {
     {"Static", 0}, {"Spell", 1}, {"Word", 2}, {"Marquee", 3}
@@ -48,112 +47,46 @@ void TextPattern::ensureCanvas(uint16_t numSlices, uint16_t numLeds) {
     lastLeds_    = numLeds;
 }
 
-static uint32_t nextCodepoint(const char* text, uint16_t len, uint16_t& offset) {
-    uint8_t b0 = (uint8_t)text[offset++];
-    if (b0 < 0x80) return b0;
+static void renderGlyph(Canvas& canvas, const Font5x7Glyph& glyph,
+                        int16_t startX, uint16_t startY, uint8_t scale,
+                        uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
+    uint16_t ch = canvas.height();
+    uint16_t cw = canvas.width();
 
-    uint8_t extra = 0;
-    uint32_t codepoint = 0;
-    uint32_t minCodepoint = 0;
+    for (uint8_t col = 0; col < glyph.width; col++) {
+        uint8_t colData = glyph.cols[col];
+        for (uint8_t row = 0; row < FONT_CHAR_HEIGHT; row++) {
+            if (!(colData & (1 << row))) continue;
 
-    if ((b0 & 0xE0) == 0xC0) {
-        extra = 1;
-        codepoint = b0 & 0x1F;
-        minCodepoint = 0x80;
-    } else if ((b0 & 0xF0) == 0xE0) {
-        extra = 2;
-        codepoint = b0 & 0x0F;
-        minCodepoint = 0x800;
-    } else if ((b0 & 0xF8) == 0xF0) {
-        extra = 3;
-        codepoint = b0 & 0x07;
-        minCodepoint = 0x10000;
-    } else {
-        return '?';
-    }
+            for (uint8_t dy = 0; dy < scale; dy++) {
+                uint16_t y = startY + row * scale + dy;
+                if (y >= ch) break;
 
-    if (offset + extra > len) return '?';
-
-    uint16_t pos = offset;
-    for (uint8_t i = 0; i < extra; i++) {
-        uint8_t b = (uint8_t)text[pos + i];
-        if ((b & 0xC0) != 0x80) return '?';
-        codepoint = (codepoint << 6) | (b & 0x3F);
-    }
-    offset = pos + extra;
-
-    if (codepoint < minCodepoint) return '?';
-    if (codepoint >= 0xD800 && codepoint <= 0xDFFF) return '?';
-    if (codepoint > 0x10FFFF) return '?';
-    return codepoint;
-}
-
-static uint16_t glyphCount(const char* text, uint16_t len) {
-    uint16_t count = 0;
-    uint16_t offset = 0;
-    while (offset < len) {
-        nextCodepoint(text, len, offset);
-        count++;
-    }
-    return count;
-}
-
-static uint16_t lineBaseCols(const char* text, uint16_t len) {
-    uint16_t glyphs = glyphCount(text, len);
-    return glyphs > 0 ? glyphs * (FONT_CHAR_WIDTH + 1) - 1 : 0;
-}
-
-static bool glyphByteRange(const char* text, uint16_t len, uint16_t glyphIndex,
-                           uint16_t& byteOffset, uint16_t& byteLen) {
-    uint16_t offset = 0;
-    for (uint16_t i = 0; offset < len; i++) {
-        uint16_t start = offset;
-        nextCodepoint(text, len, offset);
-        if (i == glyphIndex) {
-            byteOffset = start;
-            byteLen = offset - start;
-            return true;
+                for (uint8_t dx = 0; dx < scale; dx++) {
+                    int16_t x = startX + col * scale + dx;
+                    if (x >= 0 && x < (int16_t)cw)
+                        canvas.setPixel((uint16_t)x, y, r, g, b, brightness);
+                }
+            }
         }
     }
-    return false;
 }
 
 static void renderLine(Canvas& canvas, const char* text, uint16_t len,
                        int16_t startX, uint16_t startY, uint8_t scale,
                        uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
     uint16_t cw = canvas.width();
-    uint16_t ch = canvas.height();
-    uint16_t charW = FONT_CHAR_WIDTH * scale;
-    uint16_t gap   = scale;
     int16_t xPos   = startX;
     uint16_t offset = 0;
+    Font5x7Glyph glyph;
 
-    while (offset < len) {
+    while (font5x7NextGlyph(text, len, offset, glyph)) {
         if (xPos >= (int16_t)cw) break;
-        uint32_t codepoint = nextCodepoint(text, len, offset);
-        if (xPos + (int16_t)charW < 0) { xPos += charW + gap; continue; }
 
-        uint8_t glyph[FONT_CHAR_WIDTH];
-        if (!font5x7GlyphColumns(codepoint, glyph))
-            font5x7GlyphColumns('?', glyph);
-
-        for (uint8_t col = 0; col < FONT_CHAR_WIDTH; col++) {
-            uint8_t colData = glyph[col];
-            for (uint8_t row = 0; row < FONT_CHAR_HEIGHT; row++) {
-                if (colData & (1 << row)) {
-                    for (uint8_t dy = 0; dy < scale; dy++) {
-                        uint16_t y = startY + row * scale + dy;
-                        if (y >= ch) break;
-                        for (uint8_t dx = 0; dx < scale; dx++) {
-                            int16_t x = xPos + col * scale + dx;
-                            if (x >= 0 && x < (int16_t)cw)
-                                canvas.setPixel((uint16_t)x, y, r, g, b, brightness);
-                        }
-                    }
-                }
-            }
-        }
-        xPos += charW + gap;
+        uint16_t glyphW = glyph.width * scale;
+        if (xPos + (int16_t)glyphW >= 0)
+            renderGlyph(canvas, glyph, xPos, startY, scale, r, g, b, brightness);
+        xPos += glyphW + FONT_GLYPH_GAP * scale;
     }
 }
 
@@ -184,7 +117,7 @@ static void computeScale(uint16_t cw, uint16_t ch, const char* text, uint16_t te
     lens[1]  = 0;
     numLines = 1;
 
-    uint16_t baseCols = lineBaseCols(text, textLen);
+    uint16_t baseCols = font5x7Measure(text, textLen);
     uint8_t scaleV = ch / FONT_CHAR_HEIGHT;
     uint8_t scaleH = baseCols <= cw ? cw / baseCols : 0;
     scale = scaleV < scaleH ? scaleV : scaleH;
@@ -199,8 +132,8 @@ static void computeScale(uint16_t cw, uint16_t ch, const char* text, uint16_t te
             uint16_t l2 = textLen - i - 1;
             if (l2 == 0) continue;
 
-            uint16_t bc1 = lineBaseCols(text, l1);
-            uint16_t bc2 = lineBaseCols(text + i + 1, l2);
+            uint16_t bc1 = font5x7Measure(text, l1);
+            uint16_t bc2 = font5x7Measure(text + i + 1, l2);
             uint16_t maxBC = bc1 > bc2 ? bc1 : bc2;
 
             if (maxBC < bestMaxBC) {
@@ -235,7 +168,7 @@ static void renderCentered(Canvas& canvas, const char* lines[2], uint16_t lens[2
     uint16_t startY  = totalH < ch ? (ch - totalH) / 2 : 0;
 
     for (uint8_t line = 0; line < numLines; line++) {
-        uint16_t totalW = lineBaseCols(lines[line], lens[line]) * scale;
+        uint16_t totalW = font5x7Measure(lines[line], lens[line]) * scale;
         int16_t startX = totalW < cw ? (int16_t)((cw - totalW) / 2) : 0;
         uint16_t y = startY + line * (lineH + lineGap);
 
@@ -250,7 +183,7 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
     const char* text = textBuf_;
     uint16_t textLen = strlen(text);
     if (textLen == 0) return;
-    uint16_t textGlyphs = glyphCount(text, textLen);
+    uint16_t textGlyphs = font5x7GlyphCount(text, textLen);
     if (textGlyphs == 0) return;
 
     int32_t mode      = storage_[1].value;
@@ -266,9 +199,7 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
         // Marquee: single-line scroll, scale to fit vertically
         uint8_t scale = ch / FONT_CHAR_HEIGHT;
         if (scale < 1) scale = 1;
-        uint16_t charW = FONT_CHAR_WIDTH * scale;
-        uint16_t gap   = scale;
-        uint16_t textW = textGlyphs * (charW + gap);
+        uint16_t textW = font5x7Measure(text, textLen) * scale;
         uint16_t scrollRange = textW + cw;
         uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
         uint16_t pixPerStep = scale;
@@ -292,7 +223,7 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
             uint16_t cycle = textGlyphs + 2;
             uint16_t step = (uint16_t)((timeMs / delayMs) % cycle);
             if (step < textGlyphs &&
-                glyphByteRange(text, textLen, step, visOffset, visLen)) {
+                font5x7GlyphByteRange(text, textLen, step, visOffset, visLen)) {
             } else {
                 visLen = 0;
             }

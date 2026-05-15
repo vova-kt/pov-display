@@ -3,7 +3,7 @@
 #include <pgmspace.h>
 
 // 5x7 Cyrillic glyphs for U+0410..U+044F plus U+0401/U+0451.
-// Each glyph is 5 bytes (columns), LSB = top row.
+// Each glyph is 5 bytes (columns), LSB = top row. Wide overrides below use up to 7 columns.
 static const uint8_t PROGMEM FONT_5X7_CYRILLIC[][5] = {
     {0x7E,0x11,0x11,0x11,0x7E}, // U+0410 А
     {0x7F,0x49,0x49,0x49,0x31}, // U+0411 Б
@@ -76,3 +76,42 @@ static constexpr uint32_t FONT_5X7_CYRILLIC_LAST = 0x044F;
 static constexpr uint32_t FONT_5X7_CYRILLIC_UPPER_YO = 0x0401;
 static constexpr uint32_t FONT_5X7_CYRILLIC_LOWER_YO = 0x0451;
 static const uint8_t PROGMEM FONT_5X7_CYRILLIC_YO[5] = {0x7D,0x54,0x54,0x54,0x45};
+
+static constexpr uint8_t FONT_5X7_CYRILLIC_WIDE_MAX_WIDTH = 7;
+
+static const uint8_t PROGMEM FONT_5X7_CYRILLIC_WIDE_WIDTHS[] = {
+    7, // Ж/ж
+    6, // Ц/ц
+    6, // Ч/ч
+    7, // Ш/ш
+    7, // Щ/щ
+    6, // Ы/ы
+};
+
+static const uint8_t PROGMEM FONT_5X7_CYRILLIC_WIDE[][FONT_5X7_CYRILLIC_WIDE_MAX_WIDTH] = {
+    {0x63,0x14,0x08,0x7F,0x08,0x14,0x63}, // Ж/ж
+    {0x7F,0x40,0x40,0x7F,0x40,0x60,0x00}, // Ц/ц
+    {0x0F,0x08,0x08,0x08,0x08,0x7F,0x00}, // Ч/ч
+    {0x7F,0x40,0x7F,0x40,0x7F,0x40,0x7F}, // Ш/ш
+    {0x7F,0x40,0x7F,0x40,0x7F,0x40,0x60}, // Щ/щ
+    {0x7F,0x48,0x48,0x30,0x00,0x7F,0x00}, // Ы/ы
+};
+
+static inline bool font5x7CyrillicWideGlyph(uint32_t codepoint, uint8_t cols[FONT_5X7_CYRILLIC_WIDE_MAX_WIDTH],
+                                            uint8_t& width) {
+    uint8_t index;
+    switch (codepoint) {
+        case 0x0416: case 0x0436: index = 0; break;
+        case 0x0426: case 0x0446: index = 1; break;
+        case 0x0427: case 0x0447: index = 2; break;
+        case 0x0428: case 0x0448: index = 3; break;
+        case 0x0429: case 0x0449: index = 4; break;
+        case 0x042B: case 0x044B: index = 5; break;
+        default: return false;
+    }
+
+    width = pgm_read_byte(&FONT_5X7_CYRILLIC_WIDE_WIDTHS[index]);
+    for (uint8_t col = 0; col < FONT_5X7_CYRILLIC_WIDE_MAX_WIDTH; col++)
+        cols[col] = pgm_read_byte(&FONT_5X7_CYRILLIC_WIDE[index][col]);
+    return true;
+}

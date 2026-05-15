@@ -6,6 +6,7 @@
 #include "patterns/rainbow.h"
 #include "patterns/scanner.h"
 #include "patterns/text.h"
+#include "fonts/font5x7.h"
 
 static Framebuffer fb;
 static Config cfg;
@@ -351,6 +352,30 @@ void test_spell_treats_cyrillic_as_one_character() {
     TEST_ASSERT_EQUAL_INT(0, countLitPixels(fb));
 }
 
+void test_wide_cyrillic_glyphs_use_declared_advance() {
+    Font5x7Glyph glyph;
+
+    TEST_ASSERT_TRUE(font5x7Glyph(0x0436, glyph)); // ж
+    TEST_ASSERT_EQUAL_UINT8(7, glyph.width);
+
+    TEST_ASSERT_TRUE(font5x7Glyph(0x0429, glyph)); // Щ
+    TEST_ASSERT_EQUAL_UINT8(7, glyph.width);
+
+    TEST_ASSERT_TRUE(font5x7Glyph(0x0428, glyph)); // Ш
+    TEST_ASSERT_EQUAL_UINT8(7, glyph.width);
+
+    TEST_ASSERT_TRUE(font5x7Glyph(0x0426, glyph)); // Ц
+    TEST_ASSERT_EQUAL_UINT8(6, glyph.width);
+
+    TEST_ASSERT_TRUE(font5x7Glyph(0x0427, glyph)); // Ч
+    TEST_ASSERT_EQUAL_UINT8(6, glyph.width);
+
+    TEST_ASSERT_TRUE(font5x7Glyph(0x044B, glyph)); // ы
+    TEST_ASSERT_EQUAL_UINT8(6, glyph.width);
+
+    TEST_ASSERT_EQUAL_UINT16(14, font5x7Measure("ЖЫ", strlen("ЖЫ")));
+}
+
 void test_spell_produces_different_frames() {
     TextPattern text;
     setMode(text, 1);
@@ -498,6 +523,7 @@ int main() {
     RUN_TEST(test_text_name);
     RUN_TEST(test_text_renders_cyrillic_pixels);
     RUN_TEST(test_spell_treats_cyrillic_as_one_character);
+    RUN_TEST(test_wide_cyrillic_glyphs_use_declared_advance);
 
     RUN_TEST(test_spell_produces_different_frames);
     RUN_TEST(test_spell_loops_after_full_reveal);

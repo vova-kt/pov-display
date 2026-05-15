@@ -1,7 +1,7 @@
 #pragma once
 #include <pgmspace.h>
 
-// Auto-generated from js/settings_ui.js — do not edit directly.
+// Auto-generated from sim/js/settings_ui.js — do not edit directly.
 // Run tools/gen_embedded_js.sh to regenerate.
 
 static const char SETTINGS_JS[] PROGMEM = R"rawliteral(
