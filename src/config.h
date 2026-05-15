@@ -29,7 +29,7 @@ struct Config {
     uint8_t  maxBrightness  = 31;
     int16_t  phaseOffset    = 0;
 
-    uint8_t  activePattern  = 2;
+    uint8_t  activePattern  = 5;
     uint8_t  colorR         = 255;
     uint8_t  colorG         = 0;
     uint8_t  colorB         = 0;

@@ -179,6 +179,27 @@ void test_tojson_text_delay_is_fixed_enum() {
     TEST_FAIL_MESSAGE("text delayMs param not found");
 }
 
+void test_tojson_matrix_pattern_has_speed_param() {
+    JsonDocument doc;
+    settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
+    for (JsonObject p : doc["patterns"].as<JsonArray>()) {
+        if (strcmp(p["key"].as<const char*>(), "matrix") != 0) continue;
+        TEST_ASSERT_EQUAL_STRING("matrix", p["name"].as<const char*>());
+        TEST_ASSERT_TRUE(p["params"].is<JsonArray>());
+        TEST_ASSERT_EQUAL_INT(1, p["params"].as<JsonArray>().size());
+
+        JsonObject speed = p["params"][0].as<JsonObject>();
+        TEST_ASSERT_EQUAL_STRING("speed", speed["key"].as<const char*>());
+        TEST_ASSERT_EQUAL_STRING("int", speed["type"].as<const char*>());
+        TEST_ASSERT_EQUAL_INT(12, speed["value"].as<int>());
+        TEST_ASSERT_EQUAL_INT(12, speed["default"].as<int>());
+        TEST_ASSERT_EQUAL_INT(1, speed["min"].as<int>());
+        TEST_ASSERT_EQUAL_INT(48, speed["max"].as<int>());
+        return;
+    }
+    TEST_FAIL_MESSAGE("matrix pattern not found");
+}
+
 void test_tojson_includes_animations() {
     JsonDocument doc;
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
@@ -354,6 +375,24 @@ void test_apply_text_truncates_long_string() {
     TEST_ASSERT_TRUE(strlen(p->textBuf) < p->textBufSize);
 }
 
+void test_apply_matrix_speed_clamps_to_range() {
+    int idx = g_pattern_index("matrix");
+    TEST_ASSERT_GREATER_OR_EQUAL(0, idx);
+    Param* speed = g_patterns[idx]->findParam("speed");
+    TEST_ASSERT_NOT_NULL(speed);
+    speed->value = 8;
+
+    JsonDocument doc;
+    doc["patterns"]["matrix"]["speed"] = 99;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+    TEST_ASSERT_EQUAL_INT32(48, speed->value);
+
+    doc.clear();
+    doc["patterns"]["matrix"]["speed"] = -5;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+    TEST_ASSERT_EQUAL_INT32(1, speed->value);
+}
+
 // ── applyJson animation params ─────────────────────────────────────────────
 
 void test_apply_animation_param() {
@@ -476,6 +515,7 @@ int main() {
     RUN_TEST(test_tojson_includes_patterns);
     RUN_TEST(test_tojson_text_pattern_has_params);
     RUN_TEST(test_tojson_text_delay_is_fixed_enum);
+    RUN_TEST(test_tojson_matrix_pattern_has_speed_param);
     RUN_TEST(test_tojson_includes_animations);
     RUN_TEST(test_tojson_includes_animation_stack);
     RUN_TEST(test_tojson_includes_scale_animation);
@@ -496,6 +536,7 @@ int main() {
     RUN_TEST(test_apply_text_margin_param);
     RUN_TEST(test_apply_text_delay_accepts_only_fixed_values);
     RUN_TEST(test_apply_text_truncates_long_string);
+    RUN_TEST(test_apply_matrix_speed_clamps_to_range);
     RUN_TEST(test_apply_animation_param);
     RUN_TEST(test_apply_scale_animation_param);
     RUN_TEST(test_apply_fisheye_scale_animation_param);

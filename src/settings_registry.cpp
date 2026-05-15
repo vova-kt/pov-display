@@ -16,42 +16,42 @@ Config* config() { return s_cfg; }
 
 // --- Accessors bound to Config fields ---
 
-static int32_t  get_numLeds()       { return s_cfg->numLeds; }
-static void     set_numLeds(int32_t v)       { s_cfg->numLeds = (uint16_t)v; }
-static int32_t  get_numSlices()     { return s_cfg->numSlices; }
-static void     set_numSlices(int32_t v)     { s_cfg->numSlices = (uint16_t)v; }
-static int32_t  get_brightness()    { return s_cfg->brightness; }
-static void     set_brightness(int32_t v)    {
+static int32_t  get_numLeds()               { return s_cfg->numLeds; }
+static void     set_numLeds(int32_t v)      { s_cfg->numLeds = (uint16_t)v; }
+static int32_t  get_numSlices()             { return s_cfg->numSlices; }
+static void     set_numSlices(int32_t v)    { s_cfg->numSlices = (uint16_t)v; }
+static int32_t  get_brightness()            { return s_cfg->brightness; }
+static void     set_brightness(int32_t v)   {
     if (v > s_cfg->maxBrightness) v = s_cfg->maxBrightness;
     s_cfg->brightness = (uint8_t)v;
 }
-static int32_t  get_maxBrightness() { return s_cfg->maxBrightness; }
+static int32_t  get_maxBrightness()          { return s_cfg->maxBrightness; }
 static void     set_maxBrightness(int32_t v) { s_cfg->maxBrightness = (uint8_t)v; }
-static int32_t  get_phaseOffset()   { return s_cfg->phaseOffset; }
+static int32_t  get_phaseOffset()            { return s_cfg->phaseOffset; }
 static void     set_phaseOffset(int32_t v)   { s_cfg->phaseOffset = (int16_t)v; }
-static int32_t  get_activePattern() { return s_cfg->activePattern; }
+static int32_t  get_activePattern()          { return s_cfg->activePattern; }
 static void     set_activePattern(int32_t v) {
     if (v >= 0 && v < G_NUM_PATTERNS) s_cfg->activePattern = (uint8_t)v;
 }
-static int32_t  get_color()         {
+static int32_t  get_color()                  {
     return ((int32_t)s_cfg->colorR << 16) | ((int32_t)s_cfg->colorG << 8) | s_cfg->colorB;
 }
-static void     set_color(int32_t v) {
+static void     set_color(int32_t v)         {
     s_cfg->colorR = (uint8_t)((v >> 16) & 0xFF);
     s_cfg->colorG = (uint8_t)((v >>  8) & 0xFF);
     s_cfg->colorB = (uint8_t)( v        & 0xFF);
 }
-static int32_t  get_numArms()       { return s_cfg->numArms; }
+static int32_t  get_numArms()                { return s_cfg->numArms; }
 static void     set_numArms(int32_t v)       { s_cfg->numArms = (uint8_t)v; }
-static int32_t  get_targetHz()      { return s_cfg->targetHz; }
+static int32_t  get_targetHz()               { return s_cfg->targetHz; }
 static void     set_targetHz(int32_t v)      { s_cfg->targetHz = (uint8_t)v; }
-static int32_t  get_escPulse()      { return s_cfg->escPulseUs; }
+static int32_t  get_escPulse()               { return s_cfg->escPulseUs; }
 static void     set_escPulse(int32_t v)      { s_cfg->escPulseUs = (uint16_t)v; }
-static int32_t  get_spiClock()      { return s_cfg->spiClockMhz; }
+static int32_t  get_spiClock()               { return s_cfg->spiClockMhz; }
 static void     set_spiClock(int32_t v)      { s_cfg->spiClockMhz = (uint8_t)v; }
-static int32_t  get_mirror()        { return s_cfg->mirrorPattern ? 1 : 0; }
+static int32_t  get_mirror()                 { return s_cfg->mirrorPattern ? 1 : 0; }
 static void     set_mirror(int32_t v)        { s_cfg->mirrorPattern = v != 0; }
-static int32_t  get_radialBalance() { return s_cfg->radialBalance ? 1 : 0; }
+static int32_t  get_radialBalance()          { return s_cfg->radialBalance ? 1 : 0; }
 static void     set_radialBalance(int32_t v) { s_cfg->radialBalance = v != 0; }
 
 // --- Enum option tables ---
@@ -74,7 +74,7 @@ const Setting g_settings[] = {
       0xFF0000, 0, 0xFFFFFF, 1, nullptr, 0,
       get_color, set_color, nullptr, nullptr, "color" },
     { "activePattern", "Pattern",        "picture", "pattern", Scope::Both, ParamType::Enum,
-      1, 0, 4, 1, nullptr, 0,    // options synthesized from g_patterns at JSON time
+      1, 0, 5, 1, nullptr, 0,    // options synthesized from g_patterns at JSON time
       get_activePattern, set_activePattern, nullptr, nullptr, "pattern" },
     { "mirrorPattern", "Mirror",         "picture", "global", Scope::Both, ParamType::Bool,
       1, 0, 1, 1, nullptr, 0,

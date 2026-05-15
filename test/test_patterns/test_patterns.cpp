@@ -7,6 +7,7 @@
 #include "patterns/scanner.h"
 #include "patterns/text.h"
 #include "patterns/image.h"
+#include "patterns/matrix.h"
 #include "fonts/text_font.h"
 
 static Framebuffer fb;
@@ -19,6 +20,7 @@ static void setText(TextPattern& tp, const char* s) {
 static void setMode(TextPattern& tp, int v) { tp.findParam("mode")->value = v; }
 static void setDelay(TextPattern& tp, int v) { tp.findParam("delayMs")->value = v; }
 static void setMargin(TextPattern& tp, int v) { tp.findParam("marginLeds")->value = v; }
+static void setMatrixSpeed(MatrixPattern& matrix, int v) { matrix.findParam("speed")->value = v; }
 static void resizeFramebuffer(uint16_t slices, uint16_t leds) {
     TEST_ASSERT_TRUE(fb.resize(slices, leds));
     cfg.numSlices = slices;
@@ -358,6 +360,100 @@ static void capturePixels(Pixel* out) {
 
 static bool pixelsEqual(const Pixel* a, const Pixel* b) {
     return memcmp(a, b, fb.numSlices() * fb.numLeds() * sizeof(Pixel)) == 0;
+}
+
+// ---------- Matrix ----------
+
+void test_matrix_name() {
+    MatrixPattern matrix;
+    TEST_ASSERT_EQUAL_STRING("matrix", matrix.name());
+}
+
+void test_matrix_exposes_single_speed_param() {
+    MatrixPattern matrix;
+    TEST_ASSERT_EQUAL_UINT8(1, matrix.paramCount());
+    Param& speed = matrix.param(0);
+    TEST_ASSERT_EQUAL_STRING("speed", speed.key);
+    TEST_ASSERT_EQUAL_INT32(12, speed.defaultVal);
+    TEST_ASSERT_EQUAL_INT32(1, speed.min);
+    TEST_ASSERT_EQUAL_INT32(48, speed.max);
+}
+
+void test_matrix_renders_neon_green_drop() {
+    TEST_ASSERT_TRUE(fb.resize(36, 18));
+    cfg.numSlices = 36;
+    cfg.numLeds = 18;
+    MatrixPattern matrix;
+    matrix.generate(fb, cfg, 0);
+    fb.swap();
+
+    int litCount = 0;
+    bool foundGreenWhiteHead = false;
+    for (uint16_t s = 0; s < fb.numSlices(); s++) {
+        const Pixel* slice = fb.getSlice(s);
+        for (uint16_t l = 0; l < fb.numLeds(); l++) {
+            if (slice[l].brightness == 0) continue;
+            litCount++;
+            TEST_ASSERT_GREATER_OR_EQUAL(slice[l].red, slice[l].green);
+            TEST_ASSERT_GREATER_OR_EQUAL(slice[l].blue, slice[l].green);
+            if (slice[l].red > 0 && slice[l].blue > 0)
+                foundGreenWhiteHead = true;
+        }
+    }
+    TEST_ASSERT_GREATER_THAN(0, litCount);
+    TEST_ASSERT_TRUE_MESSAGE(foundGreenWhiteHead, "Matrix head should glow brighter than the trail");
+}
+
+void test_matrix_animates_over_time() {
+    Pixel at0[36 * 10];
+    Pixel at1s[36 * 10];
+
+    MatrixPattern matrix;
+    matrix.generate(fb, cfg, 0);
+    fb.swap();
+    capturePixels(at0);
+
+    matrix.generate(fb, cfg, 1000);
+    fb.swap();
+    capturePixels(at1s);
+
+    TEST_ASSERT_FALSE_MESSAGE(pixelsEqual(at0, at1s), "Matrix rain should move over time");
+}
+
+void test_matrix_speed_is_pixels_per_second() {
+    Pixel speed8At125ms[36 * 10];
+    Pixel speed4At250ms[36 * 10];
+
+    MatrixPattern matrix;
+    setMatrixSpeed(matrix, 8);
+    matrix.generate(fb, cfg, 125);
+    fb.swap();
+    capturePixels(speed8At125ms);
+
+    setMatrixSpeed(matrix, 4);
+    matrix.generate(fb, cfg, 250);
+    fb.swap();
+    capturePixels(speed4At250ms);
+
+    TEST_ASSERT_TRUE_MESSAGE(pixelsEqual(speed8At125ms, speed4At250ms),
+                             "Equal pixel progress should render the same frame");
+}
+
+void test_matrix_avoids_single_global_cycle() {
+    Pixel at0[36 * 10];
+    Pixel later[36 * 10];
+
+    MatrixPattern matrix;
+    matrix.generate(fb, cfg, 0);
+    fb.swap();
+    capturePixels(at0);
+
+    matrix.generate(fb, cfg, 204000);
+    fb.swap();
+    capturePixels(later);
+
+    TEST_ASSERT_FALSE_MESSAGE(pixelsEqual(at0, later),
+                              "Matrix rain should not visibly repeat on one shared global cycle");
 }
 
 void test_low_scale_odd_text_dodges_center_gap() {
@@ -702,6 +798,13 @@ int main() {
     RUN_TEST(test_scanner_only_one_led_lit);
     RUN_TEST(test_scanner_all_slices_same);
     RUN_TEST(test_scanner_name);
+
+    RUN_TEST(test_matrix_name);
+    RUN_TEST(test_matrix_exposes_single_speed_param);
+    RUN_TEST(test_matrix_renders_neon_green_drop);
+    RUN_TEST(test_matrix_animates_over_time);
+    RUN_TEST(test_matrix_speed_is_pixels_per_second);
+    RUN_TEST(test_matrix_avoids_single_global_cycle);
 
     RUN_TEST(test_image_without_upload_waits_for_caller_swap);
     RUN_TEST(test_image_with_upload_waits_for_caller_swap);

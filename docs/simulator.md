@@ -71,7 +71,7 @@ The SPI transfer time formula matches the real HD107S wire protocol: `(4 + numLe
 
 ## How to extend
 
-**New pattern**: Add it in `src/patterns/`, register in `src/patterns/registry.cpp`. To give it pattern-specific params, declare them in the constructor mirroring `TextPattern`. The shared JS renderer picks them up automatically.
+**New pattern**: Add it in `src/patterns/`, register in `src/patterns/registry.cpp`. To give it pattern-specific params, declare them in the constructor mirroring `TextPattern`. The simulator build links every `src/patterns/*.cpp`, and the shared JS renderer picks params up automatically.
 
 **New timing distortion or sim-only setting**: Add an entry to `g_sim_settings[]` in `sim/settings_registry_sim.cpp` with a getter/setter wired to `TimingState` or renderer state. Apply the effect in `timing_frame()` or the renderer. The settings UI picks it up automatically — no HTML changes needed.
 
