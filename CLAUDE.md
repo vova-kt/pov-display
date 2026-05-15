@@ -87,3 +87,4 @@ C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates 
 - `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, fisheye distortion, power budget & runtime estimates, perception rendering, polar distortion correction.
 - `docs/simulator.md` — WASM simulator architecture, timing model, how to extend.
 - `docs/settings.md` — settings registry design, Param semantics, scope filter, UI structure.
+- `docs/animation-proposals.md` — short candidate animation ideas for text, image, and shared effects.

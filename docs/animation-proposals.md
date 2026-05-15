@@ -1,0 +1,30 @@
+# Animation Proposals
+
+- **Pulse Ring** (both) - Brightness expands outward from the hub in soft repeating waves.
+- **Comet Tail** (both) - The image or text leaves a fading angular trail as it moves.
+- **Radial Shimmer** (both) - Thin bands sparkle along the blade radius without changing the silhouette.
+- **Breathing Scale** (both) - Content gently grows and shrinks around the center point.
+- **Orbit Drift** (both) - Content slowly precesses around the display while keeping its internal shape.
+- **Chromatic Sweep** (both) - A color band passes through the content like a scanning gel.
+- **Sparkle Reveal** (both) - Random pixels light up first, then settle into the full image or text.
+- **Scanline Reveal** (both) - A narrow radial or angular wipe uncovers the content.
+- **Prism Split** (both) - Color channels separate slightly, then snap back together.
+- **Ripple Lens** (both) - Concentric distortion waves bend the content as if seen through water.
+- **Echo Frames** (both) - Several dim copies appear behind the current frame at older phases.
+- **Beat Flash** (both) - Brightness punches on a timed beat, then decays quickly.
+- **Soft Flicker** (both) - Subtle intensity noise makes static content feel alive.
+- **Kaleido Spin** (image) - Mirrored angular slices rotate against each other for mandala-like motion.
+- **Posterize Pulse** (image) - Image colors step between fewer levels during a rhythmic pulse.
+- **Mosaic Drift** (image) - Blocky radial cells offset slightly and then realign.
+- **Edge Glow** (image) - Bright image edges flare while flatter areas stay calm.
+- **Negative Blink** (image) - The image briefly flips to an inverted color treatment.
+- **Radial Melt** (image) - Pixels smear outward from the center and recover.
+- **Wave Warp** (image) - The whole image bends through a slow sinusoidal radial wave.
+- **Type-On** (text) - Characters appear one at a time, then hold as a complete phrase.
+- **Word Pop** (text) - Each word scales up briefly as it becomes active.
+- **Letter Drift** (text) - Individual characters slide by tiny offsets before locking into alignment.
+- **Neon Flicker** (text) - Text blinks like a sign warming up, then stabilizes.
+- **Marquee Bounce** (text) - Scrolling text eases into the edge and rebounds slightly.
+- **Glitch Slice** (text) - Short horizontal or angular slices misalign for a few frames.
+- **Underline Sweep** (text) - A bright line races under the text before the letters brighten.
+- **Strobe Cut** (text) - Text alternates between clean full rendering and short blackout cuts.
