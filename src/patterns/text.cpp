@@ -216,12 +216,19 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
     } else {
         uint16_t visLen = textLen;
 
+        uint16_t visOffset = 0;
+
         if (mode == 1) {
-            // Spell: reveal characters one at a time
+            // Spell: one character at a time
             uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
             uint16_t cycle = textLen + 2;
             uint16_t step = (uint16_t)((timeMs / delayMs) % cycle);
-            visLen = step < textLen ? step + 1 : textLen;
+            if (step < textLen) {
+                visOffset = step;
+                visLen = 1;
+            } else {
+                visLen = 0;
+            }
         } else if (mode == 2) {
             // Word by word
             uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
@@ -232,13 +239,21 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
             visLen = charsForWords(text, textLen, visWords);
         }
 
+        if (visLen == 0) {
+            transform_.apply(canvas_, fb, cfg);
+            return;
+        }
+
         // Static buffer for visible substring
         char visBuf[64];
-        if (visLen < textLen) {
-            memcpy(visBuf, text, visLen);
+        const char* visText;
+        if (visLen < textLen || visOffset > 0) {
+            memcpy(visBuf, text + visOffset, visLen);
             visBuf[visLen] = '\0';
+            visText = visBuf;
+        } else {
+            visText = text;
         }
-        const char* visText = visLen < textLen ? visBuf : text;
 
         const char* lines[2];
         uint16_t lens[2];
