@@ -17,6 +17,11 @@ static void setText(TextPattern& tp, const char* s) {
 }
 static void setMode(TextPattern& tp, int v) { tp.findParam("mode")->value = v; }
 static void setDelay(TextPattern& tp, int v) { tp.findParam("delayMs")->value = v; }
+static void resizeFramebuffer(uint16_t slices, uint16_t leds) {
+    TEST_ASSERT_TRUE(fb.resize(slices, leds));
+    cfg.numSlices = slices;
+    cfg.numLeds = leds;
+}
 
 void setUp() {
     fb = Framebuffer();
@@ -324,6 +329,36 @@ static int countLitPixels(Framebuffer& fb) {
     return count;
 }
 
+static int countLitOnLed(Framebuffer& fb, uint16_t led) {
+    int count = 0;
+    for (uint16_t s = 0; s < fb.numSlices(); s++) {
+        if (fb.getSlice(s)[led].brightness != 0) count++;
+    }
+    return count;
+}
+
+static void capturePixels(Pixel* out) {
+    for (uint16_t s = 0; s < fb.numSlices(); s++) {
+        memcpy(out + s * fb.numLeds(), fb.getSlice(s), fb.numLeds() * sizeof(Pixel));
+    }
+}
+
+static bool pixelsEqual(const Pixel* a, const Pixel* b) {
+    return memcmp(a, b, fb.numSlices() * fb.numLeds() * sizeof(Pixel)) == 0;
+}
+
+void test_low_scale_odd_text_dodges_center_gap() {
+    resizeFramebuffer(72, 36);
+
+    TextPattern text;
+    setText(text, "IIIII");
+    text.generate(fb, cfg, 0);
+    fb.swap();
+
+    TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
+    TEST_ASSERT_EQUAL_INT(0, countLitOnLed(fb, 0));
+}
+
 void test_text_renders_cyrillic_pixels() {
     TextPattern text;
     setText(text, "Ж");
@@ -431,22 +466,50 @@ void test_spell_loops_after_full_reveal() {
 
 // ---------- Text Word Mode ----------
 
-void test_word_reveals_progressively() {
+void test_word_shows_single_word_at_each_step() {
+    Pixel wordStep0[36 * 10];
+    Pixel wordStep1[36 * 10];
+    Pixel staticHi[36 * 10];
+    Pixel staticWorld[36 * 10];
+
+    TextPattern wordMode;
+    setMode(wordMode, 2);
+    setDelay(wordMode, 100);
+    setText(wordMode, "HI  WORLD");
+
+    wordMode.generate(fb, cfg, 0);
+    fb.swap();
+    capturePixels(wordStep0);
+
+    wordMode.generate(fb, cfg, 100);
+    fb.swap();
+    capturePixels(wordStep1);
+
+    TextPattern ref;
+    setText(ref, "HI");
+    ref.generate(fb, cfg, 0);
+    fb.swap();
+    capturePixels(staticHi);
+
+    setText(ref, "WORLD");
+    ref.generate(fb, cfg, 0);
+    fb.swap();
+    capturePixels(staticWorld);
+
+    TEST_ASSERT_TRUE(pixelsEqual(wordStep0, staticHi));
+    TEST_ASSERT_TRUE(pixelsEqual(wordStep1, staticWorld));
+}
+
+void test_word_mode_blanks_between_cycles() {
     TextPattern text;
     setMode(text, 2);
     setDelay(text, 100);
     setText(text, "HI WORLD");
 
-    text.generate(fb, cfg, 0);
+    text.generate(fb, cfg, 200);
     fb.swap();
-    int lit0 = countLitPixels(fb);
 
-    text.generate(fb, cfg, 100);
-    fb.swap();
-    int lit100 = countLitPixels(fb);
-
-    TEST_ASSERT_GREATER_THAN(0, lit0);
-    TEST_ASSERT_GREATER_THAN(lit0, lit100);
+    TEST_ASSERT_EQUAL_INT(0, countLitPixels(fb));
 }
 
 // ---------- Text Marquee Mode ----------
@@ -539,6 +602,7 @@ int main() {
     RUN_TEST(test_text_uses_config_color);
     RUN_TEST(test_text_centered_on_disc);
     RUN_TEST(test_text_name);
+    RUN_TEST(test_low_scale_odd_text_dodges_center_gap);
     RUN_TEST(test_text_renders_cyrillic_pixels);
     RUN_TEST(test_text_cache_updates_after_text_change);
     RUN_TEST(test_spell_treats_cyrillic_as_one_character);
@@ -546,7 +610,8 @@ int main() {
 
     RUN_TEST(test_spell_produces_different_frames);
     RUN_TEST(test_spell_loops_after_full_reveal);
-    RUN_TEST(test_word_reveals_progressively);
+    RUN_TEST(test_word_shows_single_word_at_each_step);
+    RUN_TEST(test_word_mode_blanks_between_cycles);
     RUN_TEST(test_marquee_changes_over_time);
     RUN_TEST(test_marquee_renders_pixels);
     RUN_TEST(test_static_mode_ignores_time);

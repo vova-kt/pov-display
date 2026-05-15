@@ -5,6 +5,12 @@ static const ParamOption kTextModeOptions[] = {
     {"Static", 0}, {"Spell", 1}, {"Word", 2}, {"Marquee", 3}
 };
 
+// Low-scale odd-length words can put a real glyph over the no-LED center gap.
+// Keep this as a named, local layout hack so it is easy to remove when the
+// physical pixel count or font strategy changes.
+static constexpr uint8_t kCenterDodgeMaxScale = 2;
+static constexpr uint8_t kCenterDodgeMinGlyphs = 3;
+
 TextPattern::TextPattern() {
     strcpy(textBuf_, "FUSION");
     storage_[0] = {
@@ -98,21 +104,58 @@ static void renderLine(Canvas& canvas, const TextFontRunView& run,
 }
 
 static uint8_t countWords(const TextFontRunView& run) {
-    if (run.count == 0) return 0;
-    uint8_t words = 1;
-    for (uint8_t i = 0; i < run.count; i++)
-        if (run.glyphs[i].isSpace && i + 1 < run.count) words++;
+    uint8_t words = 0;
+    bool inWord = false;
+    for (uint8_t i = 0; i < run.count; i++) {
+        if (run.glyphs[i].isSpace) {
+            inWord = false;
+        } else if (!inWord) {
+            words++;
+            inWord = true;
+        }
+    }
     return words;
 }
 
-static uint8_t glyphsForWords(const TextFontRunView& run, uint8_t wordCount) {
-    if (wordCount == 0) return 0;
-    uint8_t w = 0;
-    for (uint8_t i = 0; i < run.count; i++) {
-        if (i == 0 || run.glyphs[i - 1].isSpace) w++;
-        if (w > wordCount) return i - 1;
+static TextFontRunView wordRunAt(const TextFontRunView& run, uint8_t wordIndex) {
+    uint8_t currentWord = 0;
+    uint8_t i = 0;
+
+    while (i < run.count) {
+        while (i < run.count && run.glyphs[i].isSpace) i++;
+        if (i >= run.count) break;
+
+        uint8_t start = i;
+        while (i < run.count && !run.glyphs[i].isSpace) i++;
+
+        if (currentWord == wordIndex)
+            return textFontRunView(run.glyphs + start, i - start);
+        currentWord++;
     }
-    return run.count;
+
+    return {nullptr, 0, 0};
+}
+
+static int16_t centerDodgeOffset(uint16_t cw, uint16_t totalW, int16_t startX,
+                                 const TextFontRunView& run, uint8_t scale) {
+    if (scale > kCenterDodgeMaxScale) return 0;
+    if (run.count < kCenterDodgeMinGlyphs) return 0;
+    if ((run.count & 1) == 0) return 0;
+
+    const TextFontRunGlyph& centerGlyph = run.glyphs[run.count / 2];
+    if (centerGlyph.isSpace) return 0;
+
+    uint16_t nudge = ((uint16_t)centerGlyph.glyph.width + TEXT_FONT_METRICS.gap) * scale / 2;
+    if (nudge == 0) return 0;
+
+    uint16_t rightEdge = startX > 0 ? (uint16_t)startX + totalW : totalW;
+    uint16_t rightRoom = rightEdge < cw ? cw - rightEdge : 0;
+    if (rightRoom >= nudge) return (int16_t)nudge;
+
+    uint16_t leftRoom = startX > 0 ? (uint16_t)startX : 0;
+    if (leftRoom >= nudge) return -(int16_t)nudge;
+
+    return 0;
 }
 
 static void computeScale(uint16_t cw, uint16_t ch, const TextFontRunView& run,
@@ -176,6 +219,7 @@ static void renderCentered(Canvas& canvas, const TextFontRunView lines[2],
     for (uint8_t line = 0; line < numLines; line++) {
         uint16_t totalW = lines[line].width * scale;
         int16_t startX = totalW < cw ? (int16_t)((cw - totalW) / 2) : 0;
+        startX += centerDodgeOffset(cw, totalW, startX, lines[line], scale);
         uint16_t y = startY + line * (lineH + lineGap);
 
         renderLine(canvas, lines[line], startX, y, scale,
@@ -233,13 +277,13 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
             else
                 visible = {nullptr, 0, 0};
         } else if (mode == 2) {
-            // Word by word
+            // Word: one non-space run at a time, with a short blank pause.
             uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
             uint8_t totalWords = countWords(fullRun);
             uint16_t cycle = totalWords + 2;
             uint16_t step = (uint16_t)((timeMs / delayMs) % cycle);
-            uint8_t visWords = step < totalWords ? (uint8_t)step + 1 : totalWords;
-            visible = textFontRunView(textRun_.glyphs, glyphsForWords(fullRun, visWords));
+            visible = step < totalWords ? wordRunAt(fullRun, (uint8_t)step)
+                                        : TextFontRunView{nullptr, 0, 0};
         }
 
         if (visible.count == 0) {

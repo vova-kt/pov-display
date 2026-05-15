@@ -16,7 +16,9 @@ Every configurable value — whether a top-level Config field, a pattern-specifi
 - **Text** — backed by a fixed `char[]` buffer in the owning object; rendered as a text input.
 - **Enum** — validated against a `ParamOption[]` list; rendered as a select.
 
-Text params are stored as UTF-8 bytes rather than converted to a wide-character buffer. `TextPattern` keeps a decoded run cache and refreshes it only when the text bytes change, using a cheap bounded compare each frame because params are exposed as raw buffers. The compact bitmap tables live in `src/fonts/text_font*.h`, split by script so adding another simple alphabet does not touch pattern modes. The font layer owns UTF-8 iteration, run measurement, and glyph width metadata.
+Text params are stored as UTF-8 bytes rather than converted to a wide-character buffer. `TextPattern` keeps a decoded run cache and refreshes it only when the text bytes change, using a cheap bounded compare each frame because params are exposed as raw buffers. The compact bitmap tables live in `src/fonts/text_font*.h`, split by script so adding another simple alphabet does not touch pattern modes. The font layer owns UTF-8 iteration, run measurement, and glyph width metadata. Text animation modes slice that decoded run in `src/patterns/text.cpp`; word mode selects one non-space run per step instead of accumulating prefixes, so each word can be centered and scaled on its own.
+
+Centered text has one deliberate low-scale escape hatch in `src/patterns/text.cpp`: short odd-length lines can be nudged sideways so the physical no-LED center gap falls between glyphs instead of through the middle glyph. This is a removable layout workaround for the current pixel count, not a new transform strategy; the polar sampling tradeoff is covered in `docs/concepts/polar-distortion-correction.md`.
 
 ## Scope filter
 
