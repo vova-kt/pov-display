@@ -1,11 +1,13 @@
 #include "animation.h"
+#include "animations/fisheye_scale.h"
 #include "animations/rotation.h"
 #include "animations/scale.h"
 
 static RotationAnimation s_rotation;
 static ScaleAnimation s_scale;
+static FisheyeScaleAnimation s_fisheyeScale;
 
-Animation* const g_animations[] = { &s_rotation, &s_scale };
+Animation* const g_animations[] = { &s_rotation, &s_scale, &s_fisheyeScale };
 const uint8_t G_NUM_ANIMATIONS = sizeof(g_animations) / sizeof(g_animations[0]);
 int8_t g_animationStack[G_NUM_ANIMATION_SLOTS] = {0, -1};
 

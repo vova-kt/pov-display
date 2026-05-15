@@ -39,7 +39,7 @@ python3 tools/check_embedded_js.py  # verify settings_js.h and image_processor_j
 ```
 
 Tests run natively (no ESP32 needed). ESP32 APIs are stubbed in `test/stubs/`.
-Six suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, text/image modes), `test_transform` (Canvas, PolarTransform, IdentityTransform), `test_output_scale` (radial balance LUT, overcompensation guard), `test_animations` (animation registry, stack order, rotation, scale, applyAnimations, sim phase persistence), and `test_settings_registry` (JSON round-trip, animation stack, scope filter, NVS persist, range/enum validation).
+Six suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, text/image modes), `test_transform` (Canvas, PolarTransform, IdentityTransform), `test_output_scale` (radial balance LUT, overcompensation guard), `test_animations` (animation registry, stack order, rotation, scale, fisheye scale, applyAnimations, sim phase persistence), and `test_settings_registry` (JSON round-trip, animation stack, scope filter, NVS persist, range/enum validation).
 
 ## Config defaults
 
@@ -61,7 +61,7 @@ One-time setup: `git config core.hooksPath .githooks`
 - **Settings registry** (`src/settings_registry.h/cpp`) — all user-facing settings in one place, emitting a sectioned JSON model that drives both UIs. Scope flags (`Both`/`McuOnly`/`SimOnly`) control per-side visibility. See `docs/settings.md`.
 - **Pattern params** — `Pattern` base class supports self-describing `Param` arrays (same as animations). TextPattern's text, mode, fixed delay, and margin params live on the pattern instance, not in Config. NVS keys use prefix `p_<patternKey>_<paramKey>`.
 - **Text rendering** — Text params are UTF-8 byte buffers. `src/fonts/text_font*.h` owns UTF-8 iteration, fixed-buffer run decoding, measurement, glyph lookup, and width metadata for compact script-specific tables; `TextPattern` caches the decoded run and refreshes it only when the text bytes change. Word mode selects one decoded word per step rather than accumulating prefixes. Text layout uses a Cartesian margin measured in LED pitches; centered modes use fixed-point fit scaling, and marquee treats the margin as its clipped scroll viewport. Low-scale odd-length centered text has a local, removable center-gap dodge in `src/patterns/text.cpp`.
-- **Animation system** (`src/animation.h`) — polymorphic `Animation` base class with self-describing `Param` parameters. Global registry and fixed two-slot stack live in `src/animation.cpp`. Animations run in stack order after pattern generation but before `fb.swap()`; they can mutate the back framebuffer (scale) or emit `AnimationState` (rotation `sliceOffset`). The simulator persists the last rotation phase across render-only frames so reused framebuffers do not draw a static duplicate. Adding a new animation: one class in `src/animations/`, one registry line — frame loops never change.
+- **Animation system** (`src/animation.h`) — polymorphic `Animation` base class with self-describing `Param` parameters. Global registry and fixed two-slot stack live in `src/animation.cpp`. Animations run in stack order after pattern generation but before `fb.swap()`; they can mutate the back framebuffer (scale, fisheye scale) or emit `AnimationState` (rotation `sliceOffset`). The simulator persists the last rotation phase across render-only frames so reused framebuffers do not draw a static duplicate. Adding a new animation: one class in `src/animations/`, one registry line — frame loops never change.
 - **Shared UI renderer** — `sim/js/settings_ui.js` builds the two-tab sectioned settings form (Picture / Hardware) from the registry JSON. Pattern and animation params render next to their owning selectors. Embedded in the MCU UI via `/js/settings.js`. Both UIs share the same renderer code.
 
 - **Arm layout**: 2-arm "golden star". LED strip placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU mounts behind the blade. Hub radius = 0.
@@ -84,6 +84,6 @@ C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates 
 - `docs/architecture.md` — single-core scheduling rationale, timer vs loop, double-buffer design, timing budget.
 - `docs/led-strip-and-driver.md` — HD107S wire protocol, SPI DMA data flow, why 20 MHz, end frame sizing.
 - `docs/wiring-and-parts.md` — pin map, parts list, power topology (3S + buck), slip ring channels, and why each part was chosen.
-- `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, power budget & runtime estimates, perception rendering, polar distortion correction.
+- `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, fisheye distortion, power budget & runtime estimates, perception rendering, polar distortion correction.
 - `docs/simulator.md` — WASM simulator architecture, timing model, how to extend.
 - `docs/settings.md` — settings registry design, Param semantics, scope filter, UI structure.

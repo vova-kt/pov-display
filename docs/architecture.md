@@ -53,7 +53,7 @@ Scope flags (`Both`, `McuOnly`, `SimOnly`) control which settings appear in each
 
 ## Animation ordering
 
-Animations are applied *after* pattern generation but *before* `fb.swap()`. This lets them modify the back buffer or produce metadata (like `sliceOffset` for rotation) without interfering with pattern logic. The frame loops in `main.cpp` and `sim_bridge.cpp` call `applyAnimations()` generically — adding a new animation never requires changing the loop.
+Animations are applied *after* pattern generation but *before* `fb.swap()`. This lets them modify the back buffer or produce metadata (like `sliceOffset` for rotation) without interfering with pattern logic. Framebuffer animations such as scale and fisheye scale remap existing polar samples in place, keeping the cost bounded by the framebuffer size and avoiding per-pattern zoom state. The frame loops in `main.cpp` and `sim_bridge.cpp` call `applyAnimations()` generically — adding a new animation never requires changing the loop.
 
 Rotation direction is modeled as an animation param, not a motor setting: it changes the rendered image phase while leaving physical spin direction alone.
 

@@ -30,6 +30,12 @@ static JsonObject findSetting(JsonDocument& doc, const char* key) {
     return JsonObject();
 }
 
+static Animation* animationByKey(const char* key) {
+    for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++)
+        if (strcmp(g_animations[i]->key(), key) == 0) return g_animations[i];
+    return nullptr;
+}
+
 void setUp() {
     cfg = Config();
     settings_registry::init(&cfg);
@@ -203,6 +209,20 @@ void test_tojson_includes_scale_animation() {
     TEST_FAIL_MESSAGE("scale animation not found");
 }
 
+void test_tojson_includes_fisheye_scale_animation() {
+    JsonDocument doc;
+    settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
+    for (JsonObject a : doc["animations"].as<JsonArray>()) {
+        if (strcmp(a["key"].as<const char*>(), "fisheye") == 0) {
+            TEST_ASSERT_EQUAL_STRING("Fisheye Scale", a["name"].as<const char*>());
+            TEST_ASSERT_TRUE(a["params"].is<JsonArray>());
+            TEST_ASSERT_EQUAL_INT(2, a["params"].as<JsonArray>().size());
+            return;
+        }
+    }
+    TEST_FAIL_MESSAGE("fisheye animation not found");
+}
+
 // ── applyJson settings ────────────────────────────────────────────────────
 
 void test_apply_sets_brightness() {
@@ -363,6 +383,18 @@ void test_apply_scale_animation_param() {
     TEST_ASSERT_EQUAL_INT32(20, scale->findParam("factor")->value);
 }
 
+void test_apply_fisheye_scale_animation_param() {
+    JsonDocument doc;
+    doc["animations"]["fisheye"]["duration"] = 2000;
+    doc["animations"]["fisheye"]["factor"] = 30;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+
+    Animation* fisheye = animationByKey("fisheye");
+    TEST_ASSERT_NOT_NULL(fisheye);
+    TEST_ASSERT_EQUAL_INT32(2000, fisheye->findParam("duration")->value);
+    TEST_ASSERT_EQUAL_INT32(30, fisheye->findParam("factor")->value);
+}
+
 void test_apply_animation_stack_order() {
     JsonDocument doc;
     doc["animationStack"][0] = "scale";
@@ -447,6 +479,7 @@ int main() {
     RUN_TEST(test_tojson_includes_animations);
     RUN_TEST(test_tojson_includes_animation_stack);
     RUN_TEST(test_tojson_includes_scale_animation);
+    RUN_TEST(test_tojson_includes_fisheye_scale_animation);
 
     RUN_TEST(test_apply_sets_brightness);
     RUN_TEST(test_apply_clamps_brightness_to_max);
@@ -465,6 +498,7 @@ int main() {
     RUN_TEST(test_apply_text_truncates_long_string);
     RUN_TEST(test_apply_animation_param);
     RUN_TEST(test_apply_scale_animation_param);
+    RUN_TEST(test_apply_fisheye_scale_animation_param);
     RUN_TEST(test_apply_animation_stack_order);
     RUN_TEST(test_apply_animation_stack_rejects_unknown);
 

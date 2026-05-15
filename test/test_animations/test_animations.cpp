@@ -2,6 +2,7 @@
 #include <cstring>
 #include "framebuffer.h"
 #include "animation.h"
+#include "animations/fisheye_scale.h"
 #include "animations/rotation.h"
 #include "animations/scale.h"
 #include "../../sim/animation_phase.h"
@@ -221,6 +222,83 @@ void test_scale_expands_inner_leds_at_peak() {
     TEST_ASSERT_EQUAL_UINT8(3, slice[5].red);
 }
 
+// ---------- FisheyeScaleAnimation metadata ----------
+
+void test_fisheye_scale_name() {
+    FisheyeScaleAnimation scale;
+    TEST_ASSERT_EQUAL_STRING("Fisheye Scale", scale.name());
+}
+
+void test_fisheye_scale_key() {
+    FisheyeScaleAnimation scale;
+    TEST_ASSERT_EQUAL_STRING("fisheye", scale.key());
+}
+
+void test_fisheye_scale_has_params() {
+    FisheyeScaleAnimation scale;
+    TEST_ASSERT_EQUAL_UINT8(2, scale.paramCount());
+    TEST_ASSERT_EQUAL_STRING("duration", scale.param(0).key);
+    TEST_ASSERT_EQUAL_STRING("Duration", scale.param(0).label);
+    TEST_ASSERT_EQUAL_STRING("factor", scale.param(1).key);
+    TEST_ASSERT_EQUAL_STRING("Scale factor", scale.param(1).label);
+}
+
+void test_fisheye_scale_duration_presets() {
+    FisheyeScaleAnimation scale;
+    const Param& p = scale.param(0);
+    TEST_ASSERT_EQUAL_UINT8(4, p.optionCount);
+    TEST_ASSERT_EQUAL_STRING("200 ms", p.options[0].label);
+    TEST_ASSERT_EQUAL_INT32(200, p.options[0].value);
+    TEST_ASSERT_EQUAL_STRING("2000 ms", p.options[3].label);
+    TEST_ASSERT_EQUAL_INT32(2000, p.options[3].value);
+}
+
+void test_fisheye_scale_factor_presets() {
+    FisheyeScaleAnimation scale;
+    const Param& p = scale.param(1);
+    TEST_ASSERT_EQUAL_UINT8(4, p.optionCount);
+    TEST_ASSERT_EQUAL_STRING("1.2", p.options[0].label);
+    TEST_ASSERT_EQUAL_INT32(12, p.options[0].value);
+    TEST_ASSERT_EQUAL_STRING("3.0", p.options[3].label);
+    TEST_ASSERT_EQUAL_INT32(30, p.options[3].value);
+}
+
+// ---------- FisheyeScaleAnimation::apply ----------
+
+void test_fisheye_scale_noop_at_cycle_start() {
+    FisheyeScaleAnimation scale;
+    scale.param(0).value = 1000;
+    scale.param(1).value = 30;
+    for (uint16_t led = 0; led < fb.numLeds(); led++)
+        fb.setPixel(0, led, led + 1, 0, 0, 31);
+
+    AnimationState state;
+    scale.apply(state, fb, 0);
+
+    Pixel* slice = fb.backSlice(0);
+    TEST_ASSERT_EQUAL_UINT8(1, slice[0].red);
+    TEST_ASSERT_EQUAL_UINT8(6, slice[5].red);
+    TEST_ASSERT_EQUAL_UINT8(10, slice[9].red);
+}
+
+void test_fisheye_scale_expands_center_and_anchors_edge() {
+    FisheyeScaleAnimation scale;
+    scale.param(0).value = 1000;
+    scale.param(1).value = 30;
+    for (uint16_t led = 0; led < fb.numLeds(); led++)
+        fb.setPixel(0, led, led + 1, 0, 0, 31);
+
+    AnimationState state;
+    scale.apply(state, fb, 500);
+
+    Pixel* slice = fb.backSlice(0);
+    TEST_ASSERT_EQUAL_UINT8(1, slice[0].red);
+    TEST_ASSERT_EQUAL_UINT8(1, slice[1].red);
+    TEST_ASSERT_EQUAL_UINT8(2, slice[2].red);
+    TEST_ASSERT_EQUAL_UINT8(5, slice[5].red);
+    TEST_ASSERT_EQUAL_UINT8(10, slice[9].red);
+}
+
 // ---------- Animation base class ----------
 
 void test_find_param_exists() {
@@ -256,6 +334,10 @@ void test_registry_has_rotation() {
 
 void test_registry_has_scale() {
     TEST_ASSERT_NOT_NULL(animationByKey("scale"));
+}
+
+void test_registry_has_fisheye_scale() {
+    TEST_ASSERT_NOT_NULL(animationByKey("fisheye"));
 }
 
 // ---------- Animation stack ----------
@@ -397,12 +479,21 @@ int main() {
     RUN_TEST(test_scale_noop_at_cycle_start);
     RUN_TEST(test_scale_expands_inner_leds_at_peak);
 
+    RUN_TEST(test_fisheye_scale_name);
+    RUN_TEST(test_fisheye_scale_key);
+    RUN_TEST(test_fisheye_scale_has_params);
+    RUN_TEST(test_fisheye_scale_duration_presets);
+    RUN_TEST(test_fisheye_scale_factor_presets);
+    RUN_TEST(test_fisheye_scale_noop_at_cycle_start);
+    RUN_TEST(test_fisheye_scale_expands_center_and_anchors_edge);
+
     RUN_TEST(test_find_param_exists);
     RUN_TEST(test_find_param_missing);
     RUN_TEST(test_reset_defaults);
 
     RUN_TEST(test_registry_has_rotation);
     RUN_TEST(test_registry_has_scale);
+    RUN_TEST(test_registry_has_fisheye_scale);
 
     RUN_TEST(test_animation_stack_defaults_to_rotation_first);
     RUN_TEST(test_set_animation_slot_changes_order);
