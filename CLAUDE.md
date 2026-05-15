@@ -60,6 +60,7 @@ One-time setup: `git config core.hooksPath .githooks`
 - **Config persists** to NVS via "Save to Flash" button.
 - **Settings registry** (`src/settings_registry.h/cpp`) — all user-facing settings in one place, emitting a JSON model that drives both UIs. Scope flags (`Both`/`McuOnly`/`SimOnly`) control per-side visibility. See `docs/settings.md`.
 - **Pattern params** — `Pattern` base class supports self-describing `Param` arrays (same as animations). TextPattern's text, mode, and delay params live on the pattern instance, not in Config. NVS keys use prefix `p_<patternKey>_<paramKey>`.
+- **Text rendering** — Text params are UTF-8 byte buffers. `TextPattern` decodes glyphs while drawing and reads compact 5x7 script-specific font tables from `src/fonts/` out of flash.
 - **Animation system** (`src/animation.h`) — polymorphic `Animation` base class with self-describing `Param` parameters. Global registry in `src/animation.cpp`. Animations produce an `AnimationState` (e.g. `sliceOffset` for rotation) applied after pattern generation but before `fb.swap()`. Adding a new animation: one class in `src/animations/`, one registry line — frame loops never change.
 - **Shared UI renderer** — `sim/js/settings_ui.js` builds the two-tab settings form (Picture / Hardware) from the registry JSON. Embedded in the MCU UI via `/js/settings.js`. Both UIs share the same renderer code.
 

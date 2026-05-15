@@ -48,8 +48,74 @@ void TextPattern::ensureCanvas(uint16_t numSlices, uint16_t numLeds) {
     lastLeds_    = numLeds;
 }
 
-static uint16_t lineBaseCols(uint16_t len) {
-    return len * (FONT_CHAR_WIDTH + 1) - 1;
+static uint32_t nextCodepoint(const char* text, uint16_t len, uint16_t& offset) {
+    uint8_t b0 = (uint8_t)text[offset++];
+    if (b0 < 0x80) return b0;
+
+    uint8_t extra = 0;
+    uint32_t codepoint = 0;
+    uint32_t minCodepoint = 0;
+
+    if ((b0 & 0xE0) == 0xC0) {
+        extra = 1;
+        codepoint = b0 & 0x1F;
+        minCodepoint = 0x80;
+    } else if ((b0 & 0xF0) == 0xE0) {
+        extra = 2;
+        codepoint = b0 & 0x0F;
+        minCodepoint = 0x800;
+    } else if ((b0 & 0xF8) == 0xF0) {
+        extra = 3;
+        codepoint = b0 & 0x07;
+        minCodepoint = 0x10000;
+    } else {
+        return '?';
+    }
+
+    if (offset + extra > len) return '?';
+
+    uint16_t pos = offset;
+    for (uint8_t i = 0; i < extra; i++) {
+        uint8_t b = (uint8_t)text[pos + i];
+        if ((b & 0xC0) != 0x80) return '?';
+        codepoint = (codepoint << 6) | (b & 0x3F);
+    }
+    offset = pos + extra;
+
+    if (codepoint < minCodepoint) return '?';
+    if (codepoint >= 0xD800 && codepoint <= 0xDFFF) return '?';
+    if (codepoint > 0x10FFFF) return '?';
+    return codepoint;
+}
+
+static uint16_t glyphCount(const char* text, uint16_t len) {
+    uint16_t count = 0;
+    uint16_t offset = 0;
+    while (offset < len) {
+        nextCodepoint(text, len, offset);
+        count++;
+    }
+    return count;
+}
+
+static uint16_t lineBaseCols(const char* text, uint16_t len) {
+    uint16_t glyphs = glyphCount(text, len);
+    return glyphs > 0 ? glyphs * (FONT_CHAR_WIDTH + 1) - 1 : 0;
+}
+
+static bool glyphByteRange(const char* text, uint16_t len, uint16_t glyphIndex,
+                           uint16_t& byteOffset, uint16_t& byteLen) {
+    uint16_t offset = 0;
+    for (uint16_t i = 0; offset < len; i++) {
+        uint16_t start = offset;
+        nextCodepoint(text, len, offset);
+        if (i == glyphIndex) {
+            byteOffset = start;
+            byteLen = offset - start;
+            return true;
+        }
+    }
+    return false;
 }
 
 static void renderLine(Canvas& canvas, const char* text, uint16_t len,
@@ -60,17 +126,19 @@ static void renderLine(Canvas& canvas, const char* text, uint16_t len,
     uint16_t charW = FONT_CHAR_WIDTH * scale;
     uint16_t gap   = scale;
     int16_t xPos   = startX;
+    uint16_t offset = 0;
 
-    for (uint16_t i = 0; i < len; i++) {
+    while (offset < len) {
         if (xPos >= (int16_t)cw) break;
+        uint32_t codepoint = nextCodepoint(text, len, offset);
         if (xPos + (int16_t)charW < 0) { xPos += charW + gap; continue; }
 
-        uint8_t c = (uint8_t)text[i];
-        if (c < FONT_FIRST_CHAR || c > 126) c = FONT_FIRST_CHAR;
-        uint8_t ci = c - FONT_FIRST_CHAR;
+        uint8_t glyph[FONT_CHAR_WIDTH];
+        if (!font5x7GlyphColumns(codepoint, glyph))
+            font5x7GlyphColumns('?', glyph);
 
         for (uint8_t col = 0; col < FONT_CHAR_WIDTH; col++) {
-            uint8_t colData = pgm_read_byte(&FONT_5X7[ci][col]);
+            uint8_t colData = glyph[col];
             for (uint8_t row = 0; row < FONT_CHAR_HEIGHT; row++) {
                 if (colData & (1 << row)) {
                     for (uint8_t dy = 0; dy < scale; dy++) {
@@ -116,7 +184,7 @@ static void computeScale(uint16_t cw, uint16_t ch, const char* text, uint16_t te
     lens[1]  = 0;
     numLines = 1;
 
-    uint16_t baseCols = lineBaseCols(textLen);
+    uint16_t baseCols = lineBaseCols(text, textLen);
     uint8_t scaleV = ch / FONT_CHAR_HEIGHT;
     uint8_t scaleH = baseCols <= cw ? cw / baseCols : 0;
     scale = scaleV < scaleH ? scaleV : scaleH;
@@ -131,8 +199,8 @@ static void computeScale(uint16_t cw, uint16_t ch, const char* text, uint16_t te
             uint16_t l2 = textLen - i - 1;
             if (l2 == 0) continue;
 
-            uint16_t bc1 = lineBaseCols(l1);
-            uint16_t bc2 = lineBaseCols(l2);
+            uint16_t bc1 = lineBaseCols(text, l1);
+            uint16_t bc2 = lineBaseCols(text + i + 1, l2);
             uint16_t maxBC = bc1 > bc2 ? bc1 : bc2;
 
             if (maxBC < bestMaxBC) {
@@ -161,15 +229,13 @@ static void renderCentered(Canvas& canvas, const char* lines[2], uint16_t lens[2
                             uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
     uint16_t cw = canvas.width();
     uint16_t ch = canvas.height();
-    uint16_t charW   = FONT_CHAR_WIDTH * scale;
-    uint16_t gap     = scale;
     uint16_t lineH   = FONT_CHAR_HEIGHT * scale;
     uint16_t lineGap = numLines > 1 ? scale : 0;
     uint16_t totalH  = numLines * lineH + (numLines - 1) * lineGap;
     uint16_t startY  = totalH < ch ? (ch - totalH) / 2 : 0;
 
     for (uint8_t line = 0; line < numLines; line++) {
-        uint16_t totalW = lens[line] * (charW + gap) - gap;
+        uint16_t totalW = lineBaseCols(lines[line], lens[line]) * scale;
         int16_t startX = totalW < cw ? (int16_t)((cw - totalW) / 2) : 0;
         uint16_t y = startY + line * (lineH + lineGap);
 
@@ -184,6 +250,8 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
     const char* text = textBuf_;
     uint16_t textLen = strlen(text);
     if (textLen == 0) return;
+    uint16_t textGlyphs = glyphCount(text, textLen);
+    if (textGlyphs == 0) return;
 
     int32_t mode      = storage_[1].value;
     int32_t delayMsIn = storage_[2].value;
@@ -200,7 +268,7 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
         if (scale < 1) scale = 1;
         uint16_t charW = FONT_CHAR_WIDTH * scale;
         uint16_t gap   = scale;
-        uint16_t textW = textLen * (charW + gap);
+        uint16_t textW = textGlyphs * (charW + gap);
         uint16_t scrollRange = textW + cw;
         uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
         uint16_t pixPerStep = scale;
@@ -221,11 +289,10 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
         if (mode == 1) {
             // Spell: one character at a time
             uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
-            uint16_t cycle = textLen + 2;
+            uint16_t cycle = textGlyphs + 2;
             uint16_t step = (uint16_t)((timeMs / delayMs) % cycle);
-            if (step < textLen) {
-                visOffset = step;
-                visLen = 1;
+            if (step < textGlyphs &&
+                glyphByteRange(text, textLen, step, visOffset, visLen)) {
             } else {
                 visLen = 0;
             }

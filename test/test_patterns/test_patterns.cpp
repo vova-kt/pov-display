@@ -323,6 +323,34 @@ static int countLitPixels(Framebuffer& fb) {
     return count;
 }
 
+void test_text_renders_cyrillic_pixels() {
+    TextPattern text;
+    setText(text, "Ж");
+    text.generate(fb, cfg, 0);
+    fb.swap();
+
+    TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
+}
+
+void test_spell_treats_cyrillic_as_one_character() {
+    TextPattern text;
+    setMode(text, 1);
+    setDelay(text, 100);
+    setText(text, "ЖA");
+
+    text.generate(fb, cfg, 0);
+    fb.swap();
+    TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
+
+    text.generate(fb, cfg, 100);
+    fb.swap();
+    TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
+
+    text.generate(fb, cfg, 200);
+    fb.swap();
+    TEST_ASSERT_EQUAL_INT(0, countLitPixels(fb));
+}
+
 void test_spell_produces_different_frames() {
     TextPattern text;
     setMode(text, 1);
@@ -468,6 +496,8 @@ int main() {
     RUN_TEST(test_text_uses_config_color);
     RUN_TEST(test_text_centered_on_disc);
     RUN_TEST(test_text_name);
+    RUN_TEST(test_text_renders_cyrillic_pixels);
+    RUN_TEST(test_spell_treats_cyrillic_as_one_character);
 
     RUN_TEST(test_spell_produces_different_frames);
     RUN_TEST(test_spell_loops_after_full_reveal);
