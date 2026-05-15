@@ -31,6 +31,7 @@ EXPORTED='[
   "_sim_get_spi_transfer_us","_sim_get_headroom_us",
   "_sim_get_frame_age","_sim_get_pattern_gen_ms",
   "_sim_get_hall_missed","_sim_get_has_overruns",
+  "_sim_load_image",
   "_malloc","_free"
 ]'
 EXPORTED=$(echo "$EXPORTED" | tr -d ' \n')
@@ -41,7 +42,7 @@ em++ -O2 \
   -s EXPORT_NAME='PovSimModule' \
   -s ALLOW_MEMORY_GROWTH=1 \
   -s "EXPORTED_FUNCTIONS=$EXPORTED" \
-  -s "EXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString']" \
+  -s "EXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString','HEAPU8']" \
   -s NO_EXIT_RUNTIME=1 \
   -s USE_WEBGL2=1 \
   -s FULL_ES3=1 \
@@ -57,6 +58,7 @@ em++ -O2 \
   ../src/patterns/rainbow.cpp \
   ../src/patterns/scanner.cpp \
   ../src/patterns/text.cpp \
+  ../src/patterns/image.cpp \
   timing.cpp \
   renderer.cpp \
   sim_bridge.cpp \

@@ -15,6 +15,7 @@
 #include "patterns/rainbow.h"
 #include "patterns/text.h"
 #include "patterns/scanner.h"
+#include "patterns/image.h"
 
 // --- Globals ---
 static Config         cfg;
@@ -29,14 +30,21 @@ static SolidPattern   solidPattern;
 static RainbowPattern rainbowPattern;
 static TextPattern    textPattern;
 static ScannerPattern scannerPattern;
+static ImagePattern   imagePattern;
 
-static constexpr uint8_t NUM_PATTERNS = 4;
-static Pattern* patterns[NUM_PATTERNS] = { &solidPattern, &rainbowPattern, &textPattern, &scannerPattern };
+static constexpr uint8_t NUM_PATTERNS = 5;
+static Pattern* patterns[NUM_PATTERNS] = { &solidPattern, &rainbowPattern, &textPattern, &scannerPattern, &imagePattern };
 
 static volatile bool configDirty = false;
 
 // --- Callbacks ---
 static void onConfigChanged() {
+    configDirty = true;
+}
+
+static void onImageUpload(const uint8_t* rgbData, uint16_t width, uint16_t height) {
+    imagePattern.loadImage(rgbData, width, height);
+    cfg.activePattern = 4;
     configDirty = true;
 }
 
@@ -162,6 +170,7 @@ void setup() {
     Serial.println("Starting web server...");
     webServer.init(&cfg, &hall, &fb, &motor);
     webServer.onConfigChange(onConfigChanged);
+    webServer.onImageUpload(onImageUpload);
     Serial.println("Web server started on port 80");
 
     xTaskCreate(patternTaskFunc, "pattern", 8192, nullptr, 10, nullptr);

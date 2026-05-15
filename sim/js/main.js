@@ -75,6 +75,13 @@ async function init() {
   requestAnimationFrame(loop);
 }
 
+function findPatternIndex(name) {
+  for (let i = 0; i < sim.patternCount; i++) {
+    if (sim.patternName(i) === name) return i;
+  }
+  return -1;
+}
+
 function buildPatternSelector() {
   const sel = document.getElementById('pattern');
   sel.innerHTML = '';
@@ -193,6 +200,19 @@ function bindControls() {
       lastRenderTimestamp = null;
       accumulatedDt = 0;
       requestAnimationFrame(loop);
+    }
+  });
+
+  on('image-file', 'change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const targetSize = sim.numLeds * 2;
+    const result = await preprocessImage(file, targetSize);
+    sim.loadImage(result.pixels, result.width, result.height);
+    const imageIdx = findPatternIndex('image');
+    if (imageIdx >= 0) {
+      activePattern = imageIdx;
+      document.getElementById('pattern').value = imageIdx;
     }
   });
 

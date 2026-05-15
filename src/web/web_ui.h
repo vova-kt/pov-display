@@ -8,6 +8,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>POV Display</title>
+<script src="/js/image-processor.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;padding:16px;max-width:480px;margin:0 auto}
@@ -55,7 +56,11 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
   <option value="1">Rainbow</option>
   <option value="2">Text</option>
   <option value="3">Scanner</option>
+  <option value="4">Image</option>
  </select>
+
+ <label>Image</label>
+ <input type="file" id="imageFile" accept="image/*" style="font-size:.85em;margin-bottom:10px">
 
  <label>Color</label>
  <input type="color" id="color" value="#ff0000">
@@ -202,6 +207,17 @@ async function pollStatus(){
   $('#heap').textContent=Math.round(s.freeHeap/1024);
  }catch(e){}
 }
+
+$('#imageFile').addEventListener('change',async e=>{
+ const file=e.target.files[0];if(!file)return;
+ const numLeds=+$('#numLeds').value||26;
+ const sz=numLeds*2;
+ const r=await preprocessImage(file,sz);
+ await fetch('/api/image?w='+r.width+'&h='+r.height,{
+  method:'POST',headers:{'Content-Type':'application/octet-stream'},body:r.pixels
+ });
+ $('#pattern').value=4;
+});
 
 loadConfig();
 setInterval(pollStatus,1000);

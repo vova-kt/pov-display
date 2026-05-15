@@ -12,6 +12,7 @@ export class PovSim {
     this._simSetText       = module.cwrap('sim_set_text', null, ['string']);
     this._simSetMirror     = module.cwrap('sim_set_mirror_pattern', null, ['number']);
     this._simSetRadialBalance = module.cwrap('sim_set_radial_balance', null, ['number']);
+    this._simLoadImage     = module.cwrap('sim_load_image', 'boolean', ['number', 'number', 'number']);
     this._simNumPatterns   = module.cwrap('sim_num_patterns', 'number', []);
     this._simPatternName   = module.cwrap('sim_pattern_name', 'string', ['number']);
 
@@ -69,6 +70,14 @@ export class PovSim {
   setText(t)          { this._simSetText(t); }
   setMirror(m)        { this._simSetMirror(m ? 1 : 0); }
   setRadialBalance(v) { this._simSetRadialBalance(v ? 1 : 0); }
+
+  loadImage(rgbUint8Array, width, height) {
+    const ptr = this._mod._malloc(rgbUint8Array.length);
+    this._mod.HEAPU8.set(rgbUint8Array, ptr);
+    const ok = this._simLoadImage(ptr, width, height);
+    this._mod._free(ptr);
+    return ok;
+  }
 
   rendererResize(w, h) { this._rendererResize(w, h); }
   setHubFraction(f)    { this._rendererSetHubFrac(f); }

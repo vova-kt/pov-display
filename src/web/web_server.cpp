@@ -1,5 +1,6 @@
 #include "web_server.h"
 #include "web_ui.h"
+#include "image_processor_js.h"
 #include <ArduinoJson.h>
 
 void PovWebServer::init(Config* cfg, HallSensor* hall, Framebuffer* fb, Motor* motor) {
@@ -90,7 +91,7 @@ void PovWebServer::setupRoutes() {
             }
             if (obj["activePattern"].is<uint8_t>()) {
                 uint8_t v = obj["activePattern"].as<uint8_t>();
-                if (v <= 3) cfg_->activePattern = v;
+                if (v <= 4) cfg_->activePattern = v;
             }
             if (obj["colorR"].is<uint8_t>())         cfg_->colorR        = obj["colorR"].as<uint8_t>();
             if (obj["colorG"].is<uint8_t>())         cfg_->colorG        = obj["colorG"].as<uint8_t>();
@@ -146,5 +147,49 @@ void PovWebServer::setupRoutes() {
         cfg_->saveToNvs();
         xSemaphoreGive(cfgMutex_);
         req->send(200, "application/json", "{\"ok\":true}");
+    });
+
+    server_.on("/api/image", HTTP_POST,
+        [this](AsyncWebServerRequest* req) {
+            if (!imgBuffer_ || imgReceived_ != imgExpected_) {
+                free(imgBuffer_);
+                imgBuffer_ = nullptr;
+                req->send(400, "application/json", "{\"error\":\"incomplete upload\"}");
+                return;
+            }
+            if (imageCb_) imageCb_(imgBuffer_, imgWidth_, imgHeight_);
+            free(imgBuffer_);
+            imgBuffer_ = nullptr;
+            if (configCb_) configCb_();
+            req->send(200, "application/json", "{\"ok\":true}");
+        },
+        nullptr,
+        [this](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
+            if (index == 0) {
+                free(imgBuffer_);
+                imgBuffer_ = nullptr;
+
+                if (req->hasParam("w") && req->hasParam("h")) {
+                    imgWidth_  = req->getParam("w")->value().toInt();
+                    imgHeight_ = req->getParam("h")->value().toInt();
+                } else {
+                    return;
+                }
+                imgExpected_ = (size_t)imgWidth_ * imgHeight_ * 3;
+                if (total != imgExpected_ || imgExpected_ > kMaxImageSize) return;
+                imgBuffer_ = (uint8_t*)malloc(imgExpected_);
+                if (!imgBuffer_) return;
+                imgReceived_ = 0;
+            }
+            if (!imgBuffer_) return;
+            size_t room = imgExpected_ - imgReceived_;
+            size_t copy = len < room ? len : room;
+            memcpy(imgBuffer_ + imgReceived_, data, copy);
+            imgReceived_ += copy;
+        }
+    );
+
+    server_.on("/js/image-processor.js", HTTP_GET, [](AsyncWebServerRequest* req) {
+        req->send(200, "application/javascript", IMAGE_PROCESSOR_JS);
     });
 }

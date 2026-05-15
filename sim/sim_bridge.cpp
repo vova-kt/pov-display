@@ -8,6 +8,7 @@
 #include "patterns/rainbow.h"
 #include "patterns/scanner.h"
 #include "patterns/text.h"
+#include "patterns/image.h"
 
 static Framebuffer fb;
 static Config cfg;
@@ -18,12 +19,14 @@ static SolidPattern   solidPattern;
 static RainbowPattern rainbowPattern;
 static ScannerPattern scannerPattern;
 static TextPattern    textPattern;
+static ImagePattern   imagePattern;
 
 static Pattern* patterns[] = {
     &solidPattern,
     &rainbowPattern,
     &textPattern,
     &scannerPattern,
+    &imagePattern,
 };
 static constexpr uint8_t NUM_PATTERNS = sizeof(patterns) / sizeof(patterns[0]);
 
@@ -154,5 +157,10 @@ EMSCRIPTEN_KEEPALIVE int   sim_get_frame_age()        { return lastFrame.frameAg
 EMSCRIPTEN_KEEPALIVE float sim_get_pattern_gen_ms()   { return timing_pattern_gen_ms(ts); }
 EMSCRIPTEN_KEEPALIVE bool  sim_get_hall_missed()      { return lastFrame.hallMissed; }
 EMSCRIPTEN_KEEPALIVE bool  sim_get_has_overruns()     { return lastFrame.hasOverruns; }
+
+EMSCRIPTEN_KEEPALIVE
+bool sim_load_image(uint8_t* rgbData, uint16_t width, uint16_t height) {
+    return imagePattern.loadImage(rgbData, width, height);
+}
 
 }

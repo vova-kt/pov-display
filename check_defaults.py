@@ -186,6 +186,49 @@ def check_config_cpp(d):
     return errors
 
 
+def check_image_processor_js():
+    errors = []
+    src = read('sim/js/image-processor.js').strip()
+    embedded = read('src/web/image_processor_js.h')
+    m = re.search(r'R"rawliteral\(\n(.*?)\n\)rawliteral"', embedded, re.DOTALL)
+    if not m:
+        errors.append("  src/web/image_processor_js.h: could not extract embedded JS")
+        return errors
+    embedded_js = m.group(1).strip()
+    if src != embedded_js:
+        errors.append("  src/web/image_processor_js.h: embedded JS differs from sim/js/image-processor.js")
+    return errors
+
+
+def check_pattern_count():
+    errors = []
+
+    main_text = read('src/main.cpp')
+    m = re.search(r'NUM_PATTERNS\s*=\s*(\d+)', main_text)
+    main_count = int(m.group(1)) if m else None
+
+    bridge_text = read('sim/sim_bridge.cpp')
+    bridge_count = bridge_text.count('&') if 'patterns[]' in bridge_text else None
+    m2 = re.search(r'static Pattern\*\s+patterns\[\]\s*=\s*\{([^}]+)\}', bridge_text)
+    if m2:
+        bridge_count = m2.group(1).count('&')
+
+    web_ui = read('src/web/web_ui.h')
+    ui_count = len(re.findall(r'<option\s+value="\d+">[^<]+</option>', web_ui,
+                              re.DOTALL))
+    sel_match = re.search(r'<select\s+id="pattern">(.*?)</select>', web_ui, re.DOTALL)
+    if sel_match:
+        ui_count = len(re.findall(r'<option', sel_match.group(1)))
+
+    if main_count and bridge_count and main_count != bridge_count:
+        mismatch(errors, 'sim/sim_bridge.cpp', 'pattern count',
+                 main_count, bridge_count)
+    if main_count and ui_count and main_count != ui_count:
+        mismatch(errors, 'src/web/web_ui.h', 'pattern <option> count',
+                 main_count, ui_count)
+    return errors
+
+
 def main():
     defaults = parse_config_h()
 
@@ -195,6 +238,8 @@ def main():
     errors += check_sim_js(defaults)
     errors += check_web_ui(defaults)
     errors += check_config_cpp(defaults)
+    errors += check_image_processor_js()
+    errors += check_pattern_count()
 
     if errors:
         print("Config defaults diverged from src/config.h:\n")
