@@ -20,7 +20,7 @@ bool ImagePattern::loadImage(const uint8_t* rgbData, uint16_t width, uint16_t he
 void ImagePattern::generate(Framebuffer& fb, const Config& cfg, uint32_t) {
     fb.clearBack();
 
-    if (!loaded_) { fb.swap(); return; }
+    if (!loaded_) return;
 
     uint16_t ns = fb.numSlices();
     uint16_t nl = fb.numLeds();
@@ -31,5 +31,4 @@ void ImagePattern::generate(Framebuffer& fb, const Config& cfg, uint32_t) {
     }
 
     transform_.apply(canvas_, fb, cfg);
-    fb.swap();
 }

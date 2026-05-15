@@ -33,3 +33,5 @@ The renderer produces two tabs:
 - **Hardware** — arm count, refresh rate, LED/slice counts, SPI clock, plus sim-only geometry and timing distortion controls.
 
 Pattern param panels are all rendered but only the active pattern's panel is visible. Switching the Pattern selector updates visibility client-side without a re-fetch.
+
+Animation params are shown with the picture controls because they alter the rendered image rather than the hardware timing. Rotation direction lives there for that reason: it reverses the phase animation without implying the motor or hall sensor wiring changed.

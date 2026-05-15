@@ -3,6 +3,7 @@
 #include "framebuffer.h"
 #include "animation.h"
 #include "animations/rotation.h"
+#include "../../sim/animation_phase.h"
 
 static Framebuffer fb;
 
@@ -29,14 +30,16 @@ void test_rotation_key() {
     TEST_ASSERT_EQUAL_STRING("rot", rot.key());
 }
 
-void test_rotation_has_one_param() {
+void test_rotation_has_params() {
     RotationAnimation rot;
-    TEST_ASSERT_EQUAL_UINT8(1, rot.paramCount());
+    TEST_ASSERT_EQUAL_UINT8(2, rot.paramCount());
     TEST_ASSERT_EQUAL_STRING("speed", rot.param(0).key);
     TEST_ASSERT_EQUAL_STRING("Speed", rot.param(0).label);
+    TEST_ASSERT_EQUAL_STRING("direction", rot.param(1).key);
+    TEST_ASSERT_EQUAL_STRING("Direction", rot.param(1).label);
 }
 
-void test_rotation_presets() {
+void test_rotation_speed_presets() {
     RotationAnimation rot;
     const Param& p = rot.param(0);
     TEST_ASSERT_EQUAL_UINT8(4, p.optionCount);
@@ -44,6 +47,23 @@ void test_rotation_presets() {
     TEST_ASSERT_EQUAL_INT32(0, p.options[0].value);
     TEST_ASSERT_EQUAL_STRING("Fast", p.options[3].label);
     TEST_ASSERT_EQUAL_INT32(90, p.options[3].value);
+}
+
+void test_rotation_direction_default_clockwise() {
+    RotationAnimation rot;
+    const Param& p = rot.param(1);
+    TEST_ASSERT_EQUAL_INT32(1, p.defaultVal);
+    TEST_ASSERT_EQUAL_INT32(1, p.value);
+}
+
+void test_rotation_direction_presets() {
+    RotationAnimation rot;
+    const Param& p = rot.param(1);
+    TEST_ASSERT_EQUAL_UINT8(2, p.optionCount);
+    TEST_ASSERT_EQUAL_STRING("Clockwise", p.options[0].label);
+    TEST_ASSERT_EQUAL_INT32(1, p.options[0].value);
+    TEST_ASSERT_EQUAL_STRING("Counterclockwise", p.options[1].label);
+    TEST_ASSERT_EQUAL_INT32(-1, p.options[1].value);
 }
 
 // ---------- RotationAnimation active/inactive ----------
@@ -101,6 +121,24 @@ void test_rotation_higher_speed_more_offset() {
     TEST_ASSERT_GREATER_THAN(slowAbs, fastAbs);
 }
 
+void test_rotation_clockwise_positive_offset() {
+    RotationAnimation rot;
+    rot.param(0).value = 90;
+    rot.param(1).value = 1;
+    AnimationState state;
+    rot.apply(state, fb, 1000);
+    TEST_ASSERT_GREATER_THAN(0, state.sliceOffset);
+}
+
+void test_rotation_counterclockwise_negative_offset() {
+    RotationAnimation rot;
+    rot.param(0).value = 90;
+    rot.param(1).value = -1;
+    AnimationState state;
+    rot.apply(state, fb, 1000);
+    TEST_ASSERT_LESS_THAN(0, state.sliceOffset);
+}
+
 // ---------- Animation base class ----------
 
 void test_find_param_exists() {
@@ -119,9 +157,12 @@ void test_find_param_missing() {
 void test_reset_defaults() {
     RotationAnimation rot;
     rot.param(0).value = 42;
+    rot.param(1).value = -1;
     TEST_ASSERT_EQUAL_INT32(42, rot.param(0).value);
+    TEST_ASSERT_EQUAL_INT32(-1, rot.param(1).value);
     rot.resetDefaults();
     TEST_ASSERT_EQUAL_INT32(0, rot.param(0).value);
+    TEST_ASSERT_EQUAL_INT32(1, rot.param(1).value);
 }
 
 // ---------- Global registry ----------
@@ -147,13 +188,40 @@ void test_apply_runs_active() {
     TEST_ASSERT_NOT_EQUAL(0, state.sliceOffset);
 }
 
+// ---------- Simulator animation phase ----------
+
+void test_sim_phase_keeps_last_offset_between_generation_frames() {
+    SimAnimationPhase phase;
+    AnimationState generated;
+    generated.sliceOffset = 27;
+
+    phase.update(generated);
+
+    TEST_ASSERT_EQUAL_INT16(37, phase.phaseOffset(10));
+    TEST_ASSERT_EQUAL_INT16(37, phase.phaseOffset(10));
+}
+
+void test_sim_phase_reset_returns_to_base_phase() {
+    SimAnimationPhase phase;
+    AnimationState generated;
+    generated.sliceOffset = -45;
+    phase.update(generated);
+
+    phase.reset();
+
+    TEST_ASSERT_EQUAL_INT16(90, phase.phaseOffset(90));
+    TEST_ASSERT_EQUAL_INT16(0, phase.sliceOffset());
+}
+
 int main() {
     UNITY_BEGIN();
 
     RUN_TEST(test_rotation_name);
     RUN_TEST(test_rotation_key);
-    RUN_TEST(test_rotation_has_one_param);
-    RUN_TEST(test_rotation_presets);
+    RUN_TEST(test_rotation_has_params);
+    RUN_TEST(test_rotation_speed_presets);
+    RUN_TEST(test_rotation_direction_default_clockwise);
+    RUN_TEST(test_rotation_direction_presets);
 
     RUN_TEST(test_rotation_inactive_at_zero);
     RUN_TEST(test_rotation_active_when_nonzero);
@@ -162,6 +230,8 @@ int main() {
     RUN_TEST(test_rotation_produces_offset_over_time);
     RUN_TEST(test_rotation_offset_wraps_360);
     RUN_TEST(test_rotation_higher_speed_more_offset);
+    RUN_TEST(test_rotation_clockwise_positive_offset);
+    RUN_TEST(test_rotation_counterclockwise_negative_offset);
 
     RUN_TEST(test_find_param_exists);
     RUN_TEST(test_find_param_missing);
@@ -171,6 +241,8 @@ int main() {
 
     RUN_TEST(test_apply_skips_inactive);
     RUN_TEST(test_apply_runs_active);
+    RUN_TEST(test_sim_phase_keeps_last_offset_between_generation_frames);
+    RUN_TEST(test_sim_phase_reset_returns_to_base_phase);
 
     return UNITY_END();
 }

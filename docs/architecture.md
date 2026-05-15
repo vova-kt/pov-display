@@ -20,6 +20,8 @@ Patterns take multiple milliseconds to regenerate a full frame (360 slices × N 
 
 Buffers are allocated with `MALLOC_CAP_DMA` so SPI can DMA directly from them without an intermediate copy.
 
+Pattern generation owns only the back-buffer contents. The frame loop owns publication: generate the pattern, apply animations, then swap exactly once. Keeping that ownership boundary avoids one buffer carrying an animated phase while another buffer still carries the previous static image.
+
 ## Why embedded HTML (not SPIFFS)
 
 SPIFFS requires a separate flash partition, upload step, and filesystem overhead. The web UI is ~10 KB of HTML/CSS/JS — trivially fits in a PROGMEM string. One `pio run -t upload` deploys everything. If the UI grows past ~50 KB, move to LittleFS.
@@ -43,7 +45,7 @@ Every user-facing setting lives in a unified registry backed by the same `Param`
 
 - **Top-level settings** (brightness, color, numArms, etc.) — registered in `src/settings_registry.cpp` with getter/setter function pointers into `Config` fields.
 - **Pattern params** (e.g. TextPattern's text, mode, delayMs, marginLeds) — declared inside each `Pattern` subclass, mirroring how animations work.
-- **Animation params** (e.g. RotationAnimation's speed) — declared inside each `Animation` subclass.
+- **Animation params** (e.g. RotationAnimation's speed and direction) — declared inside each `Animation` subclass.
 
 Both `Pattern` and `Animation` share the `Param` struct from `src/param.h`. The settings registry emits a single JSON model that the shared JS renderer (`sim/js/settings_ui.js`, also embedded in the MCU UI via `/js/settings.js`) uses to build the two-tab control panel without any hand-coded HTML. Adding a setting means one registry entry; adding a pattern or animation param means one array member — the renderer and both UIs pick it up automatically.
 
@@ -52,6 +54,10 @@ Scope flags (`Both`, `McuOnly`, `SimOnly`) control which settings appear in each
 ## Animation ordering
 
 Animations are applied *after* pattern generation but *before* `fb.swap()`. This lets them modify the back buffer or produce metadata (like `sliceOffset` for rotation) without interfering with pattern logic. The frame loops in `main.cpp` and `sim_bridge.cpp` call `applyAnimations()` generically — adding a new animation never requires changing the loop.
+
+Rotation direction is modeled as an animation param, not a motor setting: it changes the rendered image phase while leaving physical spin direction alone.
+
+The simulator can render display frames without regenerating the pattern every time. It therefore keeps the last generated animation phase and applies it while re-rendering the existing framebuffer, matching the MCU scheduler's persistent phase offset between pattern-task iterations.
 
 ## Source map
 

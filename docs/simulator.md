@@ -52,6 +52,8 @@ With N arms, the circle fills N× faster per revolution. A **Display Hz** select
 
 The render loop uses `requestAnimationFrame` but only calls into the WASM sim/renderer when enough wall-clock time has elapsed for the current Display Hz setting. Between renders, simulation time still accumulates so the arm angle stays correct — the accumulated dt is passed as a single chunk when the next render fires. This avoids wasting GPU draws on frames the observer model wouldn't distinguish anyway, and makes the HUD "Render FPS" reflect actual rendered frames rather than the browser's native refresh rate.
 
+Pattern generation can also run less often than rendering. When that happens, the simulator reuses the last generated framebuffer and the last animation phase together. That mirrors the MCU path, where the slice scheduler keeps using the most recent rotation phase until the pattern task publishes another frame.
+
 ## Timing distortions
 
 These simulate real hardware problems and their visual effects:

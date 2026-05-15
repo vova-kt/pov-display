@@ -6,6 +6,7 @@
 #include "animation.h"
 #include "timing.h"
 #include "renderer.h"
+#include "animation_phase.h"
 #include "settings_registry.h"
 #include "settings_registry_sim.h"
 #include "patterns/registry.h"
@@ -16,6 +17,17 @@ static Framebuffer fb;
 static Config cfg;
 static TimingState ts;
 static FrameResult lastFrame;
+static SimAnimationPhase animPhase;
+
+static void render_current_frame() {
+    int16_t savedPhase = cfg.phaseOffset;
+    cfg.phaseOffset = animPhase.phaseOffset(cfg.phaseOffset);
+    renderer_render(fb, cfg,
+                    lastFrame.armAngle, lastFrame.armSweep,
+                    lastFrame.hallOffsetAngle, lastFrame.hasOverruns,
+                    fb.numSlices());
+    cfg.phaseOffset = savedPhase;
+}
 
 extern "C" {
 
@@ -24,6 +36,7 @@ bool sim_init(uint16_t numSlices, uint16_t numLeds) {
     ts.numSlices = numSlices;
     ts.numLeds = numLeds;
     timing_init(ts);
+    animPhase.reset();
     bool ok = fb.init(numSlices, numLeds);
     settings_registry::init(&cfg);
     sim_registry_bind(&ts, &cfg, &fb);
@@ -238,20 +251,12 @@ void sim_frame(float dtMs, float simTimeMs, uint8_t patternIndex) {
 
         AnimationState animState;
         applyAnimations(animState, fb, (uint32_t)simTimeMs);
+        animPhase.update(animState);
         fb.swap();
 
-        int16_t savedPhase = cfg.phaseOffset;
-        cfg.phaseOffset += animState.sliceOffset;
-        renderer_render(fb, cfg,
-                        lastFrame.armAngle, lastFrame.armSweep,
-                        lastFrame.hallOffsetAngle, lastFrame.hasOverruns,
-                        fb.numSlices());
-        cfg.phaseOffset = savedPhase;
+        render_current_frame();
     } else {
-        renderer_render(fb, cfg,
-                        lastFrame.armAngle, lastFrame.armSweep,
-                        lastFrame.hallOffsetAngle, lastFrame.hasOverruns,
-                        fb.numSlices());
+        render_current_frame();
     }
 }
 

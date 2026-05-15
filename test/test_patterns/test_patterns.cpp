@@ -6,6 +6,7 @@
 #include "patterns/rainbow.h"
 #include "patterns/scanner.h"
 #include "patterns/text.h"
+#include "patterns/image.h"
 #include "fonts/text_font.h"
 
 static Framebuffer fb;
@@ -472,6 +473,54 @@ void test_wide_cyrillic_glyphs_use_declared_advance() {
     TEST_ASSERT_EQUAL_UINT16(14, run.width);
 }
 
+static void seedFrontPixel(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
+    fb.clearBack();
+    fb.setPixel(0, 0, r, g, b, brightness);
+    fb.swap();
+}
+
+// ---------- Image ----------
+
+void test_image_without_upload_waits_for_caller_swap() {
+    ImagePattern image;
+    seedFrontPixel(7, 8, 9, 10);
+
+    image.generate(fb, cfg, 0);
+
+    const Pixel* front = fb.getSlice(0);
+    TEST_ASSERT_EQUAL_UINT8(7, front[0].red);
+    TEST_ASSERT_EQUAL_UINT8(8, front[0].green);
+    TEST_ASSERT_EQUAL_UINT8(9, front[0].blue);
+    TEST_ASSERT_EQUAL_UINT8(0xE0 | 10, front[0].brightness);
+
+    fb.swap();
+    TEST_ASSERT_EQUAL_UINT8(0, fb.getSlice(0)[0].brightness);
+}
+
+void test_image_with_upload_waits_for_caller_swap() {
+    ImagePattern image;
+    uint8_t rgb[4 * 4 * 3];
+    for (size_t i = 0; i < sizeof(rgb); i += 3) {
+        rgb[i] = 0;
+        rgb[i + 1] = 200;
+        rgb[i + 2] = 0;
+    }
+    TEST_ASSERT_TRUE(image.loadImage(rgb, 4, 4));
+    seedFrontPixel(7, 8, 9, 10);
+
+    image.generate(fb, cfg, 0);
+
+    const Pixel* front = fb.getSlice(0);
+    TEST_ASSERT_EQUAL_UINT8(7, front[0].red);
+    TEST_ASSERT_EQUAL_UINT8(8, front[0].green);
+    TEST_ASSERT_EQUAL_UINT8(9, front[0].blue);
+
+    fb.swap();
+    TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
+    TEST_ASSERT_EQUAL_UINT8(0, fb.getSlice(0)[0].red);
+    TEST_ASSERT_EQUAL_UINT8(200, fb.getSlice(0)[0].green);
+}
+
 void test_spell_produces_different_frames() {
     TextPattern text;
     setMode(text, 1);
@@ -653,6 +702,9 @@ int main() {
     RUN_TEST(test_scanner_only_one_led_lit);
     RUN_TEST(test_scanner_all_slices_same);
     RUN_TEST(test_scanner_name);
+
+    RUN_TEST(test_image_without_upload_waits_for_caller_swap);
+    RUN_TEST(test_image_with_upload_waits_for_caller_swap);
 
     RUN_TEST(test_text_empty_string_blank);
     RUN_TEST(test_text_renders_pixels);

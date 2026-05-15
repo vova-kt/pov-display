@@ -219,8 +219,10 @@ void test_apply_text_truncates_long_string() {
 void test_apply_animation_param() {
     JsonDocument doc;
     doc["animations"]["rot"]["speed"] = 45;
+    doc["animations"]["rot"]["direction"] = -1;
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
     TEST_ASSERT_EQUAL_INT32(45, g_animations[0]->findParam("speed")->value);
+    TEST_ASSERT_EQUAL_INT32(-1, g_animations[0]->findParam("direction")->value);
 }
 
 // ── Scope filter ───────────────────────────────────────────────────────────
