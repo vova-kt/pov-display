@@ -61,6 +61,7 @@ export class SettingsUI {
     // Pattern + animation panels go into the picture group panel.
     const picPanel = panels['picture'];
     if (picPanel) {
+      this._renderAnimationStack(picPanel);
       this._renderAnimations(picPanel);
       this._renderPatternPanels(picPanel);
     }
@@ -214,6 +215,33 @@ export class SettingsUI {
     }
   }
 
+  _renderAnimationStack(panel) {
+    const stack = this._model.animationStack || [];
+    const slotCount = stack.length || 2;
+    for (let slot = 0; slot < slotCount; slot++) {
+      const row = el('div', 'setting-row');
+      row.appendChild(label('Animation ' + (slot + 1)));
+
+      const sel = el('select');
+      const none = el('option');
+      none.value = '';
+      none.textContent = 'None';
+      sel.appendChild(none);
+
+      for (const anim of this._model.animations || []) {
+        const opt = el('option');
+        opt.value = anim.key;
+        opt.textContent = anim.name;
+        sel.appendChild(opt);
+      }
+
+      sel.value = stack[slot] ?? '';
+      sel.addEventListener('change', () => this._changeAnimationSlot(slot, sel.value));
+      row.appendChild(sel);
+      panel.appendChild(row);
+    }
+  }
+
   _renderPatternPanels(panel) {
     for (const pat of this._model.patterns || []) {
       const div = el('div', 'pattern-params' + (pat.index === this._activePattern ? '' : ' hidden'));
@@ -298,6 +326,15 @@ export class SettingsUI {
     this._pending[section][parentKey][paramKey] = value;
     if (immediate) this._flush();
     else this._flush();
+  }
+
+  _changeAnimationSlot(slot, value) {
+    if (!Array.isArray(this._model.animationStack))
+      this._model.animationStack = [];
+    this._model.animationStack[slot] = value;
+    const slotCount = this._model.animationStack.length || 2;
+    this._pending.animationStack = this._model.animationStack.slice(0, slotCount);
+    this._flush();
   }
 
   _flush() {

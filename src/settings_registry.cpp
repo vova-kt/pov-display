@@ -226,6 +226,10 @@ void toJson(JsonObject root, Scope side) {
             emitParam(params.add<JsonObject>(), p->param(j));
     }
 
+    JsonArray animStack = root["animationStack"].to<JsonArray>();
+    for (uint8_t i = 0; i < G_NUM_ANIMATION_SLOTS; i++)
+        animStack.add(animationSlotKey(i));
+
     JsonArray anims = root["animations"].to<JsonArray>();
     for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++) {
         Animation* a = g_animations[i];
@@ -331,6 +335,18 @@ void applyJson(JsonObjectConst patch, Scope side) {
                 if (!param) continue;
                 applyParamValue(*param, kv.value());
             }
+        }
+    }
+
+    // animationStack: ["rot", "scale"] where "" means no animation in that slot
+    JsonArrayConst animationStack = patch["animationStack"].as<JsonArrayConst>();
+    if (!animationStack.isNull()) {
+        uint8_t slot = 0;
+        for (JsonVariantConst v : animationStack) {
+            if (slot >= G_NUM_ANIMATION_SLOTS) break;
+            if (v.is<const char*>())
+                setAnimationSlot(slot, v.as<const char*>());
+            slot++;
         }
     }
 

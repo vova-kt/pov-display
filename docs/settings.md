@@ -34,4 +34,6 @@ The renderer produces two tabs:
 
 Pattern param panels are all rendered but only the active pattern's panel is visible. Switching the Pattern selector updates visibility client-side without a re-fetch.
 
-Animation params are shown with the picture controls because they alter the rendered image rather than the hardware timing. Rotation direction lives there for that reason: it reverses the phase animation without implying the motor or hall sensor wiring changed.
+Animation slots are also part of the picture controls. The stack is ordered and fixed-size so the MCU can apply it with a small bounded loop, while the animation definitions themselves stay in `src/animation.cpp` and the param metadata stays on each `Animation` subclass. Params are shown with the picture controls because they alter the rendered image rather than the hardware timing.
+
+Rotation direction lives there for that reason: it reverses the phase animation without implying the motor or hall sensor wiring changed. Scale is implemented as a radial zoom of the polar framebuffer after pattern generation; that keeps it pattern-agnostic and avoids teaching every pattern about zoom state. The polar sampling tradeoff is the same one covered in [polar distortion correction](concepts/polar-distortion-correction.md).

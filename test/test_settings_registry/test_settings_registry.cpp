@@ -13,6 +13,7 @@ void setUp() {
     settings_registry::init(&cfg);
     // Reset animations to defaults.
     for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++) g_animations[i]->resetDefaults();
+    resetAnimationStackDefaults();
 }
 
 void tearDown() {}
@@ -99,6 +100,29 @@ void test_tojson_includes_animations() {
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
     TEST_ASSERT_TRUE(doc["animations"].is<JsonArray>());
     TEST_ASSERT_GREATER_THAN(0, doc["animations"].as<JsonArray>().size());
+}
+
+void test_tojson_includes_animation_stack() {
+    JsonDocument doc;
+    settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
+    TEST_ASSERT_TRUE(doc["animationStack"].is<JsonArray>());
+    TEST_ASSERT_EQUAL_INT(G_NUM_ANIMATION_SLOTS, doc["animationStack"].as<JsonArray>().size());
+    TEST_ASSERT_EQUAL_STRING("rot", doc["animationStack"][0].as<const char*>());
+    TEST_ASSERT_EQUAL_STRING("", doc["animationStack"][1].as<const char*>());
+}
+
+void test_tojson_includes_scale_animation() {
+    JsonDocument doc;
+    settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
+    for (JsonObject a : doc["animations"].as<JsonArray>()) {
+        if (strcmp(a["key"].as<const char*>(), "scale") == 0) {
+            TEST_ASSERT_EQUAL_STRING("Scale", a["name"].as<const char*>());
+            TEST_ASSERT_TRUE(a["params"].is<JsonArray>());
+            TEST_ASSERT_EQUAL_INT(2, a["params"].as<JsonArray>().size());
+            return;
+        }
+    }
+    TEST_FAIL_MESSAGE("scale animation not found");
 }
 
 // ── applyJson settings ────────────────────────────────────────────────────
@@ -225,6 +249,44 @@ void test_apply_animation_param() {
     TEST_ASSERT_EQUAL_INT32(-1, g_animations[0]->findParam("direction")->value);
 }
 
+void test_apply_scale_animation_param() {
+    JsonDocument doc;
+    doc["animations"]["scale"]["duration"] = 1000;
+    doc["animations"]["scale"]["factor"] = 20;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+
+    Animation* scale = nullptr;
+    for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++) {
+        if (strcmp(g_animations[i]->key(), "scale") == 0) {
+            scale = g_animations[i];
+            break;
+        }
+    }
+    TEST_ASSERT_NOT_NULL(scale);
+    TEST_ASSERT_EQUAL_INT32(1000, scale->findParam("duration")->value);
+    TEST_ASSERT_EQUAL_INT32(20, scale->findParam("factor")->value);
+}
+
+void test_apply_animation_stack_order() {
+    JsonDocument doc;
+    doc["animationStack"][0] = "scale";
+    doc["animationStack"][1] = "rot";
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+
+    TEST_ASSERT_EQUAL_STRING("scale", animationSlotKey(0));
+    TEST_ASSERT_EQUAL_STRING("rot", animationSlotKey(1));
+}
+
+void test_apply_animation_stack_rejects_unknown() {
+    TEST_ASSERT_TRUE(setAnimationSlot(0, "rot"));
+
+    JsonDocument doc;
+    doc["animationStack"][0] = "missing";
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+
+    TEST_ASSERT_EQUAL_STRING("rot", animationSlotKey(0));
+}
+
 // ── Scope filter ───────────────────────────────────────────────────────────
 
 void test_scope_mcu_no_sim_settings() {
@@ -272,6 +334,8 @@ int main() {
     RUN_TEST(test_tojson_includes_patterns);
     RUN_TEST(test_tojson_text_pattern_has_params);
     RUN_TEST(test_tojson_includes_animations);
+    RUN_TEST(test_tojson_includes_animation_stack);
+    RUN_TEST(test_tojson_includes_scale_animation);
 
     RUN_TEST(test_apply_sets_brightness);
     RUN_TEST(test_apply_clamps_brightness_to_max);
@@ -288,6 +352,9 @@ int main() {
     RUN_TEST(test_apply_text_margin_param);
     RUN_TEST(test_apply_text_truncates_long_string);
     RUN_TEST(test_apply_animation_param);
+    RUN_TEST(test_apply_scale_animation_param);
+    RUN_TEST(test_apply_animation_stack_order);
+    RUN_TEST(test_apply_animation_stack_rejects_unknown);
 
     RUN_TEST(test_scope_mcu_no_sim_settings);
     RUN_TEST(test_scope_sim_no_mcu_only);

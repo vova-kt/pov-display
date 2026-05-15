@@ -52,7 +52,7 @@ With N arms, the circle fills N× faster per revolution. A **Display Hz** select
 
 The render loop uses `requestAnimationFrame` but only calls into the WASM sim/renderer when enough wall-clock time has elapsed for the current Display Hz setting. Between renders, simulation time still accumulates so the arm angle stays correct — the accumulated dt is passed as a single chunk when the next render fires. This avoids wasting GPU draws on frames the observer model wouldn't distinguish anyway, and makes the HUD "Render FPS" reflect actual rendered frames rather than the browser's native refresh rate.
 
-Pattern generation can also run less often than rendering. When that happens, the simulator reuses the last generated framebuffer and the last animation phase together. That mirrors the MCU path, where the slice scheduler keeps using the most recent rotation phase until the pattern task publishes another frame.
+Pattern generation can also run less often than rendering. When that happens, the simulator reuses the last generated framebuffer and the last animation phase together. That mirrors the MCU path, where the slice scheduler keeps using the most recent rotation phase until the pattern task publishes another frame. Framebuffer-mutating animations, such as scale, already ran when that framebuffer was generated, so reuse does not redo those effects on render-only frames.
 
 ## Timing distortions
 
@@ -76,5 +76,7 @@ The SPI transfer time formula matches the real HD107S wire protocol: `(4 + numLe
 **New timing distortion or sim-only setting**: Add an entry to `g_sim_settings[]` in `sim/settings_registry_sim.cpp` with a getter/setter wired to `TimingState` or renderer state. Apply the effect in `timing_frame()` or the renderer. The settings UI picks it up automatically — no HTML changes needed.
 
 **New shared config field** (appears in both MCU and sim): Add an entry to `g_settings[]` in `src/settings_registry.cpp` with `Scope::Both` and getter/setter referencing the Config field. Rebuild both WASM and firmware. No JS changes needed.
+
+**New animation**: Add an `Animation` subclass in `src/animations/` and register it in `src/animation.cpp`. If it needs to be selectable from the stack, no JS-specific work is needed; the shared settings renderer builds the slots and param controls from the registry JSON.
 
 **Changing a default**: The default lives exactly once — on the `Setting` entry in `src/settings_registry.cpp` (or on the `Param` member initializer inside the relevant `Pattern`/`Animation` subclass). Run `python3 tools/check_embedded_js.py` to confirm `settings_js.h` and `image_processor_js.h` are in sync with their source files — this runs as a pre-push hook.

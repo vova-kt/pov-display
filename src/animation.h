@@ -9,6 +9,8 @@ struct AnimationState {
     int16_t sliceOffset = 0;
 };
 
+constexpr uint8_t G_NUM_ANIMATION_SLOTS = 2;
+
 class Animation {
 public:
     virtual ~Animation() = default;
@@ -39,8 +41,14 @@ protected:
 
 void applyAnimations(AnimationState& state, Framebuffer& fb, uint32_t timeMs);
 
+int8_t animationIndexForKey(const char* key);
+const char* animationSlotKey(uint8_t slot);
+bool setAnimationSlot(uint8_t slot, const char* key);
+void resetAnimationStackDefaults();
+
 void loadAnimationsFromNvs();
 void saveAnimationsToNvs();
 
 extern Animation* const g_animations[];
 extern const uint8_t G_NUM_ANIMATIONS;
+extern int8_t g_animationStack[G_NUM_ANIMATION_SLOTS];
