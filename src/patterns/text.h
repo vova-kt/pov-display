@@ -23,7 +23,7 @@ private:
     char cachedText_[64] = {};
     TextFontRun textRun_ = {};
     bool textRunValid_ = false;
-    Param storage_[3];
+    Param storage_[4];
 
     void ensureCanvas(uint16_t numSlices, uint16_t numLeds);
     void ensureTextRun(const char* text, uint16_t textLen);

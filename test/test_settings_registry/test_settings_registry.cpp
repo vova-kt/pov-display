@@ -77,7 +77,17 @@ void test_tojson_text_pattern_has_params() {
     for (JsonObject p : doc["patterns"].as<JsonArray>()) {
         if (strcmp(p["key"].as<const char*>(), "text") == 0) {
             TEST_ASSERT_TRUE(p["params"].is<JsonArray>());
-            TEST_ASSERT_EQUAL_INT(3, p["params"].as<JsonArray>().size());
+            TEST_ASSERT_EQUAL_INT(4, p["params"].as<JsonArray>().size());
+            bool foundMargin = false;
+            for (JsonObject param : p["params"].as<JsonArray>()) {
+                if (strcmp(param["key"].as<const char*>(), "marginLeds") == 0) {
+                    TEST_ASSERT_EQUAL_INT(1, param["value"].as<int>());
+                    TEST_ASSERT_EQUAL_INT(1, param["default"].as<int>());
+                    TEST_ASSERT_EQUAL_INT(0, param["min"].as<int>());
+                    foundMargin = true;
+                }
+            }
+            TEST_ASSERT_TRUE_MESSAGE(foundMargin, "Text pattern should expose marginLeds");
             return;
         }
     }
@@ -184,6 +194,14 @@ void test_apply_text_mode_param() {
     TEST_ASSERT_EQUAL_INT32(2, g_patterns[idx]->findParam("mode")->value);
 }
 
+void test_apply_text_margin_param() {
+    JsonDocument doc;
+    doc["patterns"]["text"]["marginLeds"] = 4;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+    int idx = g_pattern_index("text");
+    TEST_ASSERT_EQUAL_INT32(4, g_patterns[idx]->findParam("marginLeds")->value);
+}
+
 void test_apply_text_truncates_long_string() {
     char longStr[128];
     memset(longStr, 'A', 127);
@@ -265,6 +283,7 @@ int main() {
 
     RUN_TEST(test_apply_text_param);
     RUN_TEST(test_apply_text_mode_param);
+    RUN_TEST(test_apply_text_margin_param);
     RUN_TEST(test_apply_text_truncates_long_string);
     RUN_TEST(test_apply_animation_param);
 

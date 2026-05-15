@@ -17,6 +17,7 @@ static void setText(TextPattern& tp, const char* s) {
 }
 static void setMode(TextPattern& tp, int v) { tp.findParam("mode")->value = v; }
 static void setDelay(TextPattern& tp, int v) { tp.findParam("delayMs")->value = v; }
+static void setMargin(TextPattern& tp, int v) { tp.findParam("marginLeds")->value = v; }
 static void resizeFramebuffer(uint16_t slices, uint16_t leds) {
     TEST_ASSERT_TRUE(fb.resize(slices, leds));
     cfg.numSlices = slices;
@@ -337,6 +338,17 @@ static int countLitOnLed(Framebuffer& fb, uint16_t led) {
     return count;
 }
 
+static uint16_t maxLitLed(Framebuffer& fb) {
+    uint16_t maxLed = 0;
+    for (uint16_t s = 0; s < fb.numSlices(); s++) {
+        const Pixel* slice = fb.getSlice(s);
+        for (uint16_t l = 0; l < fb.numLeds(); l++) {
+            if (slice[l].brightness != 0 && l > maxLed) maxLed = l;
+        }
+    }
+    return maxLed;
+}
+
 static void capturePixels(Pixel* out) {
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         memcpy(out + s * fb.numLeds(), fb.getSlice(s), fb.numLeds() * sizeof(Pixel));
@@ -357,6 +369,37 @@ void test_low_scale_odd_text_dodges_center_gap() {
 
     TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
     TEST_ASSERT_EQUAL_INT(0, countLitOnLed(fb, 0));
+}
+
+void test_low_scale_text_uses_fractional_width_fit() {
+    resizeFramebuffer(72, 26);
+
+    TextPattern text;
+    setMargin(text, 0);
+    setText(text, "HHHHH");
+    text.generate(fb, cfg, 0);
+    fb.swap();
+
+    TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
+    TEST_ASSERT_TRUE_MESSAGE(maxLitLed(fb) >= 20, "Five-letter text should not fall back to tiny 1x fit");
+}
+
+void test_text_margin_reduces_cartesian_fit_box() {
+    resizeFramebuffer(72, 26);
+
+    TextPattern text;
+    setText(text, "HHHHH");
+    setMargin(text, 0);
+    text.generate(fb, cfg, 0);
+    fb.swap();
+    uint16_t noMarginMax = maxLitLed(fb);
+
+    setMargin(text, 6);
+    text.generate(fb, cfg, 0);
+    fb.swap();
+    uint16_t marginMax = maxLitLed(fb);
+
+    TEST_ASSERT_GREATER_THAN(marginMax, noMarginMax);
 }
 
 void test_text_renders_cyrillic_pixels() {
@@ -557,6 +600,21 @@ void test_marquee_renders_pixels() {
     TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
 }
 
+void test_marquee_respects_text_margin() {
+    resizeFramebuffer(72, 26);
+
+    TextPattern text;
+    setMode(text, 3);
+    setDelay(text, 100);
+    setMargin(text, 6);
+    setText(text, "HHHHH");
+
+    text.generate(fb, cfg, 0);
+    fb.swap();
+
+    TEST_ASSERT_EQUAL_INT(0, countLitPixels(fb));
+}
+
 // ---------- Text static mode unchanged ----------
 
 void test_static_mode_ignores_time() {
@@ -603,6 +661,8 @@ int main() {
     RUN_TEST(test_text_centered_on_disc);
     RUN_TEST(test_text_name);
     RUN_TEST(test_low_scale_odd_text_dodges_center_gap);
+    RUN_TEST(test_low_scale_text_uses_fractional_width_fit);
+    RUN_TEST(test_text_margin_reduces_cartesian_fit_box);
     RUN_TEST(test_text_renders_cyrillic_pixels);
     RUN_TEST(test_text_cache_updates_after_text_change);
     RUN_TEST(test_spell_treats_cyrillic_as_one_character);
@@ -614,6 +674,7 @@ int main() {
     RUN_TEST(test_word_mode_blanks_between_cycles);
     RUN_TEST(test_marquee_changes_over_time);
     RUN_TEST(test_marquee_renders_pixels);
+    RUN_TEST(test_marquee_respects_text_margin);
     RUN_TEST(test_static_mode_ignores_time);
 
     return UNITY_END();
