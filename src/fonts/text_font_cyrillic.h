@@ -4,7 +4,7 @@
 
 // 5x7 Cyrillic glyphs for U+0410..U+044F plus U+0401/U+0451.
 // Each glyph is 5 bytes (columns), LSB = top row. Wide overrides below use up to 7 columns.
-static const uint8_t PROGMEM FONT_5X7_CYRILLIC[][5] = {
+static const uint8_t PROGMEM TEXT_FONT_CYRILLIC[][5] = {
     {0x7E,0x11,0x11,0x11,0x7E}, // U+0410 А
     {0x7F,0x49,0x49,0x49,0x31}, // U+0411 Б
     {0x7F,0x49,0x49,0x49,0x36}, // U+0412 В
@@ -71,15 +71,15 @@ static const uint8_t PROGMEM FONT_5X7_CYRILLIC[][5] = {
     {0x46,0x29,0x19,0x09,0x7F}, // U+044F я
 };
 
-static constexpr uint32_t FONT_5X7_CYRILLIC_FIRST = 0x0410;
-static constexpr uint32_t FONT_5X7_CYRILLIC_LAST = 0x044F;
-static constexpr uint32_t FONT_5X7_CYRILLIC_UPPER_YO = 0x0401;
-static constexpr uint32_t FONT_5X7_CYRILLIC_LOWER_YO = 0x0451;
-static const uint8_t PROGMEM FONT_5X7_CYRILLIC_YO[5] = {0x7D,0x54,0x54,0x54,0x45};
+static constexpr uint32_t TEXT_FONT_CYRILLIC_FIRST = 0x0410;
+static constexpr uint32_t TEXT_FONT_CYRILLIC_LAST = 0x044F;
+static constexpr uint32_t TEXT_FONT_CYRILLIC_UPPER_YO = 0x0401;
+static constexpr uint32_t TEXT_FONT_CYRILLIC_LOWER_YO = 0x0451;
+static const uint8_t PROGMEM TEXT_FONT_CYRILLIC_YO[5] = {0x7D,0x54,0x54,0x54,0x45};
 
-static constexpr uint8_t FONT_5X7_CYRILLIC_WIDE_MAX_WIDTH = 7;
+static constexpr uint8_t TEXT_FONT_CYRILLIC_WIDE_MAX_WIDTH = 7;
 
-static const uint8_t PROGMEM FONT_5X7_CYRILLIC_WIDE_WIDTHS[] = {
+static const uint8_t PROGMEM TEXT_FONT_CYRILLIC_WIDE_WIDTHS[] = {
     7, // Ж/ж
     6, // Ц/ц
     6, // Ч/ч
@@ -88,7 +88,7 @@ static const uint8_t PROGMEM FONT_5X7_CYRILLIC_WIDE_WIDTHS[] = {
     6, // Ы/ы
 };
 
-static const uint8_t PROGMEM FONT_5X7_CYRILLIC_WIDE[][FONT_5X7_CYRILLIC_WIDE_MAX_WIDTH] = {
+static const uint8_t PROGMEM TEXT_FONT_CYRILLIC_WIDE[][TEXT_FONT_CYRILLIC_WIDE_MAX_WIDTH] = {
     {0x63,0x14,0x08,0x7F,0x08,0x14,0x63}, // Ж/ж
     {0x7F,0x40,0x40,0x7F,0x40,0x60,0x00}, // Ц/ц
     {0x0F,0x08,0x08,0x08,0x08,0x7F,0x00}, // Ч/ч
@@ -97,7 +97,7 @@ static const uint8_t PROGMEM FONT_5X7_CYRILLIC_WIDE[][FONT_5X7_CYRILLIC_WIDE_MAX
     {0x7F,0x48,0x48,0x30,0x00,0x7F,0x00}, // Ы/ы
 };
 
-static inline bool font5x7CyrillicWideGlyph(uint32_t codepoint, uint8_t cols[FONT_5X7_CYRILLIC_WIDE_MAX_WIDTH],
+static inline bool textFontCyrillicWideGlyph(uint32_t codepoint, uint8_t cols[TEXT_FONT_CYRILLIC_WIDE_MAX_WIDTH],
                                             uint8_t& width) {
     uint8_t index;
     switch (codepoint) {
@@ -110,8 +110,8 @@ static inline bool font5x7CyrillicWideGlyph(uint32_t codepoint, uint8_t cols[FON
         default: return false;
     }
 
-    width = pgm_read_byte(&FONT_5X7_CYRILLIC_WIDE_WIDTHS[index]);
-    for (uint8_t col = 0; col < FONT_5X7_CYRILLIC_WIDE_MAX_WIDTH; col++)
-        cols[col] = pgm_read_byte(&FONT_5X7_CYRILLIC_WIDE[index][col]);
+    width = pgm_read_byte(&TEXT_FONT_CYRILLIC_WIDE_WIDTHS[index]);
+    for (uint8_t col = 0; col < TEXT_FONT_CYRILLIC_WIDE_MAX_WIDTH; col++)
+        cols[col] = pgm_read_byte(&TEXT_FONT_CYRILLIC_WIDE[index][col]);
     return true;
 }

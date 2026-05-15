@@ -1,5 +1,4 @@
 #include "text.h"
-#include "../fonts/font5x7.h"
 #include <cstring>
 
 static const ParamOption kTextModeOptions[] = {
@@ -47,7 +46,16 @@ void TextPattern::ensureCanvas(uint16_t numSlices, uint16_t numLeds) {
     lastLeds_    = numLeds;
 }
 
-static void renderGlyph(Canvas& canvas, const Font5x7Glyph& glyph,
+void TextPattern::ensureTextRun(const char* text, uint16_t textLen) {
+    if (textRunValid_ && strcmp(cachedText_, text) == 0) return;
+
+    textFontDecodeRun(text, textLen, textRun_);
+    strncpy(cachedText_, text, sizeof(cachedText_) - 1);
+    cachedText_[sizeof(cachedText_) - 1] = '\0';
+    textRunValid_ = true;
+}
+
+static void renderGlyph(Canvas& canvas, const TextFontGlyph& glyph,
                         int16_t startX, uint16_t startY, uint8_t scale,
                         uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
     uint16_t ch = canvas.height();
@@ -55,7 +63,7 @@ static void renderGlyph(Canvas& canvas, const Font5x7Glyph& glyph,
 
     for (uint8_t col = 0; col < glyph.width; col++) {
         uint8_t colData = glyph.cols[col];
-        for (uint8_t row = 0; row < FONT_CHAR_HEIGHT; row++) {
+        for (uint8_t row = 0; row < TEXT_FONT_METRICS.height; row++) {
             if (!(colData & (1 << row))) continue;
 
             for (uint8_t dy = 0; dy < scale; dy++) {
@@ -72,53 +80,50 @@ static void renderGlyph(Canvas& canvas, const Font5x7Glyph& glyph,
     }
 }
 
-static void renderLine(Canvas& canvas, const char* text, uint16_t len,
+static void renderLine(Canvas& canvas, const TextFontRunView& run,
                        int16_t startX, uint16_t startY, uint8_t scale,
                        uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
     uint16_t cw = canvas.width();
-    int16_t xPos   = startX;
-    uint16_t offset = 0;
-    Font5x7Glyph glyph;
+    int16_t xPos = startX;
 
-    while (font5x7NextGlyph(text, len, offset, glyph)) {
+    for (uint8_t i = 0; i < run.count; i++) {
         if (xPos >= (int16_t)cw) break;
 
+        const TextFontGlyph& glyph = run.glyphs[i].glyph;
         uint16_t glyphW = glyph.width * scale;
         if (xPos + (int16_t)glyphW >= 0)
             renderGlyph(canvas, glyph, xPos, startY, scale, r, g, b, brightness);
-        xPos += glyphW + FONT_GLYPH_GAP * scale;
+        xPos += glyphW + TEXT_FONT_METRICS.gap * scale;
     }
 }
 
-static uint16_t countWords(const char* text, uint16_t len) {
-    if (len == 0) return 0;
-    uint16_t words = 1;
-    for (uint16_t i = 0; i < len; i++)
-        if (text[i] == ' ' && i + 1 < len) words++;
+static uint8_t countWords(const TextFontRunView& run) {
+    if (run.count == 0) return 0;
+    uint8_t words = 1;
+    for (uint8_t i = 0; i < run.count; i++)
+        if (run.glyphs[i].isSpace && i + 1 < run.count) words++;
     return words;
 }
 
-static uint16_t charsForWords(const char* text, uint16_t len, uint16_t wordCount) {
+static uint8_t glyphsForWords(const TextFontRunView& run, uint8_t wordCount) {
     if (wordCount == 0) return 0;
-    uint16_t w = 0;
-    for (uint16_t i = 0; i < len; i++) {
-        if (i == 0 || text[i - 1] == ' ') w++;
+    uint8_t w = 0;
+    for (uint8_t i = 0; i < run.count; i++) {
+        if (i == 0 || run.glyphs[i - 1].isSpace) w++;
         if (w > wordCount) return i - 1;
     }
-    return len;
+    return run.count;
 }
 
-static void computeScale(uint16_t cw, uint16_t ch, const char* text, uint16_t textLen,
-                          const char* lines[2], uint16_t lens[2], uint8_t& numLines,
-                          uint8_t& scale) {
-    lines[0] = text;
-    lines[1] = nullptr;
-    lens[0]  = textLen;
-    lens[1]  = 0;
+static void computeScale(uint16_t cw, uint16_t ch, const TextFontRunView& run,
+                         TextFontRunView lines[2], uint8_t& numLines,
+                         uint8_t& scale) {
+    lines[0] = run;
+    lines[1] = {nullptr, 0, 0};
     numLines = 1;
 
-    uint16_t baseCols = font5x7Measure(text, textLen);
-    uint8_t scaleV = ch / FONT_CHAR_HEIGHT;
+    uint16_t baseCols = run.width;
+    uint8_t scaleV = ch / TEXT_FONT_METRICS.height;
     uint8_t scaleH = baseCols <= cw ? cw / baseCols : 0;
     scale = scaleV < scaleH ? scaleV : scaleH;
 
@@ -126,14 +131,14 @@ static void computeScale(uint16_t cw, uint16_t ch, const char* text, uint16_t te
         uint16_t bestMaxBC = UINT16_MAX;
         int bestBreak = -1;
 
-        for (uint16_t i = 1; i < textLen; i++) {
-            if (text[i] != ' ') continue;
-            uint16_t l1 = i;
-            uint16_t l2 = textLen - i - 1;
+        for (uint8_t i = 1; i < run.count; i++) {
+            if (!run.glyphs[i].isSpace) continue;
+            uint8_t l1 = i;
+            uint8_t l2 = run.count - i - 1;
             if (l2 == 0) continue;
 
-            uint16_t bc1 = font5x7Measure(text, l1);
-            uint16_t bc2 = font5x7Measure(text + i + 1, l2);
+            uint16_t bc1 = textFontMeasureGlyphs(run.glyphs, l1);
+            uint16_t bc2 = textFontMeasureGlyphs(run.glyphs + i + 1, l2);
             uint16_t maxBC = bc1 > bc2 ? bc1 : bc2;
 
             if (maxBC < bestMaxBC) {
@@ -143,12 +148,13 @@ static void computeScale(uint16_t cw, uint16_t ch, const char* text, uint16_t te
         }
 
         if (bestBreak >= 0) {
-            lens[0]  = bestBreak;
-            lines[1] = text + bestBreak + 1;
-            lens[1]  = textLen - bestBreak - 1;
+            uint8_t l1 = (uint8_t)bestBreak;
+            uint8_t l2 = run.count - (uint8_t)bestBreak - 1;
+            lines[0] = textFontRunView(run.glyphs, l1);
+            lines[1] = textFontRunView(run.glyphs + bestBreak + 1, l2);
             numLines = 2;
 
-            scaleV = ch / (2 * FONT_CHAR_HEIGHT + 1);
+            scaleV = ch / (2 * TEXT_FONT_METRICS.height + TEXT_FONT_METRICS.gap);
             scaleH = bestMaxBC <= cw ? cw / bestMaxBC : 0;
             scale  = scaleV < scaleH ? scaleV : scaleH;
         }
@@ -157,22 +163,22 @@ static void computeScale(uint16_t cw, uint16_t ch, const char* text, uint16_t te
     if (scale < 1) scale = 1;
 }
 
-static void renderCentered(Canvas& canvas, const char* lines[2], uint16_t lens[2],
-                            uint8_t numLines, uint8_t scale,
-                            uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
+static void renderCentered(Canvas& canvas, const TextFontRunView lines[2],
+                           uint8_t numLines, uint8_t scale,
+                           uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
     uint16_t cw = canvas.width();
     uint16_t ch = canvas.height();
-    uint16_t lineH   = FONT_CHAR_HEIGHT * scale;
+    uint16_t lineH   = TEXT_FONT_METRICS.height * scale;
     uint16_t lineGap = numLines > 1 ? scale : 0;
     uint16_t totalH  = numLines * lineH + (numLines - 1) * lineGap;
     uint16_t startY  = totalH < ch ? (ch - totalH) / 2 : 0;
 
     for (uint8_t line = 0; line < numLines; line++) {
-        uint16_t totalW = font5x7Measure(lines[line], lens[line]) * scale;
+        uint16_t totalW = lines[line].width * scale;
         int16_t startX = totalW < cw ? (int16_t)((cw - totalW) / 2) : 0;
         uint16_t y = startY + line * (lineH + lineGap);
 
-        renderLine(canvas, lines[line], lens[line], startX, y, scale,
+        renderLine(canvas, lines[line], startX, y, scale,
                    r, g, b, brightness);
     }
 }
@@ -183,8 +189,9 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
     const char* text = textBuf_;
     uint16_t textLen = strlen(text);
     if (textLen == 0) return;
-    uint16_t textGlyphs = font5x7GlyphCount(text, textLen);
-    if (textGlyphs == 0) return;
+
+    ensureTextRun(text, textLen);
+    if (textRun_.count == 0) return;
 
     int32_t mode      = storage_[1].value;
     int32_t delayMsIn = storage_[2].value;
@@ -197,9 +204,9 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
 
     if (mode == 3) {
         // Marquee: single-line scroll, scale to fit vertically
-        uint8_t scale = ch / FONT_CHAR_HEIGHT;
+        uint8_t scale = ch / TEXT_FONT_METRICS.height;
         if (scale < 1) scale = 1;
-        uint16_t textW = font5x7Measure(text, textLen) * scale;
+        uint16_t textW = textRun_.width * scale;
         uint16_t scrollRange = textW + cw;
         uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
         uint16_t pixPerStep = scale;
@@ -207,58 +214,44 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
         if (stepMs < 1) stepMs = 1;
         int16_t offset = (int16_t)((timeMs / stepMs) % scrollRange);
         int16_t startX = (int16_t)cw - offset;
-        uint16_t startY = ch > (FONT_CHAR_HEIGHT * scale)
-                          ? (ch - FONT_CHAR_HEIGHT * scale) / 2 : 0;
+        uint16_t startY = ch > (TEXT_FONT_METRICS.height * scale)
+                          ? (ch - TEXT_FONT_METRICS.height * scale) / 2 : 0;
 
-        renderLine(canvas_, text, textLen, startX, startY, scale,
+        renderLine(canvas_, textFontRunView(textRun_), startX, startY, scale,
                    cfg.colorR, cfg.colorG, cfg.colorB, cfg.brightness);
     } else {
-        uint16_t visLen = textLen;
-
-        uint16_t visOffset = 0;
+        TextFontRunView fullRun = textFontRunView(textRun_);
+        TextFontRunView visible = fullRun;
 
         if (mode == 1) {
             // Spell: one character at a time
             uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
-            uint16_t cycle = textGlyphs + 2;
+            uint16_t cycle = textRun_.count + 2;
             uint16_t step = (uint16_t)((timeMs / delayMs) % cycle);
-            if (step < textGlyphs &&
-                font5x7GlyphByteRange(text, textLen, step, visOffset, visLen)) {
-            } else {
-                visLen = 0;
-            }
+            if (step < textRun_.count)
+                visible = textFontRunView(textRun_.glyphs + step, 1);
+            else
+                visible = {nullptr, 0, 0};
         } else if (mode == 2) {
             // Word by word
             uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
-            uint16_t totalWords = countWords(text, textLen);
+            uint8_t totalWords = countWords(fullRun);
             uint16_t cycle = totalWords + 2;
             uint16_t step = (uint16_t)((timeMs / delayMs) % cycle);
-            uint16_t visWords = step < totalWords ? step + 1 : totalWords;
-            visLen = charsForWords(text, textLen, visWords);
+            uint8_t visWords = step < totalWords ? (uint8_t)step + 1 : totalWords;
+            visible = textFontRunView(textRun_.glyphs, glyphsForWords(fullRun, visWords));
         }
 
-        if (visLen == 0) {
+        if (visible.count == 0) {
             transform_.apply(canvas_, fb, cfg);
             return;
         }
 
-        // Static buffer for visible substring
-        char visBuf[64];
-        const char* visText;
-        if (visLen < textLen || visOffset > 0) {
-            memcpy(visBuf, text + visOffset, visLen);
-            visBuf[visLen] = '\0';
-            visText = visBuf;
-        } else {
-            visText = text;
-        }
-
-        const char* lines[2];
-        uint16_t lens[2];
+        TextFontRunView lines[2];
         uint8_t numLines;
         uint8_t scale;
-        computeScale(cw, ch, visText, visLen, lines, lens, numLines, scale);
-        renderCentered(canvas_, lines, lens, numLines, scale,
+        computeScale(cw, ch, visible, lines, numLines, scale);
+        renderCentered(canvas_, lines, numLines, scale,
                        cfg.colorR, cfg.colorG, cfg.colorB, cfg.brightness);
     }
 

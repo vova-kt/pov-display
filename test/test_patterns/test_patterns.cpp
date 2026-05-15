@@ -6,7 +6,7 @@
 #include "patterns/rainbow.h"
 #include "patterns/scanner.h"
 #include "patterns/text.h"
-#include "fonts/font5x7.h"
+#include "fonts/text_font.h"
 
 static Framebuffer fb;
 static Config cfg;
@@ -333,6 +333,21 @@ void test_text_renders_cyrillic_pixels() {
     TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
 }
 
+void test_text_cache_updates_after_text_change() {
+    TextPattern text;
+    setText(text, "I");
+    text.generate(fb, cfg, 0);
+    fb.swap();
+    int litI = countLitPixels(fb);
+
+    setText(text, "Ж");
+    text.generate(fb, cfg, 0);
+    fb.swap();
+    int litZh = countLitPixels(fb);
+
+    TEST_ASSERT_NOT_EQUAL(litI, litZh);
+}
+
 void test_spell_treats_cyrillic_as_one_character() {
     TextPattern text;
     setMode(text, 1);
@@ -353,27 +368,30 @@ void test_spell_treats_cyrillic_as_one_character() {
 }
 
 void test_wide_cyrillic_glyphs_use_declared_advance() {
-    Font5x7Glyph glyph;
+    TextFontGlyph glyph;
 
-    TEST_ASSERT_TRUE(font5x7Glyph(0x0436, glyph)); // ж
+    TEST_ASSERT_TRUE(textFontGlyph(0x0436, glyph)); // ж
     TEST_ASSERT_EQUAL_UINT8(7, glyph.width);
 
-    TEST_ASSERT_TRUE(font5x7Glyph(0x0429, glyph)); // Щ
+    TEST_ASSERT_TRUE(textFontGlyph(0x0429, glyph)); // Щ
     TEST_ASSERT_EQUAL_UINT8(7, glyph.width);
 
-    TEST_ASSERT_TRUE(font5x7Glyph(0x0428, glyph)); // Ш
+    TEST_ASSERT_TRUE(textFontGlyph(0x0428, glyph)); // Ш
     TEST_ASSERT_EQUAL_UINT8(7, glyph.width);
 
-    TEST_ASSERT_TRUE(font5x7Glyph(0x0426, glyph)); // Ц
+    TEST_ASSERT_TRUE(textFontGlyph(0x0426, glyph)); // Ц
     TEST_ASSERT_EQUAL_UINT8(6, glyph.width);
 
-    TEST_ASSERT_TRUE(font5x7Glyph(0x0427, glyph)); // Ч
+    TEST_ASSERT_TRUE(textFontGlyph(0x0427, glyph)); // Ч
     TEST_ASSERT_EQUAL_UINT8(6, glyph.width);
 
-    TEST_ASSERT_TRUE(font5x7Glyph(0x044B, glyph)); // ы
+    TEST_ASSERT_TRUE(textFontGlyph(0x044B, glyph)); // ы
     TEST_ASSERT_EQUAL_UINT8(6, glyph.width);
 
-    TEST_ASSERT_EQUAL_UINT16(14, font5x7Measure("ЖЫ", strlen("ЖЫ")));
+    TextFontRun run;
+    textFontDecodeRun("ЖЫ", strlen("ЖЫ"), run);
+    TEST_ASSERT_EQUAL_UINT8(2, run.count);
+    TEST_ASSERT_EQUAL_UINT16(14, run.width);
 }
 
 void test_spell_produces_different_frames() {
@@ -522,6 +540,7 @@ int main() {
     RUN_TEST(test_text_centered_on_disc);
     RUN_TEST(test_text_name);
     RUN_TEST(test_text_renders_cyrillic_pixels);
+    RUN_TEST(test_text_cache_updates_after_text_change);
     RUN_TEST(test_spell_treats_cyrillic_as_one_character);
     RUN_TEST(test_wide_cyrillic_glyphs_use_declared_advance);
 

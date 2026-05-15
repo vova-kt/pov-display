@@ -1,6 +1,7 @@
 #pragma once
 #include "pattern.h"
 #include "../canvas.h"
+#include "../fonts/text_font.h"
 #include "../transforms/polar_transform.h"
 
 class TextPattern : public Pattern {
@@ -19,7 +20,11 @@ private:
     uint16_t lastLeds_    = 0;
 
     char textBuf_[64];
+    char cachedText_[64] = {};
+    TextFontRun textRun_ = {};
+    bool textRunValid_ = false;
     Param storage_[3];
 
     void ensureCanvas(uint16_t numSlices, uint16_t numLeds);
+    void ensureTextRun(const char* text, uint16_t textLen);
 };

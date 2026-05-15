@@ -3,7 +3,7 @@
 #include <pgmspace.h>
 
 // 5x7 bitmap font — ASCII 32..126. Each char is 5 bytes (columns), LSB = top row.
-static const uint8_t PROGMEM FONT_5X7_ASCII[][5] = {
+static const uint8_t PROGMEM TEXT_FONT_ASCII[][5] = {
     {0x00,0x00,0x00,0x00,0x00}, // 32 ' '
     {0x00,0x00,0x5F,0x00,0x00}, // 33 '!'
     {0x00,0x07,0x00,0x07,0x00}, // 34 '"'
@@ -101,5 +101,5 @@ static const uint8_t PROGMEM FONT_5X7_ASCII[][5] = {
     {0x08,0x08,0x2A,0x1C,0x08}, // 126 '~'
 };
 
-static constexpr uint32_t FONT_5X7_ASCII_FIRST = 32;
-static constexpr uint32_t FONT_5X7_ASCII_LAST = 126;
+static constexpr uint32_t TEXT_FONT_ASCII_FIRST = 32;
+static constexpr uint32_t TEXT_FONT_ASCII_LAST = 126;

@@ -16,7 +16,7 @@ Every configurable value — whether a top-level Config field, a pattern-specifi
 - **Text** — backed by a fixed `char[]` buffer in the owning object; rendered as a text input.
 - **Enum** — validated against a `ParamOption[]` list; rendered as a select.
 
-Text params are stored as UTF-8 bytes rather than converted to a wide-character buffer. That keeps SRAM use predictable on the ESP32-C6; patterns that render text decode only while drawing. `TextPattern` currently uses compact 5x7 font tables in `src/fonts/`, split by script so adding another language does not touch the existing glyph data. The font layer owns UTF-8 iteration, run measurement, and glyph width metadata; pattern modes consume those helpers instead of embedding per-language layout rules.
+Text params are stored as UTF-8 bytes rather than converted to a wide-character buffer. `TextPattern` keeps a decoded run cache and refreshes it only when the text bytes change, using a cheap bounded compare each frame because params are exposed as raw buffers. The compact bitmap tables live in `src/fonts/text_font*.h`, split by script so adding another simple alphabet does not touch pattern modes. The font layer owns UTF-8 iteration, run measurement, and glyph width metadata.
 
 ## Scope filter
 
