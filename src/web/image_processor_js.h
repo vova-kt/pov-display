@@ -2,7 +2,7 @@
 #include <pgmspace.h>
 
 // Auto-generated from sim/js/image-processor.js — do not edit directly.
-// check_defaults.py verifies this stays in sync with the source.
+// Run tools/gen_embedded_js.sh to regenerate.
 
 static const char IMAGE_PROCESSOR_JS[] PROGMEM = R"rawliteral(
 // Shared image preprocessing for POV display (sim + MCU web UI).

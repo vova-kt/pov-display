@@ -6,31 +6,16 @@
 #include "animation.h"
 #include "timing.h"
 #include "renderer.h"
-#include "patterns/solid.h"
-#include "patterns/rainbow.h"
-#include "patterns/scanner.h"
-#include "patterns/text.h"
+#include "settings_registry.h"
+#include "settings_registry_sim.h"
+#include "patterns/registry.h"
 #include "patterns/image.h"
+#include <ArduinoJson.h>
 
 static Framebuffer fb;
 static Config cfg;
 static TimingState ts;
 static FrameResult lastFrame;
-
-static SolidPattern   solidPattern;
-static RainbowPattern rainbowPattern;
-static ScannerPattern scannerPattern;
-static TextPattern    textPattern;
-static ImagePattern   imagePattern;
-
-static Pattern* patterns[] = {
-    &solidPattern,
-    &rainbowPattern,
-    &textPattern,
-    &scannerPattern,
-    &imagePattern,
-};
-static constexpr uint8_t NUM_PATTERNS = sizeof(patterns) / sizeof(patterns[0]);
 
 extern "C" {
 
@@ -39,7 +24,11 @@ bool sim_init(uint16_t numSlices, uint16_t numLeds) {
     ts.numSlices = numSlices;
     ts.numLeds = numLeds;
     timing_init(ts);
-    return fb.init(numSlices, numLeds);
+    bool ok = fb.init(numSlices, numLeds);
+    settings_registry::init(&cfg);
+    sim_registry_bind(&ts, &cfg, &fb);
+    sim_apply_geometry(numLeds);
+    return ok;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -66,25 +55,37 @@ void sim_set_mirror_pattern(bool m) { cfg.mirrorPattern = m; }
 EMSCRIPTEN_KEEPALIVE
 void sim_set_radial_balance(bool v) { cfg.radialBalance = v; }
 
-EMSCRIPTEN_KEEPALIVE
-void sim_set_text(const char* t) {
-    strncpy(cfg.text, t, sizeof(cfg.text) - 1);
-    cfg.text[sizeof(cfg.text) - 1] = '\0';
+static Param* textParam(const char* paramKey) {
+    int idx = g_pattern_index("text");
+    if (idx < 0) return nullptr;
+    return g_patterns[idx]->findParam(paramKey);
 }
 
 EMSCRIPTEN_KEEPALIVE
-void sim_set_text_mode(uint8_t m) { if (m <= 3) cfg.textMode = m; }
+void sim_set_text(const char* t) {
+    Param* p = textParam("text");
+    if (p) param_set_text(*p, t);
+}
 
 EMSCRIPTEN_KEEPALIVE
-void sim_set_text_delay(uint16_t ms) { cfg.textDelayMs = ms; }
+void sim_set_text_mode(uint8_t m) {
+    Param* p = textParam("mode");
+    if (p && m <= 3) p->value = m;
+}
 
 EMSCRIPTEN_KEEPALIVE
-uint8_t sim_num_patterns() { return NUM_PATTERNS; }
+void sim_set_text_delay(uint16_t ms) {
+    Param* p = textParam("delayMs");
+    if (p) p->value = ms;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t sim_num_patterns() { return G_NUM_PATTERNS; }
 
 EMSCRIPTEN_KEEPALIVE
 const char* sim_pattern_name(uint8_t index) {
-    if (index >= NUM_PATTERNS) return "";
-    return patterns[index]->name();
+    if (index >= G_NUM_PATTERNS) return "";
+    return g_patterns[index]->name();
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -152,27 +153,27 @@ int16_t sim_animation_param_max(uint8_t ai, uint8_t pi) {
 EMSCRIPTEN_KEEPALIVE
 uint8_t sim_animation_param_preset_count(uint8_t ai, uint8_t pi) {
     if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
-    return g_animations[ai]->param(pi).presetCount;
+    return g_animations[ai]->param(pi).optionCount;
 }
 
 EMSCRIPTEN_KEEPALIVE
 const char* sim_animation_param_preset_label(uint8_t ai, uint8_t pi, uint8_t ki) {
     if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return "";
-    const AnimParam& p = g_animations[ai]->param(pi);
-    return ki < p.presetCount ? p.presets[ki].label : "";
+    const Param& p = g_animations[ai]->param(pi);
+    return ki < p.optionCount ? p.options[ki].label : "";
 }
 
 EMSCRIPTEN_KEEPALIVE
 int16_t sim_animation_param_preset_value(uint8_t ai, uint8_t pi, uint8_t ki) {
     if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
-    const AnimParam& p = g_animations[ai]->param(pi);
-    return ki < p.presetCount ? p.presets[ki].value : 0;
+    const Param& p = g_animations[ai]->param(pi);
+    return ki < p.optionCount ? p.options[ki].value : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE
 void sim_set_animation_param(uint8_t ai, uint8_t pi, int16_t value) {
     if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return;
-    AnimParam& p = g_animations[ai]->param(pi);
+    Param& p = g_animations[ai]->param(pi);
     if (value >= p.min && value <= p.max) p.value = value;
 }
 
@@ -232,8 +233,8 @@ EMSCRIPTEN_KEEPALIVE
 void sim_frame(float dtMs, float simTimeMs, uint8_t patternIndex) {
     lastFrame = timing_frame(ts, dtMs, simTimeMs);
 
-    if (lastFrame.shouldGenerate && patternIndex < NUM_PATTERNS) {
-        patterns[patternIndex]->generate(fb, cfg, (uint32_t)simTimeMs);
+    if (lastFrame.shouldGenerate && patternIndex < G_NUM_PATTERNS) {
+        g_patterns[patternIndex]->generate(fb, cfg, (uint32_t)simTimeMs);
 
         AnimationState animState;
         applyAnimations(animState, fb, (uint32_t)simTimeMs);
@@ -265,7 +266,42 @@ EMSCRIPTEN_KEEPALIVE bool  sim_get_has_overruns()     { return lastFrame.hasOver
 
 EMSCRIPTEN_KEEPALIVE
 bool sim_load_image(uint8_t* rgbData, uint16_t width, uint16_t height) {
-    return imagePattern.loadImage(rgbData, width, height);
+    return g_image_pattern()->loadImage(rgbData, width, height);
 }
+
+// --- Settings JSON API ---
+
+static char s_settingsJsonBuf[5120];
+
+EMSCRIPTEN_KEEPALIVE
+const char* sim_get_settings_json() {
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
+    settings_registry::toJson(root, Scope::SimOnly);
+    serializeJson(doc, s_settingsJsonBuf, sizeof(s_settingsJsonBuf));
+    return s_settingsJsonBuf;
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool sim_apply_settings_json(const char* json) {
+    JsonDocument doc;
+    if (deserializeJson(doc, json)) return false;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::SimOnly);
+    // Propagate numLeds/numSlices changes to framebuffer and timing state.
+    if ((int)cfg.numLeds != ts.numLeds || (int)cfg.numSlices != ts.numSlices) {
+        ts.numLeds   = cfg.numLeds;
+        ts.numSlices = cfg.numSlices;
+        fb.resize(cfg.numSlices, cfg.numLeds);
+        sim_apply_geometry(cfg.numLeds);
+    }
+    renderer_set_num_arms(cfg.numArms);
+    ts.spiClockMhz = cfg.spiClockMhz;
+    // RPM is derived from targetHz × 60 / numArms
+    ts.rpm = (float)cfg.targetHz * 60.0f / (float)cfg.numArms;
+    return true;
+}
+
+EMSCRIPTEN_KEEPALIVE
+float sim_get_sim_speed() { return sim_settings_get_sim_speed(); }
 
 }

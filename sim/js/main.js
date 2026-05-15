@@ -1,19 +1,16 @@
 import { PovSim } from './wasm-engine.js';
+import { SettingsUI } from './settings_ui.js';
 
 let sim;
-let activePattern = 1;
+let settingsUI;
 let simTimeMs = 0;
 let lastFrameTime = null;
-let simSpeed = 1.0;
 let paused = false;
-let refreshRate = 60;
-let numArms = 2;
-let displayHz = 120;
+let accumulatedDt = 0;
 let fpsFrameCount = 0;
 let fpsLastTime = 0;
 let currentFps = 0;
 let lastRenderTimestamp = null;
-let accumulatedDt = 0;
 
 function sizeCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
@@ -26,247 +23,42 @@ function sizeCanvas(canvas) {
   if (sim) sim.rendererResize(css * dpr, css * dpr);
 }
 
-function readGeometry() {
-  const numLeds   = +document.getElementById('num-leds').value;
-  const ledSizeMm = +document.getElementById('led-size').value;
-  const ledGapMm  = +document.getElementById('led-gap').value;
-  const hubMm     = +document.getElementById('hub-radius').value;
-  const pitchMm   = ledSizeMm + ledGapMm;
-  const armMm     = hubMm + numLeds * pitchMm;
-  return { numLeds, ledSizeMm, ledGapMm, hubMm, pitchMm, armMm };
-}
-
-function applyGeometry() {
-  const g = readGeometry();
-  sim.setGapFraction(g.ledGapMm / g.pitchMm);
-  sim.setHubFraction(g.hubMm / g.armMm);
-  document.getElementById('ro-pitch').textContent = g.pitchMm.toFixed(1) + ' mm';
-  document.getElementById('ro-arm-radius').textContent = Math.round(g.armMm) + ' mm';
-}
-
-function updateTextOpts() {
-  const isText = activePattern === 2;
-  document.getElementById('text-opts').classList.toggle('hidden', !isText);
-  const mode = +document.getElementById('text-mode').value;
-  document.getElementById('text-delay-row').classList.toggle('hidden', mode === 0);
-}
-
-function buildAnimationControls() {
-  const container = document.getElementById('anim-controls');
-  container.innerHTML = '';
-  for (let i = 0; i < sim.animationCount; i++) {
-    const name = sim.animationName(i);
-    for (let j = 0; j < sim.animParamCount(i); j++) {
-      const label = sim.animParamLabel(i, j);
-      const presetCount = sim.animParamPresetCount(i, j);
-
-      const row = document.createElement('div');
-      row.className = 'row';
-      const lbl = document.createElement('label');
-      lbl.textContent = name + ' ' + label;
-      row.appendChild(lbl);
-
-      if (presetCount > 0) {
-        const sel = document.createElement('select');
-        sel.dataset.ai = i;
-        sel.dataset.pi = j;
-        for (let k = 0; k < presetCount; k++) {
-          const opt = document.createElement('option');
-          opt.value = sim.animParamPresetValue(i, j, k);
-          opt.textContent = sim.animParamPresetLabel(i, j, k);
-          sel.appendChild(opt);
-        }
-        sel.value = sim.animParamValue(i, j);
-        sel.addEventListener('change', e => {
-          sim.setAnimParam(+e.target.dataset.ai, +e.target.dataset.pi, +e.target.value);
-        });
-        row.appendChild(sel);
-      } else {
-        const inp = document.createElement('input');
-        inp.type = 'range';
-        inp.dataset.ai = i;
-        inp.dataset.pi = j;
-        inp.min = sim.animParamMin(i, j);
-        inp.max = sim.animParamMax(i, j);
-        inp.value = sim.animParamValue(i, j);
-        const val = document.createElement('span');
-        val.className = 'val';
-        val.textContent = inp.value;
-        inp.addEventListener('input', e => {
-          sim.setAnimParam(+e.target.dataset.ai, +e.target.dataset.pi, +e.target.value);
-          val.textContent = e.target.value;
-        });
-        row.appendChild(inp);
-        row.appendChild(val);
-      }
-      container.appendChild(row);
-    }
-  }
-}
-
 async function init() {
   const canvas = document.getElementById('pov-canvas');
 
-  const numLeds = +document.getElementById('num-leds').value;
-  const numSlices = +document.getElementById('num-slices').value;
-
-  sim = await PovSim.create(numSlices, numLeds, canvas);
-
+  sim = await PovSim.create(360, 26, canvas);
   sizeCanvas(canvas);
-  refreshRate = +document.getElementById('refresh-rate').value;
-  numArms = +document.getElementById('num-arms').value;
-  displayHz = +document.getElementById('display-hz').value;
-  sim.setNumArms(numArms);
-  sim.setRpm(refreshRate * 60 / numArms);
-  sim.setPhaseOffset(+document.getElementById('phase-offset').value - 90);
 
-  buildPatternSelector();
-  buildAnimationControls();
-  bindControls();
-  applyGeometry();
+  // Build the settings UI from the WASM model
+  const adapter = {
+    getModel() {
+      return Promise.resolve(JSON.parse(sim.getSettingsJson()));
+    },
+    apply(patch) {
+      sim.applySettingsJson(JSON.stringify(patch));
+      return Promise.resolve();
+    }
+  };
+  settingsUI = await SettingsUI.init(adapter, document.getElementById('settings-root'));
 
-  window.addEventListener('resize', () => sizeCanvas(canvas));
-
-  const gl = canvas.getContext('webgl2');
-  console.log('GL context from JS:', gl ? 'exists' : 'null',
-              'canvas size:', canvas.width, canvas.height,
-              'drawingBufferWidth:', gl?.drawingBufferWidth,
-              'drawingBufferHeight:', gl?.drawingBufferHeight);
-
-  requestAnimationFrame(loop);
-}
-
-function findPatternIndex(name) {
-  for (let i = 0; i < sim.patternCount; i++) {
-    if (sim.patternName(i) === name) return i;
-  }
-  return -1;
-}
-
-function buildPatternSelector() {
-  const sel = document.getElementById('pattern');
-  sel.innerHTML = '';
-  for (let i = 0; i < sim.patternCount; i++) {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = sim.patternName(i);
-    sel.appendChild(opt);
-  }
-  sel.value = activePattern;
-}
-
-function bindControls() {
-  const on = (id, evt, fn) => document.getElementById(id).addEventListener(evt, fn);
-
-  on('pattern', 'change', e => {
-    activePattern = +e.target.value;
-    updateTextOpts();
+  // Image upload
+  document.getElementById('image-file').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const sz = sim.numLeds * 2;
+    const result = await preprocessImage(file, sz);
+    sim.loadImage(result.pixels, result.width, result.height);
+    // Set activePattern to image index via settings JSON
+    const model = JSON.parse(sim.getSettingsJson());
+    const imageIdx = (model.patterns || []).find(p => p.key === 'image')?.index ?? -1;
+    if (imageIdx >= 0) {
+      sim.applySettingsJson(JSON.stringify({ activePattern: imageIdx }));
+      settingsUI._changeActivePattern(imageIdx);
+    }
   });
 
-  on('color', 'input', e => {
-    const hex = e.target.value;
-    sim.setColor(
-      parseInt(hex.slice(1, 3), 16),
-      parseInt(hex.slice(3, 5), 16),
-      parseInt(hex.slice(5, 7), 16)
-    );
-  });
-
-  on('brightness', 'input', e => {
-    const v = +e.target.value;
-    sim.setBrightness(v);
-    document.getElementById('brightness-val').textContent = v;
-  });
-
-  on('text', 'input', e => { sim.setText(e.target.value); });
-
-  on('text-mode', 'change', e => {
-    sim.setTextMode(+e.target.value);
-    updateTextOpts();
-  });
-
-  on('text-delay', 'input', e => {
-    sim.setTextDelay(+e.target.value);
-    document.getElementById('text-delay-val').textContent = e.target.value + ' ms';
-  });
-
-  on('radial-balance', 'change', e => {
-    sim.setRadialBalance(e.target.checked);
-  });
-
-  on('num-leds', 'change', e => {
-    const v = clamp(+e.target.value, 1, 144);
-    e.target.value = v;
-    sim.resize(sim.numSlices, v);
-    applyGeometry();
-  });
-
-  on('num-slices', 'change', e => {
-    sim.resize(+e.target.value, sim.numLeds);
-  });
-
-  on('mirror', 'change', e => { sim.setMirror(e.target.checked); });
-
-  on('phase-offset', 'change', e => {
-    sim.setPhaseOffset(+e.target.value - 90);
-  });
-
-  on('led-size', 'input', e => {
-    document.getElementById('led-size-val').textContent = (+e.target.value).toFixed(1) + ' mm';
-    applyGeometry();
-  });
-  on('led-gap', 'input', e => {
-    document.getElementById('led-gap-val').textContent = (+e.target.value).toFixed(1) + ' mm';
-    applyGeometry();
-  });
-  on('hub-radius', 'input', e => {
-    document.getElementById('hub-radius-val').textContent = (+e.target.value) + ' mm';
-    applyGeometry();
-  });
-
-  function applyRpm() {
-    refreshRate = +document.getElementById('refresh-rate').value;
-    numArms = +document.getElementById('num-arms').value;
-    sim.setRpm(refreshRate * 60 / numArms);
-    sim.setNumArms(numArms);
-  }
-  on('refresh-rate', 'change', applyRpm);
-  on('num-arms', 'change', applyRpm);
-
-  on('rpm-jitter', 'input', e => {
-    sim.setRpmJitter(+e.target.value);
-    document.getElementById('rpm-jitter-val').textContent = e.target.value + '%';
-  });
-  on('hall-jitter', 'input', e => {
-    sim.setHallJitter(+e.target.value);
-    document.getElementById('hall-jitter-val').textContent = e.target.value + ' \u00B5s';
-  });
-  on('hall-miss', 'input', e => {
-    sim.setHallMiss(+e.target.value / 100);
-    document.getElementById('hall-miss-val').textContent = e.target.value + '%';
-  });
-  on('timer-drift', 'input', e => {
-    sim.setTimerDrift(+e.target.value);
-    document.getElementById('timer-drift-val').textContent = e.target.value + ' ppm';
-  });
-  on('pattern-lag', 'input', e => {
-    sim.setPatternLag(+e.target.value);
-    document.getElementById('pattern-lag-val').textContent = e.target.value + ' ms';
-  });
-  on('spi-clock', 'change', e => {
-    sim.setSpiClock(+e.target.value);
-  });
-
-  on('display-hz', 'change', e => {
-    displayHz = +e.target.value;
-    sim.setDisplayHz(displayHz);
-  });
-
-  on('sim-speed', 'input', e => {
-    simSpeed = +e.target.value;
-    document.getElementById('sim-speed-val').textContent = simSpeed.toFixed(1) + 'x';
-  });
-  on('pause-btn', 'click', () => {
+  // Pause button
+  document.getElementById('pause-btn').addEventListener('click', () => {
     paused = !paused;
     document.getElementById('pause-btn').textContent = paused ? 'Resume' : 'Pause';
     if (!paused) {
@@ -277,22 +69,8 @@ function bindControls() {
     }
   });
 
-  on('image-file', 'change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const targetSize = sim.numLeds * 2;
-    const result = await preprocessImage(file, targetSize);
-    sim.loadImage(result.pixels, result.width, result.height);
-    const imageIdx = findPatternIndex('image');
-    if (imageIdx >= 0) {
-      activePattern = imageIdx;
-      document.getElementById('pattern').value = imageIdx;
-    }
-  });
-
-  on('overlay-overruns', 'change', e => { sim.setShowOverruns(e.target.checked); });
-  on('overlay-grid', 'change', e => { sim.setShowSliceGrid(e.target.checked); });
-  on('overlay-hall', 'change', e => { sim.setShowHallMarker(e.target.checked); });
+  window.addEventListener('resize', () => sizeCanvas(canvas));
+  requestAnimationFrame(loop);
 }
 
 function loop(timestamp) {
@@ -302,14 +80,23 @@ function loop(timestamp) {
     lastFrameTime = timestamp;
     lastRenderTimestamp = timestamp;
   }
-  const dt = (timestamp - lastFrameTime) * simSpeed;
+
+  const speed = sim.simSpeed;
+  const dt = (timestamp - lastFrameTime) * speed;
   lastFrameTime = timestamp;
   simTimeMs += dt;
   accumulatedDt += dt;
 
+  // Derive displayHz and numArms from the live model to drive render cadence.
+  const model = JSON.parse(sim.getSettingsJson());
+  const displayHz = findSettingValue(model, 'displayHz') ?? 120;
+  const numArms = findSettingValue(model, 'numArms') ?? 2;
+  const activePattern = model.activePattern ?? 0;
+
   const renderInterval = 1000.0 / displayHz;
   if (timestamp - lastRenderTimestamp >= renderInterval) {
-    lastRenderTimestamp += renderInterval * Math.floor((timestamp - lastRenderTimestamp) / renderInterval);
+    lastRenderTimestamp += renderInterval *
+      Math.floor((timestamp - lastRenderTimestamp) / renderInterval);
 
     sim.frame(accumulatedDt, simTimeMs, activePattern);
     accumulatedDt = 0;
@@ -320,31 +107,33 @@ function loop(timestamp) {
       fpsFrameCount = 0;
       fpsLastTime = timestamp;
     }
-
-    updateReadouts();
+    updateHud(numArms);
   }
 
   requestAnimationFrame(loop);
 }
 
-function updateReadouts() {
-  const actualRpm = sim.actualRpm;
-  document.getElementById('hud-rpm').textContent = actualRpm.toFixed(0);
-  document.getElementById('hud-hz').textContent = (actualRpm * numArms / 60).toFixed(1);
+function findSettingValue(model, key) {
+  for (const g of model.groups || [])
+    for (const s of g.settings || [])
+      if (s.key === key) return s.value;
+  return null;
+}
+
+function updateHud(numArms) {
+  const rpm = sim.actualRpm;
+  document.getElementById('hud-rpm').textContent = rpm.toFixed(0);
+  document.getElementById('hud-hz').textContent = (rpm * numArms / 60).toFixed(1);
   document.getElementById('hud-fps').textContent = currentFps;
   document.getElementById('hud-slice-int').textContent = sim.sliceIntervalUs.toFixed(1);
   document.getElementById('hud-spi').textContent = sim.spiTransferUs.toFixed(1);
-
-  const headroomEl = document.getElementById('hud-headroom');
-  headroomEl.textContent = sim.headroomUs.toFixed(1);
-  headroomEl.style.color = sim.headroomUs < 0 ? '#f44' : '';
-
+  const headEl = document.getElementById('hud-headroom');
+  headEl.textContent = sim.headroomUs.toFixed(1);
+  headEl.style.color = sim.headroomUs < 0 ? '#f44' : '';
   document.getElementById('hud-frame-age').textContent = sim.frameAge;
   document.getElementById('hud-pattern-gen').textContent = sim.patternGenMs.toFixed(1);
   document.getElementById('hud-hall-missed').textContent = sim.hallMissed ? 'YES' : 'no';
 }
-
-function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
 init().catch(err => {
   document.body.innerHTML = '<pre style="color:red">' + err.message + '\n' + err.stack + '</pre>';

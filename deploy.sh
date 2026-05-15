@@ -21,6 +21,10 @@ done
 cd "$(dirname "$0")"
 
 if [ "$SKIP_BUILD" = false ]; then
+    echo "==> Regenerating embedded JS headers..."
+    tools/gen_embedded_js.sh sim/js/settings_ui.js    SETTINGS_JS        src/web/settings_js.h
+    tools/gen_embedded_js.sh sim/js/image-processor.js IMAGE_PROCESSOR_JS src/web/image_processor_js.h
+
     echo "==> Compiling..."
     pio run
 

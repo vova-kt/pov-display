@@ -2,6 +2,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+echo "==> Regenerating embedded JS headers..."
+../tools/gen_embedded_js.sh js/settings_ui.js    SETTINGS_JS        ../src/web/settings_js.h
+../tools/gen_embedded_js.sh js/image-processor.js IMAGE_PROCESSOR_JS ../src/web/image_processor_js.h
+
 EMSDK_DIR="${EMSDK:-$HOME/emsdk}"
 
 if ! command -v emcc &>/dev/null; then
@@ -42,6 +46,7 @@ EXPORTED='[
   "_sim_get_frame_age","_sim_get_pattern_gen_ms",
   "_sim_get_hall_missed","_sim_get_has_overruns",
   "_sim_load_image",
+  "_sim_get_settings_json","_sim_apply_settings_json","_sim_get_sim_speed",
   "_malloc","_free"
 ]'
 EXPORTED=$(echo "$EXPORTED" | tr -d ' \n')
@@ -60,6 +65,7 @@ em++ -O2 \
   -DMAX_SLICES=720 \
   -I../test/stubs \
   -I../src \
+  -I../.pio/libdeps/esp32c6/ArduinoJson/src \
   -I. \
   ../src/framebuffer.cpp \
   ../src/canvas.cpp \
@@ -69,7 +75,10 @@ em++ -O2 \
   ../src/patterns/scanner.cpp \
   ../src/patterns/text.cpp \
   ../src/patterns/image.cpp \
+  ../src/patterns/registry.cpp \
   ../src/animation.cpp \
+  ../src/settings_registry.cpp \
+  settings_registry_sim.cpp \
   timing.cpp \
   renderer.cpp \
   sim_bridge.cpp \

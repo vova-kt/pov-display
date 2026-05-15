@@ -35,15 +35,17 @@ pio test -e native              # run all tests
 ./test.sh                       # same, via script
 ./test.sh --filter test_patterns  # run one suite
 ./test.sh -v                    # verbose
-python3 check_defaults.py       # verify config defaults haven't diverged
+python3 tools/check_embedded_js.py  # verify settings_js.h and image_processor_js.h match their sources
 ```
 
 Tests run natively (no ESP32 needed). ESP32 APIs are stubbed in `test/stubs/`.
-Five suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, text modes), `test_transform` (Canvas, PolarTransform, IdentityTransform), `test_output_scale` (radial balance LUT, overcompensation guard), and `test_animations` (animation registry, rotation, applyAnimations).
+Six suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, text modes), `test_transform` (Canvas, PolarTransform, IdentityTransform), `test_output_scale` (radial balance LUT, overcompensation guard), `test_animations` (animation registry, rotation, applyAnimations), and `test_settings_registry` (JSON round-trip, scope filter, NVS persist, range/enum validation).
 
 ## Config defaults
 
-`src/config.h` is the single source of truth for runtime defaults (the `Config` struct member initializers). Several files duplicate these values — `sim/timing.h`, `sim/index.html`, `sim/js/main.js`, `src/web/web_ui.h`, `src/config.cpp`. When changing a default in `config.h`, update all consumer files to match. `python3 check_defaults.py` catches drift — it also runs as a pre-push hook (`.githooks/pre-push`).
+`src/settings_registry.cpp` is the single source of truth for every user-facing setting. Defaults live on each `Setting` entry (or on the `Param` member initializer inside a `Pattern` / `Animation` subclass). The web UI and the WASM simulator both build their forms from this registry — no HTML/JS values to keep in sync.
+
+For the two embedded JS files (`settings_js.h` from `sim/js/settings_ui.js`, `image_processor_js.h` from `sim/js/image-processor.js`), `deploy.sh`, `test.sh`, and `sim/build.sh` regenerate them automatically via `tools/gen_embedded_js.sh`. `python3 tools/check_embedded_js.py` verifies they're in sync — it runs as a pre-push hook (`.githooks/pre-push`).
 
 One-time setup: `git config core.hooksPath .githooks`
 
@@ -56,8 +58,10 @@ One-time setup: `git config core.hooksPath .githooks`
 - **Power**: 3S LiPo (stationary) → buck converter → 5 V through hollow slip ring. LEDs and XIAO share the same 5 V rail on the rotating arm.
 - **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, refresh rate, arm count, motor control. No reflash needed.
 - **Config persists** to NVS via "Save to Flash" button.
-- **Animation system** (`src/animation.h`) — polymorphic `Animation` base class with self-describing parameters (`AnimParam`). Global registry in `src/animation.cpp`. Animations produce an `AnimationState` (e.g. `sliceOffset` for rotation) applied after pattern generation but before `fb.swap()`. Adding a new animation: one class in `src/animations/`, one registry line, UI plumbing — frame loops in `main.cpp` and `sim_bridge.cpp` never change.
-- **Text animation modes** — TextPattern supports static, spell, word-by-word, and marquee sub-modes controlled by `textMode` and `textDelayMs` config fields.
+- **Settings registry** (`src/settings_registry.h/cpp`) — all user-facing settings in one place, emitting a JSON model that drives both UIs. Scope flags (`Both`/`McuOnly`/`SimOnly`) control per-side visibility. See `docs/settings.md`.
+- **Pattern params** — `Pattern` base class supports self-describing `Param` arrays (same as animations). TextPattern's text, mode, and delay params live on the pattern instance, not in Config. NVS keys use prefix `p_<patternKey>_<paramKey>`.
+- **Animation system** (`src/animation.h`) — polymorphic `Animation` base class with self-describing `Param` parameters. Global registry in `src/animation.cpp`. Animations produce an `AnimationState` (e.g. `sliceOffset` for rotation) applied after pattern generation but before `fb.swap()`. Adding a new animation: one class in `src/animations/`, one registry line — frame loops never change.
+- **Shared UI renderer** — `sim/js/settings_ui.js` builds the two-tab settings form (Picture / Hardware) from the registry JSON. Embedded in the MCU UI via `/js/settings.js`. Both UIs share the same renderer code.
 
 - **Arm layout**: 2-arm "golden star". LED strip placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU mounts behind the blade. Hub radius = 0.
 
@@ -81,3 +85,4 @@ C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates 
 - `docs/wiring-and-parts.md` — pin map, parts list, power topology (3S + buck), slip ring channels, and why each part was chosen.
 - `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, power budget & runtime estimates, perception rendering, polar distortion correction.
 - `docs/simulator.md` — WASM simulator architecture, timing model, how to extend.
+- `docs/settings.md` — settings registry design, Param semantics, scope filter, UI structure.

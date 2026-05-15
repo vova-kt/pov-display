@@ -14,293 +14,94 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
 body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;padding:16px;max-width:480px;margin:0 auto}
 h1{font-size:1.3em;margin-bottom:12px;color:#7fdbca}
 .card{background:#16213e;border-radius:8px;padding:14px;margin-bottom:12px}
-.card h2{font-size:.95em;color:#64b5f6;margin-bottom:10px}
 label{display:block;font-size:.85em;margin-bottom:4px;color:#999}
 select,input[type=text],input[type=number]{width:100%;padding:8px;border:1px solid #333;border-radius:4px;background:#0f1a30;color:#e0e0e0;font-size:.9em;margin-bottom:10px}
 input[type=range]{width:100%;margin-bottom:4px}
 input[type=color]{width:60px;height:32px;border:none;background:none;cursor:pointer;margin-bottom:10px}
 .val{font-size:.8em;color:#7fdbca;margin-bottom:10px;display:block}
-.row{display:flex;gap:10px;align-items:flex-end}
-.row>*{flex:1}
 button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:.9em;font-weight:600}
-.btn-apply{background:#2979ff;color:#fff;width:100%}
-.btn-save{background:#00c853;color:#fff;width:100%}
-.btn-stop{background:#ff1744;color:#fff}
-.status{display:flex;gap:16px;flex-wrap:wrap}
+.btn-save{background:#00c853;color:#fff;width:100%;margin-top:8px}
+.chk{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:.85em}
+.chk input{width:auto;margin:0}
+.tab-bar{display:flex;gap:4px;margin-bottom:12px}
+.tab-btn{padding:8px 16px;border:none;border-radius:4px;cursor:pointer;background:#0f1a30;color:#888;font-size:.85em}
+.tab-btn.active{background:#2979ff;color:#fff}
+.tab-panel{} .tab-panel.hidden{display:none}
+.setting-row{margin-bottom:10px}
+.pattern-params{} .pattern-params.hidden{display:none}
+.status{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .stat{text-align:center}
 .stat .num{font-size:1.6em;font-weight:700;color:#7fdbca}
 .stat .lbl{font-size:.75em;color:#888}
-.btns{display:flex;gap:8px;margin-top:8px}
-.btns>*{flex:1}
-.chk{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:.85em}
-.chk input{width:auto;margin:0}
-.sub{margin-left:8px;padding-left:8px;border-left:2px solid #333}
 .hidden{display:none}
 </style>
 </head>
 <body>
 <h1>POV Display Control</h1>
 
-<div class="card">
- <h2>Status</h2>
- <div class="status">
-  <div class="stat"><div class="num" id="rpm">--</div><div class="lbl">RPM</div></div>
-  <div class="stat"><div class="num" id="effHz">--</div><div class="lbl">Hz (actual)</div></div>
-  <div class="stat"><div class="num" id="heap">--</div><div class="lbl">Free KB</div></div>
- </div>
+<div class="status">
+ <div class="stat"><div class="num" id="rpm">--</div><div class="lbl">RPM</div></div>
+ <div class="stat"><div class="num" id="effHz">--</div><div class="lbl">Hz</div></div>
+ <div class="stat"><div class="num" id="heap">--</div><div class="lbl">Free KB</div></div>
 </div>
 
-<div class="card">
- <h2>Pattern</h2>
- <label>Type</label>
- <select id="pattern">
-  <option value="0">Solid Color</option>
-  <option value="1">Rainbow</option>
-  <option value="2">Text</option>
-  <option value="3">Scanner</option>
-  <option value="4">Image</option>
- </select>
+<input type="file" id="imageFile" accept="image/*" style="margin-bottom:12px;font-size:.85em">
+<div id="settings-root"></div>
+<button class="btn-save" onclick="save()">Save to Flash</button>
 
- <div id="textOpts" class="sub hidden">
-  <label>Text Mode</label>
-  <select id="textMode">
-   <option value="0" selected>Static</option>
-   <option value="1">Spell</option>
-   <option value="2">Word by Word</option>
-   <option value="3">Marquee</option>
-  </select>
-  <label>Text</label>
-  <input type="text" id="text" maxlength="63" value="FUSION">
-  <div id="textDelayRow">
-   <label>Delay (<span id="delayVal">500</span> ms)</label>
-   <input type="range" id="textDelayMs" min="50" max="2000" step="50" value="500" oninput="$('#delayVal').textContent=this.value">
-  </div>
- </div>
+<script type="module">
+import { SettingsUI } from '/js/settings.js';
 
- <label>Image</label>
- <input type="file" id="imageFile" accept="image/*" style="font-size:.85em;margin-bottom:10px">
-
- <label>Color</label>
- <input type="color" id="color" value="#ff0000">
-
- <div class="chk"><input type="checkbox" id="mirror" checked><label for="mirror">Mirror</label></div>
-</div>
-
-<div class="card" id="animCard">
- <h2>Animations</h2>
- <div id="animControls"></div>
-</div>
-
-<div class="card">
- <h2>Display</h2>
- <div class="row">
-  <div>
-   <label>Refresh Rate</label>
-   <select id="targetHz" onchange="updateTargetRpm()">
-    <option value="12">12 Hz</option>
-    <option value="24">24 Hz</option>
-    <option value="25">25 Hz</option>
-    <option value="30">30 Hz</option>
-    <option value="60">60 Hz</option>
-   </select>
-  </div>
-  <div>
-   <label>Arms</label>
-   <select id="numArms" onchange="updateTargetRpm()">
-    <option value="1">1 arm</option>
-    <option value="2">2 arms</option>
-    <option value="4">4 arms</option>
-   </select>
-  </div>
- </div>
- <span class="val">Target RPM: <span id="tgtRpm">1800</span></span>
-
- <label>Brightness (<span id="brVal">16</span>/31)</label>
- <input type="range" id="brightness" min="0" max="31" value="16" oninput="$('#brVal').textContent=this.value">
-
- <div class="chk"><input type="checkbox" id="radialBalance" checked><label for="radialBalance">Radial Balance</label></div>
-
- <label>LEDs</label>
- <input type="number" id="numLeds" min="1" max="144" value="26">
-
- <div class="row">
-  <div>
-   <label>Slices</label>
-   <select id="numSlices">
-    <option value="90">90</option>
-    <option value="180">180</option>
-    <option value="270">270</option>
-    <option value="360" selected>360</option>
-   </select>
-  </div>
-  <div>
-   <label>Phase Offset</label>
-   <select id="phaseOffset">
-    <option value="0">0&deg;</option>
-    <option value="90">90&deg;</option>
-    <option value="180">180&deg;</option>
-    <option value="270">270&deg;</option>
-   </select>
-  </div>
- </div>
-</div>
-
-<div class="card">
- <h2>Motor</h2>
- <label>ESC Pulse (<span id="escVal">1000</span> &micro;s)</label>
- <input type="range" id="escPulse" min="1000" max="2000" value="1000" oninput="$('#escVal').textContent=this.value">
- <button class="btn-stop" onclick="stopMotor()">STOP MOTOR</button>
-</div>
-
-<div class="btns">
- <button class="btn-apply" onclick="apply()">Apply</button>
- <button class="btn-save" onclick="save()">Save to Flash</button>
-</div>
-
-<script>
-const $=s=>document.querySelector(s);
-let animMeta=[];
-
-function rgbToHex(r,g,b){return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');}
-function hexToRgb(h){const m=h.match(/\w\w/g);return m?m.map(x=>parseInt(x,16)):[255,0,0];}
-
-function updateTargetRpm(){
- const hz=+$('#targetHz').value, arms=+$('#numArms').value;
- $('#tgtRpm').textContent=Math.round(hz*60/arms);
-}
-
-function updateTextOpts(){
- const isText=$('#pattern').value==='2';
- $('#textOpts').classList.toggle('hidden',!isText);
- const mode=+$('#textMode').value;
- $('#textDelayRow').classList.toggle('hidden',mode===0);
-}
-
-function buildAnimControls(animations){
- animMeta=animations||[];
- const container=$('#animControls');
- container.innerHTML='';
- for(const a of animMeta){
-  for(const p of a.params){
-   const label=document.createElement('label');
-   label.textContent=a.name+' '+p.label;
-   container.appendChild(label);
-   if(p.presets&&p.presets.length){
-    const sel=document.createElement('select');
-    sel.id='anim_'+a.key+'_'+p.key;
-    for(const pr of p.presets){
-     const opt=document.createElement('option');
-     opt.value=pr[1];opt.textContent=pr[0];
-     sel.appendChild(opt);
-    }
-    sel.value=p.value;
-    container.appendChild(sel);
-   }else{
-    const inp=document.createElement('input');
-    inp.type='range';inp.id='anim_'+a.key+'_'+p.key;
-    inp.min=p.min;inp.max=p.max;inp.value=p.value;
-    container.appendChild(inp);
-   }
+const adapter = {
+  async getModel() {
+    const r = await fetch('/api/config');
+    return r.json();
+  },
+  async apply(patch) {
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(patch)
+    });
   }
- }
+};
+
+let ui;
+SettingsUI.init(adapter, document.getElementById('settings-root'))
+  .then(instance => { ui = instance; })
+  .catch(err => console.error('settings init error:', err));
+
+async function save() {
+  await fetch('/api/save', {method: 'POST'});
 }
+window.save = save;
 
-function collectAnimations(){
- const obj={};
- for(const a of animMeta){
-  const ap={};
-  for(const p of a.params){
-   const el=$('#anim_'+a.key+'_'+p.key);
-   if(el) ap[p.key]=+el.value;
-  }
-  obj[a.key]=ap;
- }
- return obj;
-}
-
-async function loadConfig(){
- try{
-  const r=await fetch('/api/config');
-  const c=await r.json();
-  $('#pattern').value=c.activePattern;
-  $('#color').value=rgbToHex(c.colorR,c.colorG,c.colorB);
-  $('#text').value=c.text;
-  $('#textMode').value=c.textMode||0;
-  $('#textDelayMs').value=c.textDelayMs||500;
-  $('#delayVal').textContent=c.textDelayMs||500;
-  $('#mirror').checked=c.mirrorPattern!==false;
-  $('#targetHz').value=c.targetHz||30;
-  $('#numArms').value=c.numArms||1;
-  updateTargetRpm();
-  $('#brightness').value=c.brightness;$('#brVal').textContent=c.brightness;
-  $('#radialBalance').checked=c.radialBalance!==false;
-  $('#numLeds').value=c.numLeds;
-  $('#numSlices').value=c.numSlices;
-  $('#phaseOffset').value=((c.phaseOffset+90)%360+360)%360;
-  $('#escPulse').value=c.escPulseUs;$('#escVal').textContent=c.escPulseUs;
-  buildAnimControls(c.animations);
-  updateTextOpts();
- }catch(e){console.error(e);}
-}
-
-async function apply(){
- const rgb=hexToRgb($('#color').value);
- const body={
-  activePattern:+$('#pattern').value,
-  colorR:rgb[0],colorG:rgb[1],colorB:rgb[2],
-  text:$('#text').value,
-  textMode:+$('#textMode').value,
-  textDelayMs:+$('#textDelayMs').value,
-  mirrorPattern:$('#mirror').checked,
-  numArms:+$('#numArms').value,
-  targetHz:+$('#targetHz').value,
-  brightness:+$('#brightness').value,
-  radialBalance:$('#radialBalance').checked,
-  numLeds:+$('#numLeds').value,
-  numSlices:+$('#numSlices').value,
-  phaseOffset:+$('#phaseOffset').value-90,
-  escPulseUs:+$('#escPulse').value,
-  animations:collectAnimations()
- };
- await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-}
-
-async function save(){
- await apply();
- await fetch('/api/save',{method:'POST'});
-}
-
-function stopMotor(){
- $('#escPulse').value=1000;$('#escVal').textContent='1000';
- apply();
-}
-
-async function pollStatus(){
- try{
-  const r=await fetch('/api/status');
-  const s=await r.json();
-  $('#rpm').textContent=s.rpm;
-  const arms=+$('#numArms').value||1;
-  $('#effHz').textContent=(s.rpm*arms/60).toFixed(1);
-  $('#heap').textContent=Math.round(s.freeHeap/1024);
- }catch(e){}
-}
-
-$('#pattern').addEventListener('change',updateTextOpts);
-$('#textMode').addEventListener('change',updateTextOpts);
-
-$('#imageFile').addEventListener('change',async e=>{
- const file=e.target.files[0];if(!file)return;
- const numLeds=+$('#numLeds').value||26;
- const sz=numLeds*2;
- const r=await preprocessImage(file,sz);
- await fetch('/api/image?w='+r.width+'&h='+r.height,{
-  method:'POST',headers:{'Content-Type':'application/octet-stream'},body:r.pixels
- });
- $('#pattern').value=4;
+// Image upload — out-of-band, not via settings registry
+const imageEl = document.getElementById('imageFile');
+imageEl.addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const numLeds = 26; // sensible default; server triggers resize via configCb
+  const sz = numLeds * 2;
+  const result = await preprocessImage(file, sz);
+  await fetch('/api/image?w=' + result.width + '&h=' + result.height, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/octet-stream'},
+    body: result.pixels
+  });
+  if (ui) await ui.load(); // refresh model (activePattern changed server-side)
 });
-loadConfig();
-setInterval(pollStatus,1000);
+
+// Status polling
+setInterval(async () => {
+  try {
+    const s = await (await fetch('/api/status')).json();
+    document.getElementById('rpm').textContent = s.rpm;
+    const arms = 2; // default; accurate enough for status display
+    document.getElementById('effHz').textContent = (s.rpm * arms / 60).toFixed(1);
+    document.getElementById('heap').textContent = Math.round(s.freeHeap / 1024);
+  } catch(_) {}
+}, 1000);
 </script>
 </body>
 </html>

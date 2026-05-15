@@ -38,12 +38,12 @@ void test_rotation_has_one_param() {
 
 void test_rotation_presets() {
     RotationAnimation rot;
-    const AnimParam& p = rot.param(0);
-    TEST_ASSERT_EQUAL_UINT8(4, p.presetCount);
-    TEST_ASSERT_EQUAL_STRING("Off", p.presets[0].label);
-    TEST_ASSERT_EQUAL_INT16(0, p.presets[0].value);
-    TEST_ASSERT_EQUAL_STRING("Fast", p.presets[3].label);
-    TEST_ASSERT_EQUAL_INT16(90, p.presets[3].value);
+    const Param& p = rot.param(0);
+    TEST_ASSERT_EQUAL_UINT8(4, p.optionCount);
+    TEST_ASSERT_EQUAL_STRING("Off", p.options[0].label);
+    TEST_ASSERT_EQUAL_INT32(0, p.options[0].value);
+    TEST_ASSERT_EQUAL_STRING("Fast", p.options[3].label);
+    TEST_ASSERT_EQUAL_INT32(90, p.options[3].value);
 }
 
 // ---------- RotationAnimation active/inactive ----------
@@ -105,23 +105,23 @@ void test_rotation_higher_speed_more_offset() {
 
 void test_find_param_exists() {
     RotationAnimation rot;
-    AnimParam* p = rot.findParam("speed");
+    Param* p = rot.findParam("speed");
     TEST_ASSERT_NOT_NULL(p);
     TEST_ASSERT_EQUAL_STRING("speed", p->key);
 }
 
 void test_find_param_missing() {
     RotationAnimation rot;
-    AnimParam* p = rot.findParam("nonexistent");
+    Param* p = rot.findParam("nonexistent");
     TEST_ASSERT_NULL(p);
 }
 
 void test_reset_defaults() {
     RotationAnimation rot;
     rot.param(0).value = 42;
-    TEST_ASSERT_EQUAL_INT16(42, rot.param(0).value);
+    TEST_ASSERT_EQUAL_INT32(42, rot.param(0).value);
     rot.resetDefaults();
-    TEST_ASSERT_EQUAL_INT16(0, rot.param(0).value);
+    TEST_ASSERT_EQUAL_INT32(0, rot.param(0).value);
 }
 
 // ---------- Global registry ----------

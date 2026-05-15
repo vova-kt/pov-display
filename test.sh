@@ -26,5 +26,9 @@ ARGS=(-e native)
 [[ -n "$FILTER" ]]  && ARGS+=(--filter "$FILTER")
 [[ -n "$VERBOSE" ]] && ARGS+=("$VERBOSE")
 
+echo "==> Regenerating embedded JS headers..."
+tools/gen_embedded_js.sh sim/js/settings_ui.js    SETTINGS_JS        src/web/settings_js.h
+tools/gen_embedded_js.sh sim/js/image-processor.js IMAGE_PROCESSOR_JS src/web/image_processor_js.h
+
 echo "==> Running native tests..."
 pio test "${ARGS[@]}"

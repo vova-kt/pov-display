@@ -73,8 +73,16 @@ export class PovSim {
     if (!sim._rendererInit()) {
       throw new Error('Failed to init WebGL2 renderer');
     }
+    // Register JSON exports
+    sim._getSettingsJson = module.cwrap('sim_get_settings_json', 'string', []);
+    sim._applySettingsJson = module.cwrap('sim_apply_settings_json', 'boolean', ['string']);
+    sim._getSimSpeed = module.cwrap('sim_get_sim_speed', 'number', []);
     return sim;
   }
+
+  getSettingsJson() { return this._getSettingsJson(); }
+  applySettingsJson(json) { return this._applySettingsJson(json); }
+  get simSpeed() { return this._getSimSpeed ? this._getSimSpeed() : 1.0; }
 
   resize(numSlices, numLeds) { return this._simResize(numSlices, numLeds); }
   get numSlices() { return this._simNumSlices(); }

@@ -37,18 +37,30 @@ At 1200 RPM / 360 slices / 36 LEDs @ 20 MHz SPI:
 
 At 144 LEDs the SPI transfer exceeds the slice interval — reduce to ~180 slices or increase SPI clock. The system doesn't auto-adjust yet; this is a manual tradeoff via the web UI.
 
-## Animation system
+## Settings & params
 
-Animations are time-dependent effects applied *after* pattern generation but *before* `fb.swap()`. This ordering lets animations modify the back buffer or produce metadata (like `sliceOffset` for rotation) without interfering with pattern logic.
+Every user-facing setting lives in a unified registry backed by the same `Param` type. There are three classes of parameters:
 
-The design is a polymorphic registry: each animation is a subclass of `Animation` with self-describing `AnimParam` parameters. A global array `g_animations[]` in `src/animation.cpp` holds all registered animations. `applyAnimations()` iterates the registry, skipping inactive ones. Parameters live in the animation objects — not in `Config` — so adding a new animation never touches Config or NVS schema. See `src/animation.h` for the base class and `src/animations/rotation.h` for the first concrete implementation.
+- **Top-level settings** (brightness, color, numArms, etc.) — registered in `src/settings_registry.cpp` with getter/setter function pointers into `Config` fields.
+- **Pattern params** (e.g. TextPattern's text, mode, delayMs) — declared inside each `Pattern` subclass, mirroring how animations work.
+- **Animation params** (e.g. RotationAnimation's speed) — declared inside each `Animation` subclass.
 
-Adding a new animation: create a class in `src/animations/`, add one line to `src/animation.cpp`, then wire UI plumbing. The frame loops in `main.cpp` and `sim_bridge.cpp` never change because they call `applyAnimations()` generically.
+Both `Pattern` and `Animation` share the `Param` struct from `src/param.h`. The settings registry emits a single JSON model that the shared JS renderer (`sim/js/settings_ui.js`, also embedded in the MCU UI via `/js/settings.js`) uses to build the two-tab control panel without any hand-coded HTML. Adding a setting means one registry entry; adding a pattern or animation param means one array member — the renderer and both UIs pick it up automatically.
+
+Scope flags (`Both`, `McuOnly`, `SimOnly`) control which settings appear in each UI. The JSON is pre-filtered server-side so each client only sees applicable entries. See `src/settings_registry.h` and `docs/settings.md`.
+
+## Animation ordering
+
+Animations are applied *after* pattern generation but *before* `fb.swap()`. This lets them modify the back buffer or produce metadata (like `sliceOffset` for rotation) without interfering with pattern logic. The frame loops in `main.cpp` and `sim_bridge.cpp` call `applyAnimations()` generically — adding a new animation never requires changing the loop.
 
 ## Source map
 
 Entry point and task creation: `src/main.cpp`
-Configuration + NVS: `src/config.h`, `src/config.cpp`
+Configuration: `src/config.h`, `src/config.cpp`
+Settings registry + JSON I/O: `src/settings_registry.h`, `src/settings_registry.cpp`
+Param type: `src/param.h`
+Pattern NVS: `src/pattern_nvs.cpp`
+Pattern registry: `src/patterns/registry.h`, `src/patterns/registry.cpp`
 Framebuffer: `src/framebuffer.h`, `src/framebuffer.cpp`
 SPI LED driver: `src/hal_spi_leds.h`, `src/hal_spi_leds.cpp`
 Hall sensor: `src/hall_sensor.h`, `src/hall_sensor.cpp`

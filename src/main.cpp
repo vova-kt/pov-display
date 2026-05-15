@@ -11,11 +11,9 @@
 #include "web/web_server.h"
 
 #include "animation.h"
+#include "settings_registry.h"
 #include "patterns/pattern.h"
-#include "patterns/solid.h"
-#include "patterns/rainbow.h"
-#include "patterns/text.h"
-#include "patterns/scanner.h"
+#include "patterns/registry.h"
 #include "patterns/image.h"
 
 // --- Globals ---
@@ -27,15 +25,6 @@ static SliceScheduler scheduler;
 static Motor          motor;
 static PovWebServer   webServer;
 
-static SolidPattern   solidPattern;
-static RainbowPattern rainbowPattern;
-static TextPattern    textPattern;
-static ScannerPattern scannerPattern;
-static ImagePattern   imagePattern;
-
-static constexpr uint8_t NUM_PATTERNS = 5;
-static Pattern* patterns[NUM_PATTERNS] = { &solidPattern, &rainbowPattern, &textPattern, &scannerPattern, &imagePattern };
-
 static volatile bool configDirty = false;
 
 // --- Callbacks ---
@@ -44,8 +33,9 @@ static void onConfigChanged() {
 }
 
 static void onImageUpload(const uint8_t* rgbData, uint16_t width, uint16_t height) {
-    imagePattern.loadImage(rgbData, width, height);
-    cfg.activePattern = 4;
+    g_image_pattern()->loadImage(rgbData, width, height);
+    int idx = g_pattern_index("image");
+    if (idx >= 0) cfg.activePattern = (uint8_t)idx;
     configDirty = true;
 }
 
@@ -83,9 +73,9 @@ static void patternTaskFunc(void*) {
         }
 
         uint8_t pi = cfg.activePattern;
-        if (pi >= NUM_PATTERNS) pi = 0;
+        if (pi >= G_NUM_PATTERNS) pi = 0;
         uint32_t now = millis();
-        patterns[pi]->generate(fb, cfg, now);
+        g_patterns[pi]->generate(fb, cfg, now);
 
         AnimationState animState;
         applyAnimations(animState, fb, now);
@@ -127,7 +117,9 @@ void setup() {
     Serial.println("POV Display starting...");
 
     // Load saved config
-    cfg.loadFromNvs();
+    settings_registry::init(&cfg);
+    settings_registry::loadFromNvs();
+    loadPatternsFromNvs();
     loadAnimationsFromNvs();
 
     // Init LED driver
@@ -163,8 +155,8 @@ void setup() {
 
     // Generate initial frame
     uint8_t pi = cfg.activePattern;
-    if (pi >= NUM_PATTERNS) pi = 0;
-    patterns[pi]->generate(fb, cfg, millis());
+    if (pi >= G_NUM_PATTERNS) pi = 0;
+    g_patterns[pi]->generate(fb, cfg, millis());
     fb.swap();
 
     // Start WiFi AP

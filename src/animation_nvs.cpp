@@ -13,9 +13,9 @@ void loadAnimationsFromNvs() {
     for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++) {
         Animation* a = g_animations[i];
         for (uint8_t j = 0; j < a->paramCount(); j++) {
-            AnimParam& p = a->param(j);
+            Param& p = a->param(j);
             animNvsKey(nvsKey, sizeof(nvsKey), a->key(), p.key);
-            p.value = prefs.getShort(nvsKey, p.defaultVal);
+            p.value = prefs.getInt(nvsKey, p.defaultVal);
         }
     }
     prefs.end();
@@ -28,9 +28,9 @@ void saveAnimationsToNvs() {
     for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++) {
         Animation* a = g_animations[i];
         for (uint8_t j = 0; j < a->paramCount(); j++) {
-            const AnimParam& p = a->param(j);
+            const Param& p = a->param(j);
             animNvsKey(nvsKey, sizeof(nvsKey), a->key(), p.key);
-            prefs.putShort(nvsKey, p.value);
+            prefs.putInt(nvsKey, p.value);
         }
     }
     prefs.end();

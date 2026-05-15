@@ -3,6 +3,34 @@
 #include <cstring>
 #include <pgmspace.h>
 
+static const ParamOption kTextModeOptions[] = {
+    {"Static", 0}, {"Spell", 1}, {"Word", 2}, {"Marquee", 3}
+};
+
+TextPattern::TextPattern() {
+    strcpy(textBuf_, "FUSION");
+    storage_[0] = {
+        "text", "Text", ParamType::Text,
+        0, 0, 0, 0,
+        nullptr, 0,
+        textBuf_, sizeof(textBuf_)
+    };
+    storage_[1] = {
+        "mode", "Mode", ParamType::Enum,
+        0, 0, 0, 3,
+        kTextModeOptions, 4,
+        nullptr, 0
+    };
+    storage_[2] = {
+        "delayMs", "Delay ms", ParamType::Int,
+        500, 500, 50, 2000,
+        nullptr, 0,
+        nullptr, 0
+    };
+    params_ = storage_;
+    paramCount_ = 3;
+}
+
 void TextPattern::ensureCanvas(uint16_t numSlices, uint16_t numLeds) {
     uint16_t cw = numLeds * 2;
     uint16_t ch = numLeds * 2;
@@ -153,8 +181,12 @@ static void renderCentered(Canvas& canvas, const char* lines[2], uint16_t lens[2
 void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) {
     fb.clearBack();
 
-    uint16_t textLen = strlen(cfg.text);
+    const char* text = textBuf_;
+    uint16_t textLen = strlen(text);
     if (textLen == 0) return;
+
+    int32_t mode      = storage_[1].value;
+    int32_t delayMsIn = storage_[2].value;
 
     ensureCanvas(fb.numSlices(), fb.numLeds());
     canvas_.clear();
@@ -162,7 +194,7 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
     uint16_t cw = canvas_.width();
     uint16_t ch = canvas_.height();
 
-    if (cfg.textMode == 3) {
+    if (mode == 3) {
         // Marquee: single-line scroll, scale to fit vertically
         uint8_t scale = ch / FONT_CHAR_HEIGHT;
         if (scale < 1) scale = 1;
@@ -170,7 +202,7 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
         uint16_t gap   = scale;
         uint16_t textW = textLen * (charW + gap);
         uint16_t scrollRange = textW + cw;
-        uint16_t delayMs = cfg.textDelayMs > 0 ? cfg.textDelayMs : 500;
+        uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
         uint16_t pixPerStep = scale;
         uint32_t stepMs = delayMs / pixPerStep;
         if (stepMs < 1) stepMs = 1;
@@ -179,34 +211,34 @@ void TextPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) 
         uint16_t startY = ch > (FONT_CHAR_HEIGHT * scale)
                           ? (ch - FONT_CHAR_HEIGHT * scale) / 2 : 0;
 
-        renderLine(canvas_, cfg.text, textLen, startX, startY, scale,
+        renderLine(canvas_, text, textLen, startX, startY, scale,
                    cfg.colorR, cfg.colorG, cfg.colorB, cfg.brightness);
     } else {
         uint16_t visLen = textLen;
 
-        if (cfg.textMode == 1) {
+        if (mode == 1) {
             // Spell: reveal characters one at a time
-            uint16_t delayMs = cfg.textDelayMs > 0 ? cfg.textDelayMs : 500;
+            uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
             uint16_t cycle = textLen + 2;
             uint16_t step = (uint16_t)((timeMs / delayMs) % cycle);
             visLen = step < textLen ? step + 1 : textLen;
-        } else if (cfg.textMode == 2) {
+        } else if (mode == 2) {
             // Word by word
-            uint16_t delayMs = cfg.textDelayMs > 0 ? cfg.textDelayMs : 500;
-            uint16_t totalWords = countWords(cfg.text, textLen);
+            uint16_t delayMs = delayMsIn > 0 ? (uint16_t)delayMsIn : 500;
+            uint16_t totalWords = countWords(text, textLen);
             uint16_t cycle = totalWords + 2;
             uint16_t step = (uint16_t)((timeMs / delayMs) % cycle);
             uint16_t visWords = step < totalWords ? step + 1 : totalWords;
-            visLen = charsForWords(cfg.text, textLen, visWords);
+            visLen = charsForWords(text, textLen, visWords);
         }
 
         // Static buffer for visible substring
         char visBuf[64];
         if (visLen < textLen) {
-            memcpy(visBuf, cfg.text, visLen);
+            memcpy(visBuf, text, visLen);
             visBuf[visLen] = '\0';
         }
-        const char* visText = visLen < textLen ? visBuf : cfg.text;
+        const char* visText = visLen < textLen ? visBuf : text;
 
         const char* lines[2];
         uint16_t lens[2];

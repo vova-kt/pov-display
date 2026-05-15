@@ -10,11 +10,16 @@ constexpr uint8_t PIN_ESC      = D3;
 
 // --- Compile-time limits ---
 #ifndef MAX_LEDS
-#define MAX_LEDS 144
+#define MAX_LEDS 72
 #endif
 #ifndef MAX_SLICES
 #define MAX_SLICES 720
 #endif
+
+// --- Hardware geometry (fixed LED strip: 3.0 mm pixel, 3.5 mm pitch) ---
+constexpr float   LED_SIZE_MM    = 3.5f;
+constexpr float   LED_GAP_MM     = 3.0f;
+constexpr uint8_t HUB_RADIUS_MM  = 1;
 
 // --- Runtime configuration ---
 struct Config {
@@ -24,13 +29,10 @@ struct Config {
     uint8_t  maxBrightness  = 31;
     int16_t  phaseOffset    = -90;
 
-    uint8_t  activePattern  = 1;
+    uint8_t  activePattern  = 2;
     uint8_t  colorR         = 255;
     uint8_t  colorG         = 0;
     uint8_t  colorB         = 0;
-    char     text[64]       = "FUSION";
-    uint8_t  textMode       = 0;      // 0=static, 1=spell, 2=word, 3=marquee
-    uint16_t textDelayMs    = 500;    // timing for text animations
 
     uint8_t  numArms        = 2;      // 1, 2, or 4 — physical arm count
     uint8_t  targetHz       = 60;     // target refresh rate (12, 24, 25, 30, 60)

@@ -29,7 +29,7 @@ The timing model mathematically simulates the scheduling pipeline: hall sensor t
 
 WebGL 2 fragment shader maps each canvas pixel to polar `(slice, led)` coordinates and samples the WASM framebuffer texture directly — no CPU-side pixel loop. The canvas auto-sizes at `devicePixelRatio` for crisp HiDPI rendering. The shader supports 1, 2, or 4 arms via `mod(angleBehind, TAU/numArms)` — no loop needed.
 
-Geometry is driven by physical mm values (LED size 3.0 mm, gap 3.5 mm, hub radius 0 mm). The renderer derives gap fraction and hub-to-arm ratio so the display matches the real strip spacing. Computed readouts (pitch, arm radius) update live as sliders move.
+Geometry uses fixed hardware constants from `src/config.h` (LED size 3.0 mm, gap 3.5 mm, hub radius 0 mm). The renderer derives gap fraction and hub-to-arm ratio from `numLeds` and these constants — no sliders needed for geometry.
 
 A game-style HUD overlay shows motor RPM, effective refresh Hz (RPM × arms / 60), and render FPS in the top-right corner of the canvas.
 
@@ -69,10 +69,10 @@ The SPI transfer time formula matches the real HD107S wire protocol: `(4 + numLe
 
 ## How to extend
 
-**New pattern**: Add it in `src/patterns/`, register in the `patterns[]` array in `sim/sim_bridge.cpp`, rebuild WASM. The simulator picks it up automatically via `sim_num_patterns()` / `sim_pattern_name()`.
+**New pattern**: Add it in `src/patterns/`, register in `src/patterns/registry.cpp`. To give it pattern-specific params, declare them in the constructor mirroring `TextPattern`. The shared JS renderer picks them up automatically.
 
-**New timing effect**: Add a parameter to `TimingState` in `sim/timing.h`, wire a slider in `index.html`, apply the effect in `timing_frame()`.
+**New timing distortion or sim-only setting**: Add an entry to `g_sim_settings[]` in `sim/settings_registry_sim.cpp` with a getter/setter wired to `TimingState` or renderer state. Apply the effect in `timing_frame()` or the renderer. The settings UI picks it up automatically — no HTML changes needed.
 
-**New config field**: Add a setter in `sim/sim_bridge.cpp` (e.g. `sim_set_foo()`), export it in `build.sh`, wrap it in `js/wasm-engine.js`, wire the UI control.
+**New shared config field** (appears in both MCU and sim): Add an entry to `g_settings[]` in `src/settings_registry.cpp` with `Scope::Both` and getter/setter referencing the Config field. Rebuild both WASM and firmware. No JS changes needed.
 
-**Changing a default**: `src/config.h` is the source of truth. Update the Config struct initializer there, then update all consumer files (`sim/timing.h`, `sim/index.html`, `sim/js/main.js`, `src/web/web_ui.h`, `src/config.cpp`). Run `python3 check_defaults.py` to verify — it also runs as a pre-push hook.
+**Changing a default**: The default lives exactly once — on the `Setting` entry in `src/settings_registry.cpp` (or on the `Param` member initializer inside the relevant `Pattern`/`Animation` subclass). Run `python3 tools/check_embedded_js.py` to confirm `settings_js.h` and `image_processor_js.h` are in sync with their source files — this runs as a pre-push hook.

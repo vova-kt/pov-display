@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>POV Display Simulator</title>
+<script src="js/image-processor.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -21,13 +22,10 @@
     position: absolute; top: 10px; right: 10px;
     font-family: 'Consolas', 'SF Mono', 'Menlo', monospace;
     font-size: 14px; line-height: 1.6;
-    background: rgba(0, 0, 0, 0.50);
-    padding: 8px 12px;
-    border-radius: 4px;
-    pointer-events: none;
-    z-index: 10;
-    text-shadow: 0 0 6px rgba(0, 255, 100, 0.25);
-    border: 1px solid rgba(0, 255, 100, 0.15);
+    background: rgba(0,0,0,0.50); padding: 8px 12px; border-radius: 4px;
+    pointer-events: none; z-index: 10;
+    text-shadow: 0 0 6px rgba(0,255,100,0.25);
+    border: 1px solid rgba(0,255,100,0.15);
   }
   #hud .hud-val { color: #0f0; font-weight: bold; }
   #hud .hud-lbl { color: #888; font-size: 11px; }
@@ -37,43 +35,31 @@
     background: #1a1a1a; border-left: 1px solid #333;
     overflow-y: auto; padding: 16px;
   }
-
-  h2 {
-    font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
-    color: #888; margin: 20px 0 8px; padding-bottom: 4px;
-    border-bottom: 1px solid #333;
-  }
-  h2:first-child { margin-top: 0; }
-
-  .row {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 6px;
-  }
-  .row label { flex: 0 0 100px; font-size: 12px; color: #999; }
-  .row input[type="range"] { flex: 1; }
-  .row input[type="number"],
-  .row input[type="text"],
-  .row select { flex: 1; background: #222; color: #ccc; border: 1px solid #444; padding: 4px 6px; font-size: 12px; border-radius: 3px; }
-  .row input[type="color"] { width: 40px; height: 26px; border: 1px solid #444; background: none; cursor: pointer; }
-  .row .val { flex: 0 0 55px; text-align: right; font-size: 11px; color: #aaa; font-variant-numeric: tabular-nums; }
-
-  .readouts {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 4px 12px; font-size: 12px;
-  }
-  .readouts dt { color: #777; }
-  .readouts dd { text-align: right; font-variant-numeric: tabular-nums; }
-  .readouts dd.negative { color: #f44; font-weight: bold; }
-
-  .overlays label { font-size: 12px; margin-right: 12px; cursor: pointer; }
-  .overlays input { margin-right: 3px; }
-
-  .controls-row { display: flex; gap: 8px; margin-top: 12px; }
+  .controls-row { display: flex; gap: 8px; margin-bottom: 12px; }
   .controls-row button {
     flex: 1; padding: 6px; background: #333; color: #ccc; border: 1px solid #555;
     cursor: pointer; border-radius: 3px; font-size: 12px;
   }
   .controls-row button:hover { background: #444; }
+
+  /* Settings UI overrides for sim dark theme */
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab-btn { padding: 6px 12px; border: 1px solid #444; border-radius: 3px;
+    cursor: pointer; background: #222; color: #888; font-size: 12px; }
+  .tab-btn.active { background: #2979ff; color: #fff; border-color: #2979ff; }
+  .tab-panel.hidden { display: none; }
+  .setting-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .setting-row label { flex: 0 0 100px; font-size: 12px; color: #999; }
+  .setting-row input[type=range] { flex: 1; }
+  .setting-row select, .setting-row input[type=text] {
+    flex: 1; background: #222; color: #ccc; border: 1px solid #444;
+    padding: 4px 6px; font-size: 12px; border-radius: 3px; }
+  .setting-row input[type=color] { width: 40px; height: 26px; border: 1px solid #444;
+    background: none; cursor: pointer; }
+  .setting-row .val { flex: 0 0 55px; text-align: right; font-size: 11px; color: #aaa;
+    font-variant-numeric: tabular-nums; }
+  .setting-row .chk { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .pattern-params.hidden { display: none; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -95,182 +81,14 @@
 </div>
 
 <div id="sidebar">
-  <h2>Pattern</h2>
-  <div class="row">
-    <label>Pattern</label>
-    <select id="pattern"></select>
-  </div>
-  <div class="row">
-    <label>Color</label>
-    <input type="color" id="color" value="#ff0000">
-  </div>
-  <div class="row">
-    <label>Brightness</label>
-    <input type="range" id="brightness" min="0" max="31" value="16">
-    <span class="val" id="brightness-val">16</span>
-  </div>
-  <div class="row">
-    <label>Radial bal.</label>
-    <input type="checkbox" id="radial-balance" checked>
-  </div>
-  <div id="text-opts" class="hidden">
-    <div class="row">
-      <label>Text mode</label>
-      <select id="text-mode">
-        <option value="0" selected>Static</option>
-        <option value="1">Spell</option>
-        <option value="2">Word by Word</option>
-        <option value="3">Marquee</option>
-      </select>
-    </div>
-    <div class="row">
-      <label>Text</label>
-      <input type="text" id="text" value="FUSION" maxlength="63">
-    </div>
-    <div class="row" id="text-delay-row">
-      <label>Delay</label>
-      <input type="range" id="text-delay" min="50" max="2000" step="50" value="500">
-      <span class="val" id="text-delay-val">500 ms</span>
-    </div>
-  </div>
-  <div class="row">
-    <label>Image</label>
-    <input type="file" id="image-file" accept="image/*" style="font-size:11px;color:#aaa">
-  </div>
-
-  <h2>Animations</h2>
-  <div id="anim-controls"></div>
-
-  <h2>Geometry (mm)</h2>
-  <div class="row">
-    <label>LEDs</label>
-    <input type="number" id="num-leds" min="1" max="144" value="26">
-  </div>
-  <div class="row">
-    <label>LED size</label>
-    <input type="range" id="led-size" min="1" max="8" step="0.1" value="3">
-    <span class="val" id="led-size-val">3.0 mm</span>
-  </div>
-  <div class="row">
-    <label>LED gap</label>
-    <input type="range" id="led-gap" min="0" max="15" step="0.1" value="3.5">
-    <span class="val" id="led-gap-val">3.5 mm</span>
-  </div>
-  <div class="row">
-    <label>Hub radius</label>
-    <input type="range" id="hub-radius" min="0" max="80" step="1" value="0">
-    <span class="val" id="hub-radius-val">0 mm</span>
-  </div>
-  <dl class="readouts" style="margin: 8px 0 4px;">
-    <dt>LED pitch</dt>     <dd id="ro-pitch">6.5 mm</dd>
-    <dt>Arm radius</dt>    <dd id="ro-arm-radius">169 mm</dd>
-  </dl>
-
-  <h2>Display</h2>
-  <div class="row">
-    <label>Mirror</label>
-    <input type="checkbox" id="mirror" checked>
-  </div>
-  <div class="row">
-    <label>Slices</label>
-    <select id="num-slices">
-      <option value="90">90</option>
-      <option value="180">180</option>
-      <option value="270">270</option>
-      <option value="360" selected>360</option>
-    </select>
-  </div>
-  <div class="row">
-    <label>Phase</label>
-    <select id="phase-offset">
-      <option value="0" selected>0&deg;</option>
-      <option value="90">90&deg;</option>
-      <option value="180">180&deg;</option>
-      <option value="270">270&deg;</option>
-    </select>
-  </div>
-
-  <h2>Timing Simulation</h2>
-  <div class="row">
-    <label>Refresh rate</label>
-    <select id="refresh-rate">
-      <option value="12">12 Hz</option>
-      <option value="24">24 Hz</option>
-      <option value="25">25 Hz</option>
-      <option value="30">30 Hz</option>
-      <option value="60" selected>60 Hz</option>
-    </select>
-  </div>
-  <div class="row">
-    <label>Arms</label>
-    <select id="num-arms">
-      <option value="1">1 arm</option>
-      <option value="2" selected>2 arms</option>
-      <option value="4">4 arms</option>
-    </select>
-  </div>
-  <div class="row">
-    <label>RPM jitter</label>
-    <input type="range" id="rpm-jitter" min="0" max="20" step="0.5" value="0">
-    <span class="val" id="rpm-jitter-val">0%</span>
-  </div>
-  <div class="row">
-    <label>Hall jitter</label>
-    <input type="range" id="hall-jitter" min="0" max="500" value="0">
-    <span class="val" id="hall-jitter-val">0 &micro;s</span>
-  </div>
-  <div class="row">
-    <label>Hall miss</label>
-    <input type="range" id="hall-miss" min="0" max="50" value="0">
-    <span class="val" id="hall-miss-val">0%</span>
-  </div>
-  <div class="row">
-    <label>Timer drift</label>
-    <input type="range" id="timer-drift" min="0" max="1000" value="0">
-    <span class="val" id="timer-drift-val">0 ppm</span>
-  </div>
-  <div class="row">
-    <label>Pattern lag</label>
-    <input type="range" id="pattern-lag" min="0" max="100" value="0">
-    <span class="val" id="pattern-lag-val">0 ms</span>
-  </div>
-  <div class="row">
-    <label>SPI clock</label>
-    <select id="spi-clock">
-      <option value="20" selected>20 MHz</option>
-      <option value="40">40 MHz</option>
-    </select>
-  </div>
-
-  <h2>Overlays</h2>
-  <div class="overlays">
-    <label><input type="checkbox" id="overlay-overruns" checked> Overruns</label>
-    <label><input type="checkbox" id="overlay-grid"> Slice grid</label>
-    <label><input type="checkbox" id="overlay-hall" checked> Hall marker</label>
-  </div>
-
-  <h2>Playback</h2>
-  <div class="row">
-    <label>Display Hz</label>
-    <select id="display-hz">
-      <option value="60">60 Hz</option>
-      <option value="120" selected>120 Hz</option>
-      <option value="144">144 Hz</option>
-      <option value="240">240 Hz</option>
-    </select>
-  </div>
-  <div class="row">
-    <label>Speed</label>
-    <input type="range" id="sim-speed" min="0.1" max="5" step="0.1" value="1">
-    <span class="val" id="sim-speed-val">1.0x</span>
-  </div>
   <div class="controls-row">
+    <input type="file" id="image-file" accept="image/*" style="flex:2;font-size:11px">
     <button id="pause-btn">Pause</button>
   </div>
+  <div id="settings-root"></div>
 </div>
 
 <script src="pov_sim.js"></script>
-<script src="js/image-processor.js"></script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -1,24 +1,9 @@
 #pragma once
 #include <cstdint>
 #include <cstring>
+#include "param.h"
 
 class Framebuffer;
-
-struct AnimPreset {
-    const char* label;
-    int16_t value;
-};
-
-struct AnimParam {
-    const char* key;
-    const char* label;
-    int16_t value;
-    int16_t defaultVal;
-    int16_t min;
-    int16_t max;
-    const AnimPreset* presets;
-    uint8_t presetCount;
-};
 
 struct AnimationState {
     int16_t sliceOffset = 0;
@@ -33,10 +18,10 @@ public:
     virtual void apply(AnimationState& state, Framebuffer& fb, uint32_t timeMs) = 0;
 
     uint8_t paramCount() const { return paramCount_; }
-    AnimParam& param(uint8_t i) { return params_[i]; }
-    const AnimParam& param(uint8_t i) const { return params_[i]; }
+    Param& param(uint8_t i) { return params_[i]; }
+    const Param& param(uint8_t i) const { return params_[i]; }
 
-    AnimParam* findParam(const char* paramKey) {
+    Param* findParam(const char* paramKey) {
         for (uint8_t i = 0; i < paramCount_; i++)
             if (strcmp(params_[i].key, paramKey) == 0) return &params_[i];
         return nullptr;
@@ -48,7 +33,7 @@ public:
     }
 
 protected:
-    AnimParam* params_ = nullptr;
+    Param*  params_ = nullptr;
     uint8_t paramCount_ = 0;
 };
 

@@ -5,6 +5,7 @@
 
 class TextPattern : public Pattern {
 public:
+    TextPattern();
     ~TextPattern() override { canvas_.release(); }
     void generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) override;
     const char* name() const override { return "text"; }
@@ -16,6 +17,9 @@ private:
     uint16_t lastCanvasH_ = 0;
     uint16_t lastSlices_  = 0;
     uint16_t lastLeds_    = 0;
+
+    char textBuf_[64];
+    Param storage_[3];
 
     void ensureCanvas(uint16_t numSlices, uint16_t numLeds);
 };

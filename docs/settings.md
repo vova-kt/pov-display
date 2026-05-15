@@ -1,0 +1,31 @@
+# Settings system
+
+## Why a registry
+
+Both the MCU web UI and the WASM simulator need the same set of controls. The old approach duplicated every setting twice: hand-written HTML on each side, separate JSON serialization, separate validation, defaults pasted into five files. Adding one setting meant five edits that could drift independently.
+
+The registry eliminates drift by making C++ the single source of truth. Both backends serialize from the same code; the shared JS renderer in `sim/js/settings_ui.js` builds the form from the resulting JSON model. Adding a setting is one array entry; the rest is automatic.
+
+## Param semantics
+
+Every configurable value — whether a top-level Config field, a pattern-specific param, or an animation param — is described by `Param` (`src/param.h`):
+
+- **Int** — numeric with `min`/`max` range clamping. Optional `scale` field (e.g. `scale=10` means the stored int is mm × 10; the renderer displays `value / scale`).
+- **Bool** — `0` / `1`; rendered as a checkbox.
+- **Color** — packed 0xRRGGBB into `value`; rendered as a color picker.
+- **Text** — backed by a fixed `char[]` buffer in the owning object; rendered as a text input.
+- **Enum** — validated against a `ParamOption[]` list; rendered as a select.
+
+## Scope filter
+
+Settings carry a `Scope` tag: `Both`, `McuOnly`, or `SimOnly`. The registry's `toJson()` pre-filters by scope, so each client receives only what applies. `escPulseUs` is `McuOnly` (no motor in the sim). Sim diagnostics (jitter sliders, geometry mm, displayHz) are `SimOnly`.
+
+For the wire format and the full registered entry list, see `src/settings_registry.cpp` directly — duplicating the schema here would rot.
+
+## UI structure
+
+The renderer produces two tabs:
+- **Picture** (default) — brightness, color, pattern selector, mirror, radial balance, phase offset, animation params, and the active pattern's own params.
+- **Hardware** — arm count, refresh rate, LED/slice counts, SPI clock, plus sim-only geometry and timing distortion controls.
+
+Pattern param panels are all rendered but only the active pattern's panel is visible. Switching the Pattern selector updates visibility client-side without a re-fetch.

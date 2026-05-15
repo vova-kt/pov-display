@@ -10,6 +10,13 @@
 static Framebuffer fb;
 static Config cfg;
 
+static void setText(TextPattern& tp, const char* s) {
+    Param* p = tp.findParam("text");
+    if (p) strcpy(p->textBuf, s);
+}
+static void setMode(TextPattern& tp, int v) { tp.findParam("mode")->value = v; }
+static void setDelay(TextPattern& tp, int v) { tp.findParam("delayMs")->value = v; }
+
 void setUp() {
     fb = Framebuffer();
     TEST_ASSERT_TRUE(fb.init(36, 10));
@@ -20,7 +27,6 @@ void setUp() {
     cfg.colorR = 255;
     cfg.colorG = 0;
     cfg.colorB = 0;
-    strcpy(cfg.text, "HELLO");
 }
 
 void tearDown() {
@@ -208,7 +214,7 @@ void test_scanner_name() {
 
 void test_text_empty_string_blank() {
     TextPattern text;
-    strcpy(cfg.text, "");
+    setText(text, "");
     text.generate(fb, cfg, 0);
     fb.swap();
 
@@ -222,7 +228,7 @@ void test_text_empty_string_blank() {
 
 void test_text_renders_pixels() {
     TextPattern text;
-    strcpy(cfg.text, "A");
+    setText(text, "A");
     text.generate(fb, cfg, 0);
     fb.swap();
 
@@ -238,7 +244,7 @@ void test_text_renders_pixels() {
 
 void test_text_single_char_produces_lit_pixels() {
     TextPattern text;
-    strcpy(cfg.text, "I");
+    setText(text, "I");
     text.generate(fb, cfg, 0);
     fb.swap();
 
@@ -256,9 +262,9 @@ void test_text_uses_config_color() {
     cfg.colorR = 10;
     cfg.colorG = 20;
     cfg.colorB = 30;
-    strcpy(cfg.text, "A");
 
     TextPattern text;
+    setText(text, "A");
     text.generate(fb, cfg, 0);
     fb.swap();
 
@@ -279,7 +285,7 @@ void test_text_uses_config_color() {
 
 void test_text_centered_on_disc() {
     TextPattern text;
-    strcpy(cfg.text, "H");
+    setText(text, "H");
     text.generate(fb, cfg, 0);
     fb.swap();
 
@@ -319,9 +325,9 @@ static int countLitPixels(Framebuffer& fb) {
 
 void test_spell_produces_different_frames() {
     TextPattern text;
-    cfg.textMode = 1;
-    cfg.textDelayMs = 100;
-    strcpy(cfg.text, "ABC");
+    setMode(text, 1);
+    setDelay(text, 100);
+    setText(text, "ABC");
 
     text.generate(fb, cfg, 0);
     fb.swap();
@@ -337,9 +343,9 @@ void test_spell_produces_different_frames() {
 
 void test_spell_loops_after_full_reveal() {
     TextPattern text;
-    cfg.textMode = 1;
-    cfg.textDelayMs = 100;
-    strcpy(cfg.text, "AB");
+    setMode(text, 1);
+    setDelay(text, 100);
+    setText(text, "AB");
     // cycle = len(2) + 2 = 4 steps. At step 4 (400ms) it wraps to step 0 (1 char).
     text.generate(fb, cfg, 400);
     fb.swap();
@@ -356,9 +362,9 @@ void test_spell_loops_after_full_reveal() {
 
 void test_word_reveals_progressively() {
     TextPattern text;
-    cfg.textMode = 2;
-    cfg.textDelayMs = 100;
-    strcpy(cfg.text, "HI WORLD");
+    setMode(text, 2);
+    setDelay(text, 100);
+    setText(text, "HI WORLD");
 
     text.generate(fb, cfg, 0);
     fb.swap();
@@ -376,9 +382,9 @@ void test_word_reveals_progressively() {
 
 void test_marquee_changes_over_time() {
     TextPattern text;
-    cfg.textMode = 3;
-    cfg.textDelayMs = 100;
-    strcpy(cfg.text, "SCROLL");
+    setMode(text, 3);
+    setDelay(text, 100);
+    setText(text, "SCROLL");
 
     text.generate(fb, cfg, 0);
     fb.swap();
@@ -407,9 +413,9 @@ void test_marquee_changes_over_time() {
 
 void test_marquee_renders_pixels() {
     TextPattern text;
-    cfg.textMode = 3;
-    cfg.textDelayMs = 100;
-    strcpy(cfg.text, "HELLO");
+    setMode(text, 3);
+    setDelay(text, 100);
+    setText(text, "HELLO");
 
     // Marquee starts text off-screen right; advance enough for text to scroll into view
     text.generate(fb, cfg, 5000);
@@ -421,8 +427,8 @@ void test_marquee_renders_pixels() {
 
 void test_static_mode_ignores_time() {
     TextPattern text;
-    cfg.textMode = 0;
-    strcpy(cfg.text, "A");
+    setMode(text, 0);
+    setText(text, "A");
 
     text.generate(fb, cfg, 0);
     fb.swap();

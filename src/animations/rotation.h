@@ -2,7 +2,7 @@
 #include "../animation.h"
 
 namespace {
-constexpr AnimPreset kRotPresets[] = {
+constexpr ParamOption kRotOptions[] = {
     {"Off", 0}, {"Slow", 15}, {"Medium", 45}, {"Fast", 90}
 };
 }
@@ -24,7 +24,10 @@ public:
     }
 
 private:
-    AnimParam storage_[1] = {{
-        "speed", "Speed", 0, 0, 0, 90, kRotPresets, 4
+    Param storage_[1] = {{
+        "speed", "Speed", ParamType::Enum,
+        0, 0, 0, 90,
+        kRotOptions, 4,
+        nullptr, 0
     }};
 };
