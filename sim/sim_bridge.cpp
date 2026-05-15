@@ -276,7 +276,7 @@ bool sim_load_image(uint8_t* rgbData, uint16_t width, uint16_t height) {
 
 // --- Settings JSON API ---
 
-static char s_settingsJsonBuf[5120];
+static char s_settingsJsonBuf[6144];
 
 EMSCRIPTEN_KEEPALIVE
 const char* sim_get_settings_json() {

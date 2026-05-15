@@ -9,6 +9,27 @@
 
 static Config cfg;
 
+static JsonObject findGroup(JsonDocument& doc, const char* key) {
+    for (JsonObject g : doc["groups"].as<JsonArray>())
+        if (strcmp(g["key"].as<const char*>(), key) == 0) return g;
+    return JsonObject();
+}
+
+static JsonObject findSection(JsonObject group, const char* key) {
+    for (JsonObject section : group["sections"].as<JsonArray>())
+        if (strcmp(section["key"].as<const char*>(), key) == 0) return section;
+    return JsonObject();
+}
+
+static JsonObject findSetting(JsonDocument& doc, const char* key) {
+    for (JsonObject g : doc["groups"].as<JsonArray>()) {
+        for (JsonObject section : g["sections"].as<JsonArray>())
+            for (JsonObject s : section["settings"].as<JsonArray>())
+                if (strcmp(s["key"].as<const char*>(), key) == 0) return s;
+    }
+    return JsonObject();
+}
+
 void setUp() {
     cfg = Config();
     settings_registry::init(&cfg);
@@ -28,20 +49,63 @@ void test_tojson_contains_groups() {
     TEST_ASSERT_EQUAL_INT(2, doc["groups"].as<JsonArray>().size());
 }
 
+void test_tojson_picture_has_ordered_sections() {
+    JsonDocument doc;
+    settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
+
+    JsonObject picture = findGroup(doc, "picture");
+    TEST_ASSERT_FALSE_MESSAGE(picture.isNull(), "picture group not found");
+    JsonArray sections = picture["sections"].as<JsonArray>();
+    TEST_ASSERT_EQUAL_INT(3, sections.size());
+    TEST_ASSERT_EQUAL_STRING("pattern", sections[0]["key"].as<const char*>());
+    TEST_ASSERT_EQUAL_STRING("animations", sections[1]["key"].as<const char*>());
+    TEST_ASSERT_EQUAL_STRING("global", sections[2]["key"].as<const char*>());
+}
+
 void test_tojson_picture_has_brightness() {
     JsonDocument doc;
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
-    for (JsonObject g : doc["groups"].as<JsonArray>()) {
-        if (strcmp(g["key"].as<const char*>(), "picture") == 0) {
-            for (JsonObject s : g["settings"].as<JsonArray>()) {
-                if (strcmp(s["key"].as<const char*>(), "brightness") == 0) {
-                    TEST_ASSERT_EQUAL_INT(cfg.brightness, s["value"].as<int>());
-                    return;
-                }
-            }
+    JsonObject global = findSection(findGroup(doc, "picture"), "global");
+    TEST_ASSERT_FALSE_MESSAGE(global.isNull(), "global section not found");
+    for (JsonObject s : global["settings"].as<JsonArray>()) {
+        if (strcmp(s["key"].as<const char*>(), "brightness") != 0) continue;
+        TEST_ASSERT_EQUAL_INT(cfg.brightness, s["value"].as<int>());
+        return;
+    }
+    TEST_FAIL_MESSAGE("brightness setting not found in global section");
+}
+
+void test_tojson_pattern_section_owns_pattern_setting() {
+    JsonDocument doc;
+    settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
+    JsonObject pattern = findSection(findGroup(doc, "picture"), "pattern");
+    TEST_ASSERT_FALSE_MESSAGE(pattern.isNull(), "pattern section not found");
+    TEST_ASSERT_EQUAL_INT(1, pattern["settings"].as<JsonArray>().size());
+    TEST_ASSERT_EQUAL_STRING("activePattern", pattern["settings"][0]["key"].as<const char*>());
+}
+
+void test_tojson_dynamic_params_have_sections() {
+    JsonDocument doc;
+    settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
+
+    bool foundText = false;
+    bool foundRot = false;
+    for (JsonObject p : doc["patterns"].as<JsonArray>()) {
+        if (strcmp(p["key"].as<const char*>(), "text") == 0) {
+            TEST_ASSERT_EQUAL_STRING("picture", p["group"].as<const char*>());
+            TEST_ASSERT_EQUAL_STRING("pattern", p["section"].as<const char*>());
+            foundText = true;
         }
     }
-    TEST_FAIL_MESSAGE("brightness setting not found");
+    for (JsonObject a : doc["animations"].as<JsonArray>()) {
+        if (strcmp(a["key"].as<const char*>(), "rot") == 0) {
+            TEST_ASSERT_EQUAL_STRING("picture", a["group"].as<const char*>());
+            TEST_ASSERT_EQUAL_STRING("animations", a["section"].as<const char*>());
+            foundRot = true;
+        }
+    }
+    TEST_ASSERT_TRUE_MESSAGE(foundText, "text pattern section not found");
+    TEST_ASSERT_TRUE_MESSAGE(foundRot, "rotation animation section not found");
 }
 
 void test_tojson_activepattern_toplevel() {
@@ -55,15 +119,9 @@ void test_tojson_color_packed() {
     cfg.colorR = 0x12; cfg.colorG = 0x34; cfg.colorB = 0x56;
     JsonDocument doc;
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
-    for (JsonObject g : doc["groups"].as<JsonArray>()) {
-        for (JsonObject s : g["settings"].as<JsonArray>()) {
-            if (strcmp(s["key"].as<const char*>(), "color") == 0) {
-                TEST_ASSERT_EQUAL_INT(0x123456, s["value"].as<int>());
-                return;
-            }
-        }
-    }
-    TEST_FAIL_MESSAGE("color setting not found");
+    JsonObject s = findSetting(doc, "color");
+    TEST_ASSERT_FALSE_MESSAGE(s.isNull(), "color setting not found");
+    TEST_ASSERT_EQUAL_INT(0x123456, s["value"].as<int>());
 }
 
 void test_tojson_includes_patterns() {
@@ -332,21 +390,15 @@ void test_scope_mcu_no_sim_settings() {
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
     // SimOnly keys (from g_sim_settings) — stub is empty so no SimOnly entries
     // exist anyway. Confirm escPulseUs IS present (McuOnly).
-    bool found = false;
-    for (JsonObject g : doc["groups"].as<JsonArray>())
-        for (JsonObject s : g["settings"].as<JsonArray>())
-            if (strcmp(s["key"].as<const char*>(), "escPulseUs") == 0) found = true;
-    TEST_ASSERT_TRUE_MESSAGE(found, "escPulseUs should appear in McuOnly model");
+    TEST_ASSERT_FALSE_MESSAGE(findSetting(doc, "escPulseUs").isNull(),
+                              "escPulseUs should appear in McuOnly model");
 }
 
 void test_scope_sim_no_mcu_only() {
     JsonDocument doc;
     settings_registry::toJson(doc.to<JsonObject>(), Scope::SimOnly);
-    bool found = false;
-    for (JsonObject g : doc["groups"].as<JsonArray>())
-        for (JsonObject s : g["settings"].as<JsonArray>())
-            if (strcmp(s["key"].as<const char*>(), "escPulseUs") == 0) found = true;
-    TEST_ASSERT_FALSE_MESSAGE(found, "escPulseUs should NOT appear in SimOnly model");
+    TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "escPulseUs").isNull(),
+                             "escPulseUs should NOT appear in SimOnly model");
 }
 
 // ── NVS round-trip ────────────────────────────────────────────────────────
@@ -383,7 +435,10 @@ int main() {
     UNITY_BEGIN();
 
     RUN_TEST(test_tojson_contains_groups);
+    RUN_TEST(test_tojson_picture_has_ordered_sections);
     RUN_TEST(test_tojson_picture_has_brightness);
+    RUN_TEST(test_tojson_pattern_section_owns_pattern_setting);
+    RUN_TEST(test_tojson_dynamic_params_have_sections);
     RUN_TEST(test_tojson_activepattern_toplevel);
     RUN_TEST(test_tojson_color_packed);
     RUN_TEST(test_tojson_includes_patterns);

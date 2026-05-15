@@ -1,7 +1,7 @@
 #pragma once
 #include <pgmspace.h>
 
-// Auto-generated from js/settings_ui.js — do not edit directly.
+// Auto-generated from sim/js/settings_ui.js — do not edit directly.
 // Run tools/gen_embedded_js.sh to regenerate.
 
 static const char SETTINGS_JS[] PROGMEM = R"rawliteral(
@@ -58,13 +58,6 @@ export class SettingsUI {
       this._renderGroup(panel, group);
     }
 
-    // Pattern + animation panels go into the picture group panel.
-    const picPanel = panels['picture'];
-    if (picPanel) {
-      this._renderAnimationStack(picPanel);
-      this._renderAnimations(picPanel);
-      this._renderPatternPanels(picPanel);
-    }
   }
 
   _switchTab(key) {
@@ -76,8 +69,24 @@ export class SettingsUI {
   }
 
   _renderGroup(panel, group) {
-    for (const s of group.settings || []) {
-      panel.appendChild(this._makeSettingRow(s));
+    for (const section of group.sections || []) {
+      const sectionEl = el('section', 'settings-section');
+      sectionEl.dataset.section = section.key;
+
+      const title = el('div', 'settings-section-title');
+      title.textContent = section.label;
+      sectionEl.appendChild(title);
+
+      for (const s of section.settings || []) {
+        sectionEl.appendChild(this._makeSettingRow(s));
+      }
+
+      if (group.key === 'picture' && section.key === 'pattern')
+        this._renderPatternPanels(sectionEl);
+      if (group.key === 'picture' && section.key === 'animations')
+        this._renderAnimationStack(sectionEl);
+
+      panel.appendChild(sectionEl);
     }
   }
 
@@ -176,45 +185,6 @@ export class SettingsUI {
     return wrap;
   }
 
-  _renderAnimations(panel) {
-    for (const anim of this._model.animations || []) {
-      for (const p of anim.params || []) {
-        const row = el('div', 'setting-row');
-        const labelText = anim.name + ': ' + p.label;
-        if (p.type === 'enum' && p.options?.length) {
-          row.appendChild(label(labelText));
-          const sel = el('select');
-          for (const [optLabel, optVal] of p.options) {
-            const opt = el('option');
-            opt.value = optVal;
-            opt.textContent = optLabel;
-            sel.appendChild(opt);
-          }
-          sel.value = p.value;
-          const animKey = anim.key, paramKey = p.key;
-          sel.addEventListener('change', () =>
-            this._changeNested('animations', animKey, paramKey, +sel.value));
-          row.appendChild(sel);
-        } else {
-          row.appendChild(label(labelText));
-          const inp = el('input');
-          inp.type = 'range';
-          inp.min = p.min; inp.max = p.max; inp.value = p.value;
-          const valSpan = el('span', 'val');
-          valSpan.textContent = p.value;
-          const animKey = anim.key, paramKey = p.key;
-          inp.addEventListener('input', () => {
-            valSpan.textContent = inp.value;
-            this._changeNested('animations', animKey, paramKey, +inp.value);
-          });
-          row.appendChild(inp);
-          row.appendChild(valSpan);
-        }
-        panel.appendChild(row);
-      }
-    }
-  }
-
   _renderAnimationStack(panel) {
     const stack = this._model.animationStack || [];
     const slotCount = stack.length || 2;
@@ -239,6 +209,18 @@ export class SettingsUI {
       sel.addEventListener('change', () => this._changeAnimationSlot(slot, sel.value));
       row.appendChild(sel);
       panel.appendChild(row);
+
+      const paramsWrap = el('div', 'animation-slot-params');
+      paramsWrap.dataset.slot = slot;
+      for (const anim of this._model.animations || []) {
+        const selected = anim.key === (stack[slot] ?? '');
+        const div = el('div', 'animation-params' + (selected ? '' : ' hidden'));
+        div.dataset.animKey = anim.key;
+        for (const p of anim.params || [])
+          div.appendChild(this._makeNestedParamRow(p, 'animations', anim.key));
+        paramsWrap.appendChild(div);
+      }
+      panel.appendChild(paramsWrap);
     }
   }
 
@@ -247,56 +229,77 @@ export class SettingsUI {
       const div = el('div', 'pattern-params' + (pat.index === this._activePattern ? '' : ' hidden'));
       div.dataset.patternIndex = pat.index;
       for (const p of pat.params || []) {
-        const row = el('div', 'setting-row');
-        if (p.type === 'text') {
-          row.appendChild(label(p.label));
-          const inp = el('input');
-          inp.type = 'text';
-          inp.value = p.value ?? '';
-          inp.maxLength = 63;
-          let debounce;
-          const patKey = pat.key, paramKey = p.key;
-          inp.addEventListener('input', () => {
-            clearTimeout(debounce);
-            debounce = setTimeout(() =>
-              this._changeNested('patterns', patKey, paramKey, inp.value), 400);
-          });
-          inp.addEventListener('blur', () =>
-            this._changeNested('patterns', pat.key, p.key, inp.value));
-          row.appendChild(inp);
-        } else if (p.type === 'enum') {
-          row.appendChild(label(p.label));
-          const sel = el('select');
-          for (const [optLabel, optVal] of (p.options || [])) {
-            const opt = el('option');
-            opt.value = optVal;
-            opt.textContent = optLabel;
-            sel.appendChild(opt);
-          }
-          sel.value = p.value;
-          const patKey = pat.key, paramKey = p.key;
-          sel.addEventListener('change', () =>
-            this._changeNested('patterns', patKey, paramKey, +sel.value, true));
-          row.appendChild(sel);
-        } else {
-          row.appendChild(label(p.label));
-          const inp = el('input');
-          inp.type = 'range';
-          inp.min = p.min; inp.max = p.max; inp.value = p.value;
-          const valSpan = el('span', 'val');
-          valSpan.textContent = p.value;
-          const patKey = pat.key, paramKey = p.key;
-          inp.addEventListener('input', () => {
-            valSpan.textContent = inp.value;
-            this._changeNested('patterns', patKey, paramKey, +inp.value);
-          });
-          row.appendChild(inp);
-          row.appendChild(valSpan);
-        }
-        div.appendChild(row);
+        div.appendChild(this._makeNestedParamRow(p, 'patterns', pat.key));
       }
       panel.appendChild(div);
     }
+  }
+
+  _makeNestedParamRow(p, section, parentKey) {
+    const row = el('div', 'setting-row setting-subrow');
+    row.appendChild(label(p.label));
+
+    if (p.type === 'text') {
+      const inp = el('input');
+      inp.type = 'text';
+      inp.value = p.value ?? '';
+      inp.maxLength = 63;
+      let debounce;
+      inp.addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() =>
+          this._changeNested(section, parentKey, p.key, inp.value), 400);
+      });
+      inp.addEventListener('blur', () =>
+        this._changeNested(section, parentKey, p.key, inp.value));
+      row.appendChild(inp);
+
+    } else if (p.type === 'enum' && p.options?.length) {
+      const sel = el('select');
+      for (const [optLabel, optVal] of p.options) {
+        const opt = el('option');
+        opt.value = optVal;
+        opt.textContent = optLabel;
+        sel.appendChild(opt);
+      }
+      sel.value = p.value;
+      sel.addEventListener('change', () =>
+        this._changeNested(section, parentKey, p.key, +sel.value, true));
+      row.appendChild(sel);
+
+    } else if (p.type === 'bool') {
+      const cb = el('input');
+      cb.type = 'checkbox';
+      cb.checked = p.value !== 0;
+      cb.addEventListener('change', () =>
+        this._changeNested(section, parentKey, p.key, cb.checked ? 1 : 0, true));
+      row.appendChild(cb);
+
+    } else if (p.type === 'color') {
+      const inp = el('input');
+      inp.type = 'color';
+      inp.value = '#' + ((p.value >>> 0) & 0xFFFFFF).toString(16).padStart(6, '0');
+      inp.addEventListener('input', () =>
+        this._changeNested(section, parentKey, p.key, parseInt(inp.value.slice(1), 16)));
+      row.appendChild(inp);
+
+    } else {
+      const inp = el('input');
+      inp.type = 'range';
+      inp.min = p.min;
+      inp.max = p.max;
+      inp.value = p.value;
+      const valSpan = el('span', 'val');
+      valSpan.textContent = p.value;
+      inp.addEventListener('input', () => {
+        valSpan.textContent = inp.value;
+        this._changeNested(section, parentKey, p.key, +inp.value);
+      });
+      row.appendChild(inp);
+      row.appendChild(valSpan);
+    }
+
+    return row;
   }
 
   _changeActivePattern(v) {
@@ -332,9 +335,17 @@ export class SettingsUI {
     if (!Array.isArray(this._model.animationStack))
       this._model.animationStack = [];
     this._model.animationStack[slot] = value;
+    this._showAnimationSlotParams(slot, value);
     const slotCount = this._model.animationStack.length || 2;
     this._pending.animationStack = this._model.animationStack.slice(0, slotCount);
     this._flush();
+  }
+
+  _showAnimationSlotParams(slot, value) {
+    const wrap = this._root.querySelector(`.animation-slot-params[data-slot="${slot}"]`);
+    if (!wrap) return;
+    for (const div of wrap.querySelectorAll('.animation-params'))
+      div.classList.toggle('hidden', div.dataset.animKey !== value);
   }
 
   _flush() {

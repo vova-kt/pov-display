@@ -61,10 +61,6 @@ async function init() {
       row.appendChild(btn);
       imgPanel.appendChild(row);
 
-      // Place panel right after the Pattern selector, not at the bottom of the tab.
-      const patternRow = document.querySelector('[data-key="activePattern"]');
-      if (patternRow) patternRow.after(imgPanel);
-
       hiddenInp.addEventListener('change', async e => {
         const file = e.target.files[0];
         if (!file) return;
@@ -120,9 +116,11 @@ function loop(timestamp) {
 }
 
 function findSettingValue(model, key) {
-  for (const g of model.groups || [])
-    for (const s of g.settings || [])
-      if (s.key === key) return s.value;
+  for (const g of model.groups || []) {
+    for (const section of g.sections || [])
+      for (const s of section.settings || [])
+        if (s.key === key) return s.value;
+  }
   return null;
 }
 

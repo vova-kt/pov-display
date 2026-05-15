@@ -43,7 +43,7 @@ Six suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (s
 
 ## Config defaults
 
-`src/settings_registry.cpp` is the single source of truth for every user-facing setting. Defaults live on each `Setting` entry (or on the `Param` member initializer inside a `Pattern` / `Animation` subclass). The web UI and the WASM simulator both build their forms from this registry — no HTML/JS values to keep in sync.
+`src/settings_registry.cpp` is the single source of truth for every user-facing setting. Defaults and display sections live on each `Setting` entry (or on the `Param` member initializer inside a `Pattern` / `Animation` subclass). The web UI and the WASM simulator both build their forms from this registry — no HTML/JS values to keep in sync.
 
 For the two embedded JS files (`settings_js.h` from `sim/js/settings_ui.js`, `image_processor_js.h` from `sim/js/image-processor.js`), `deploy.sh`, `test.sh`, and `sim/build.sh` regenerate them automatically via `tools/gen_embedded_js.sh`. `python3 tools/check_embedded_js.py` verifies they're in sync — it runs as a pre-push hook (`.githooks/pre-push`).
 
@@ -58,11 +58,11 @@ One-time setup: `git config core.hooksPath .githooks`
 - **Power**: 3S LiPo (stationary) → buck converter → 5 V through hollow slip ring. LEDs and XIAO share the same 5 V rail on the rotating arm.
 - **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, refresh rate, arm count, motor control. No reflash needed.
 - **Config persists** to NVS via "Save to Flash" button.
-- **Settings registry** (`src/settings_registry.h/cpp`) — all user-facing settings in one place, emitting a JSON model that drives both UIs. Scope flags (`Both`/`McuOnly`/`SimOnly`) control per-side visibility. See `docs/settings.md`.
+- **Settings registry** (`src/settings_registry.h/cpp`) — all user-facing settings in one place, emitting a sectioned JSON model that drives both UIs. Scope flags (`Both`/`McuOnly`/`SimOnly`) control per-side visibility. See `docs/settings.md`.
 - **Pattern params** — `Pattern` base class supports self-describing `Param` arrays (same as animations). TextPattern's text, mode, fixed delay, and margin params live on the pattern instance, not in Config. NVS keys use prefix `p_<patternKey>_<paramKey>`.
 - **Text rendering** — Text params are UTF-8 byte buffers. `src/fonts/text_font*.h` owns UTF-8 iteration, fixed-buffer run decoding, measurement, glyph lookup, and width metadata for compact script-specific tables; `TextPattern` caches the decoded run and refreshes it only when the text bytes change. Word mode selects one decoded word per step rather than accumulating prefixes. Text layout uses a Cartesian margin measured in LED pitches; centered modes use fixed-point fit scaling, and marquee treats the margin as its clipped scroll viewport. Low-scale odd-length centered text has a local, removable center-gap dodge in `src/patterns/text.cpp`.
 - **Animation system** (`src/animation.h`) — polymorphic `Animation` base class with self-describing `Param` parameters. Global registry and fixed two-slot stack live in `src/animation.cpp`. Animations run in stack order after pattern generation but before `fb.swap()`; they can mutate the back framebuffer (scale) or emit `AnimationState` (rotation `sliceOffset`). The simulator persists the last rotation phase across render-only frames so reused framebuffers do not draw a static duplicate. Adding a new animation: one class in `src/animations/`, one registry line — frame loops never change.
-- **Shared UI renderer** — `sim/js/settings_ui.js` builds the two-tab settings form (Picture / Hardware) from the registry JSON. Embedded in the MCU UI via `/js/settings.js`. Both UIs share the same renderer code.
+- **Shared UI renderer** — `sim/js/settings_ui.js` builds the two-tab sectioned settings form (Picture / Hardware) from the registry JSON. Pattern and animation params render next to their owning selectors. Embedded in the MCU UI via `/js/settings.js`. Both UIs share the same renderer code.
 
 - **Arm layout**: 2-arm "golden star". LED strip placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU mounts behind the blade. Hub radius = 0.
 

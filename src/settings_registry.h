@@ -15,6 +15,7 @@ struct Setting {
     const char* key;
     const char* label;
     const char* group;            // "picture" | "hardware"
+    const char* section;          // display section within the group
     Scope       scope;
     ParamType   type;
     int32_t     defaultVal;

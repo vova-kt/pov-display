@@ -67,45 +67,45 @@ static const ParamOption kPhaseOptions[]    = {{"0°", 0}, {"90°", 90}, {"180°
 
 const Setting g_settings[] = {
     // ── Picture ────────────────────────────────────────────────────────────
-    { "brightness",    "Brightness",     "picture", Scope::Both, ParamType::Int,
+    { "brightness",    "Brightness",     "picture", "global", Scope::Both, ParamType::Int,
       16, 0, 31, 1, nullptr, 0,
       get_brightness, set_brightness, nullptr, nullptr, "brightness" },
-    { "color",         "Color",          "picture", Scope::Both, ParamType::Color,
+    { "color",         "Color",          "picture", "global", Scope::Both, ParamType::Color,
       0xFF0000, 0, 0xFFFFFF, 1, nullptr, 0,
       get_color, set_color, nullptr, nullptr, "color" },
-    { "activePattern", "Pattern",        "picture", Scope::Both, ParamType::Enum,
+    { "activePattern", "Pattern",        "picture", "pattern", Scope::Both, ParamType::Enum,
       1, 0, 4, 1, nullptr, 0,    // options synthesized from g_patterns at JSON time
       get_activePattern, set_activePattern, nullptr, nullptr, "pattern" },
-    { "mirrorPattern", "Mirror",         "picture", Scope::Both, ParamType::Bool,
+    { "mirrorPattern", "Mirror",         "picture", "global", Scope::Both, ParamType::Bool,
       1, 0, 1, 1, nullptr, 0,
       get_mirror, set_mirror, nullptr, nullptr, "mirror" },
-    { "radialBalance", "Radial balance", "picture", Scope::Both, ParamType::Bool,
+    { "radialBalance", "Radial balance", "picture", "global", Scope::Both, ParamType::Bool,
       1, 0, 1, 1, nullptr, 0,
       get_radialBalance, set_radialBalance, nullptr, nullptr, "rad_bal" },
-    { "phaseOffset",   "Phase offset",   "picture", Scope::Both, ParamType::Enum,
+    { "phaseOffset",   "Phase offset",   "picture", "global", Scope::Both, ParamType::Enum,
       0, -360, 360, 1, kPhaseOptions, 4,
       get_phaseOffset, set_phaseOffset, nullptr, nullptr, "phase_off" },
 
     // ── Hardware ───────────────────────────────────────────────────────────
-    { "numArms",       "Arms",           "hardware", Scope::Both, ParamType::Enum,
+    { "numArms",       "Arms",           "hardware", "hardware", Scope::Both, ParamType::Enum,
       2, 1, 4, 1, kArmOptions, 3,
       get_numArms, set_numArms, nullptr, nullptr, "num_arms" },
-    { "targetHz",      "Refresh rate",   "hardware", Scope::Both, ParamType::Enum,
+    { "targetHz",      "Refresh rate",   "hardware", "hardware", Scope::Both, ParamType::Enum,
       60, 0, 240, 1, kHzOptions, 5,
       get_targetHz, set_targetHz, nullptr, nullptr, "target_hz" },
-    { "numLeds",       "LED count",      "hardware", Scope::Both, ParamType::Int,
+    { "numLeds",       "LED count",      "hardware", "hardware", Scope::Both, ParamType::Int,
       26, 1, MAX_LEDS, 1, nullptr, 0,
       get_numLeds, set_numLeds, nullptr, nullptr, "num_leds" },
-    { "numSlices",     "Slice count",    "hardware", Scope::Both, ParamType::Enum,
+    { "numSlices",     "Slice count",    "hardware", "hardware", Scope::Both, ParamType::Enum,
       360, 0, 720, 1, kSliceOptions, 4,
       get_numSlices, set_numSlices, nullptr, nullptr, "num_slices" },
-    { "escPulseUs",    "ESC pulse µs",   "hardware", Scope::McuOnly, ParamType::Int,
+    { "escPulseUs",    "ESC pulse µs",   "hardware", "hardware", Scope::McuOnly, ParamType::Int,
       1000, 1000, 2000, 1, nullptr, 0,
       get_escPulse, set_escPulse, nullptr, nullptr, "esc_pulse" },
-    { "spiClockMhz",   "SPI clock MHz",  "hardware", Scope::Both, ParamType::Enum,
+    { "spiClockMhz",   "SPI clock MHz",  "hardware", "hardware", Scope::Both, ParamType::Enum,
       20, 0, 40, 1, kSpiOptions, 2,
       get_spiClock, set_spiClock, nullptr, nullptr, "spi_clk" },
-    { "maxBrightness", "Max brightness", "hardware", Scope::Both, ParamType::Int,
+    { "maxBrightness", "Max brightness", "hardware", "hardware", Scope::Both, ParamType::Int,
       31, 0, 31, 1, nullptr, 0,
       get_maxBrightness, set_maxBrightness, nullptr, nullptr, "max_bright" },
 };
@@ -188,21 +188,61 @@ bool entryVisible(const Setting& s, Scope side) {
     return s.scope == side;
 }
 
-static void emitGroup(JsonObject groupObj, const char* group, const char* label, Scope side) {
-    groupObj["key"]   = group;
-    groupObj["label"] = label;
-    JsonArray arr = groupObj["settings"].to<JsonArray>();
+struct SectionDef {
+    const char* group;
+    const char* key;
+    const char* label;
+    bool keepWhenEmpty;
+};
+
+static const SectionDef kSections[] = {
+    { "picture",  "pattern",    "Pattern",    true  },
+    { "picture",  "animations", "Animations", true  },
+    { "picture",  "global",     "Global",     true  },
+    { "hardware", "hardware",   "Hardware",   false },
+    { "hardware", "playback",   "Playback",   false },
+    { "hardware", "timing",     "Timing",     false },
+    { "hardware", "overlays",   "Overlays",   false },
+};
+
+static bool settingInSection(const Setting& s, const char* group, const char* section, Scope side) {
+    if (!entryVisible(s, side)) return false;
+    if (strcmp(s.group, group) != 0) return false;
+    return strcmp(s.section, section) == 0;
+}
+
+static bool sectionHasSettings(const char* group, const char* section, Scope side) {
+    for (uint16_t i = 0; i < G_NUM_SETTINGS; i++)
+        if (settingInSection(g_settings[i], group, section, side)) return true;
+    for (uint16_t i = 0; i < G_NUM_SIM_SETTINGS; i++)
+        if (settingInSection(g_sim_settings[i], group, section, side)) return true;
+    return false;
+}
+
+static void emitSection(JsonObject sectionObj, const SectionDef& section, Scope side) {
+    sectionObj["key"]   = section.key;
+    sectionObj["label"] = section.label;
+    JsonArray arr = sectionObj["settings"].to<JsonArray>();
     for (uint16_t i = 0; i < G_NUM_SETTINGS; i++) {
         const Setting& s = g_settings[i];
-        if (!entryVisible(s, side)) continue;
-        if (strcmp(s.group, group) != 0) continue;
+        if (!settingInSection(s, section.group, section.key, side)) continue;
         emitSetting(arr.add<JsonObject>(), s);
     }
     for (uint16_t i = 0; i < G_NUM_SIM_SETTINGS; i++) {
         const Setting& s = g_sim_settings[i];
-        if (!entryVisible(s, side)) continue;
-        if (strcmp(s.group, group) != 0) continue;
+        if (!settingInSection(s, section.group, section.key, side)) continue;
         emitSetting(arr.add<JsonObject>(), s);
+    }
+}
+
+static void emitGroup(JsonObject groupObj, const char* group, const char* label, Scope side) {
+    groupObj["key"]   = group;
+    groupObj["label"] = label;
+    JsonArray sections = groupObj["sections"].to<JsonArray>();
+    for (const SectionDef& section : kSections) {
+        if (strcmp(section.group, group) != 0) continue;
+        if (!section.keepWhenEmpty && !sectionHasSettings(group, section.key, side)) continue;
+        emitSection(sections.add<JsonObject>(), section, side);
     }
 }
 
@@ -221,6 +261,7 @@ void toJson(JsonObject root, Scope side) {
         pObj["name"]  = p->name();
         pObj["index"] = i;
         pObj["group"] = "picture";
+        pObj["section"] = "pattern";
         JsonArray params = pObj["params"].to<JsonArray>();
         for (uint8_t j = 0; j < p->paramCount(); j++)
             emitParam(params.add<JsonObject>(), p->param(j));
@@ -237,6 +278,7 @@ void toJson(JsonObject root, Scope side) {
         aObj["key"]   = a->key();
         aObj["name"]  = a->name();
         aObj["group"] = "picture";
+        aObj["section"] = "animations";
         JsonArray params = aObj["params"].to<JsonArray>();
         for (uint8_t j = 0; j < a->paramCount(); j++)
             emitParam(params.add<JsonObject>(), a->param(j));

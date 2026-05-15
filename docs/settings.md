@@ -4,7 +4,7 @@
 
 Both the MCU web UI and the WASM simulator need the same set of controls. The old approach duplicated every setting twice: hand-written HTML on each side, separate JSON serialization, separate validation, defaults pasted into five files. Adding one setting meant five edits that could drift independently.
 
-The registry eliminates drift by making C++ the single source of truth. Both backends serialize from the same code; the shared JS renderer in `sim/js/settings_ui.js` builds the form from the resulting JSON model. Adding a setting is one array entry; the rest is automatic.
+The registry eliminates drift by making C++ the single source of truth. Both backends serialize from the same code; the shared JS renderer in `sim/js/settings_ui.js` builds the form from the resulting JSON model. Settings also carry a small display section tag so dynamic pattern and animation params can sit next to the selector that owns them instead of being appended later.
 
 ## Param semantics
 
@@ -30,12 +30,12 @@ For the wire format and the full registered entry list, see `src/settings_regist
 
 ## UI structure
 
-The renderer produces two tabs:
-- **Picture** (default) — brightness, color, pattern selector, mirror, radial balance, phase offset, animation params, and the active pattern's own params.
-- **Hardware** — arm count, refresh rate, LED/slice counts, SPI clock, plus sim-only geometry and timing distortion controls.
+The renderer produces two tabs with section separators:
+- **Picture** (default) — Pattern, Animations, then Global. The active pattern's params render under the Pattern selector, and selected animation params render under their animation slot. Global holds top-level image controls such as brightness, color, mirror, radial balance, and phase offset.
+- **Hardware** — board/display controls plus sim-only playback, timing, and overlay sections when running in the browser.
 
 Pattern param panels are all rendered but only the active pattern's panel is visible. Switching the Pattern selector updates visibility client-side without a re-fetch.
 
-Animation slots are also part of the picture controls. The stack is ordered and fixed-size so the MCU can apply it with a small bounded loop, while the animation definitions themselves stay in `src/animation.cpp` and the param metadata stays on each `Animation` subclass. Params are shown with the picture controls because they alter the rendered image rather than the hardware timing.
+Animation slots are also part of the picture controls. The stack is ordered and fixed-size so the MCU can apply it with a small bounded loop, while the animation definitions themselves stay in `src/animation.cpp` and the param metadata stays on each `Animation` subclass. Only the params for the animation selected in a slot are visible next to that slot. Params are shown with the picture controls because they alter the rendered image rather than the hardware timing.
 
 Rotation direction lives there for that reason: it reverses the phase animation without implying the motor or hall sensor wiring changed. Scale is implemented as a radial zoom of the polar framebuffer after pattern generation; that keeps it pattern-agnostic and avoids teaching every pattern about zoom state. The polar sampling tradeoff is the same one covered in [polar distortion correction](concepts/polar-distortion-correction.md).
