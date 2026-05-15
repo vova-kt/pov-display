@@ -1,7 +1,7 @@
 #pragma once
 #include <pgmspace.h>
 
-// Auto-generated from sim/js/image-processor.js — do not edit directly.
+// Auto-generated from js/image-processor.js — do not edit directly.
 // Run tools/gen_embedded_js.sh to regenerate.
 
 static const char IMAGE_PROCESSOR_JS[] PROGMEM = R"rawliteral(

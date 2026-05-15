@@ -41,33 +41,39 @@ async function init() {
   };
   settingsUI = await SettingsUI.init(adapter, document.getElementById('settings-root'));
 
-  // Image upload
-  document.getElementById('image-file').addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const sz = sim.numLeds * 2;
-    const result = await preprocessImage(file, sz);
-    sim.loadImage(result.pixels, result.width, result.height);
-    // Set activePattern to image index via settings JSON
-    const model = JSON.parse(sim.getSettingsJson());
-    const imageIdx = (model.patterns || []).find(p => p.key === 'image')?.index ?? -1;
-    if (imageIdx >= 0) {
-      sim.applySettingsJson(JSON.stringify({ activePattern: imageIdx }));
-      settingsUI._changeActivePattern(imageIdx);
-    }
-  });
+  // Ad hoc: inject image upload into the image pattern's panel (sim-only).
+  const imageIdx = (JSON.parse(sim.getSettingsJson()).patterns || []).find(p => p.key === 'image')?.index ?? -1;
+  if (imageIdx >= 0) {
+    const imgPanel = document.querySelector(`[data-pattern-index="${imageIdx}"]`);
+    if (imgPanel) {
+      const hiddenInp = document.createElement('input');
+      hiddenInp.type = 'file';
+      hiddenInp.accept = 'image/*';
+      hiddenInp.style.display = 'none';
 
-  // Pause button
-  document.getElementById('pause-btn').addEventListener('click', () => {
-    paused = !paused;
-    document.getElementById('pause-btn').textContent = paused ? 'Resume' : 'Pause';
-    if (!paused) {
-      lastFrameTime = null;
-      lastRenderTimestamp = null;
-      accumulatedDt = 0;
-      requestAnimationFrame(loop);
+      const btn = document.createElement('button');
+      btn.textContent = 'Choose image…';
+      btn.addEventListener('click', () => hiddenInp.click());
+
+      const row = document.createElement('div');
+      row.className = 'setting-row';
+      row.appendChild(hiddenInp);
+      row.appendChild(btn);
+      imgPanel.appendChild(row);
+
+      // Place panel right after the Pattern selector, not at the bottom of the tab.
+      const patternRow = document.querySelector('[data-key="activePattern"]');
+      if (patternRow) patternRow.after(imgPanel);
+
+      hiddenInp.addEventListener('change', async e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const sz = sim.numLeds * 2;
+        const result = await preprocessImage(file, sz);
+        sim.loadImage(result.pixels, result.width, result.height);
+      });
     }
-  });
+  }
 
   window.addEventListener('resize', () => sizeCanvas(canvas));
   requestAnimationFrame(loop);

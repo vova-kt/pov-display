@@ -27,7 +27,7 @@ struct Config {
     uint16_t numSlices      = 360;
     uint8_t  brightness     = 16;     // 0..31 HD107S global brightness
     uint8_t  maxBrightness  = 31;
-    int16_t  phaseOffset    = -90;
+    int16_t  phaseOffset    = 0;
 
     uint8_t  activePattern  = 2;
     uint8_t  colorR         = 255;

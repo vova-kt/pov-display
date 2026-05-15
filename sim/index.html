@@ -61,6 +61,10 @@
   .setting-row .chk { display: flex; align-items: center; gap: 6px; font-size: 12px; }
   .pattern-params.hidden { display: none; }
   .hidden { display: none !important; }
+  .setting-row button {
+    flex: 1; padding: 5px 8px; margin-bottom: 6px; margin-top: 6px; background: #333; color: #ccc; border: 1px solid #555;
+    cursor: pointer; border-radius: 3px; font-size: 12px; }
+  .setting-row button:hover { background: #444; }
 </style>
 </head>
 <body>
@@ -81,10 +85,6 @@
 </div>
 
 <div id="sidebar">
-  <div class="controls-row">
-    <input type="file" id="image-file" accept="image/*" style="flex:2;font-size:11px">
-    <button id="pause-btn">Pause</button>
-  </div>
   <div id="settings-root"></div>
 </div>
 

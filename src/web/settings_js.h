@@ -1,7 +1,7 @@
 #pragma once
 #include <pgmspace.h>
 
-// Auto-generated from sim/js/settings_ui.js — do not edit directly.
+// Auto-generated from js/settings_ui.js — do not edit directly.
 // Run tools/gen_embedded_js.sh to regenerate.
 
 static const char SETTINGS_JS[] PROGMEM = R"rawliteral(
@@ -216,10 +216,9 @@ export class SettingsUI {
 
   _renderPatternPanels(panel) {
     for (const pat of this._model.patterns || []) {
-      if (!pat.params?.length) continue;
       const div = el('div', 'pattern-params' + (pat.index === this._activePattern ? '' : ' hidden'));
       div.dataset.patternIndex = pat.index;
-      for (const p of pat.params) {
+      for (const p of pat.params || []) {
         const row = el('div', 'setting-row');
         if (p.type === 'text') {
           row.appendChild(label(p.label));
