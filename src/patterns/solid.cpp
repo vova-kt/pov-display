@@ -6,5 +6,4 @@ void SolidPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t) {
             fb.setPixel(s, l, cfg.colorR, cfg.colorG, cfg.colorB, cfg.brightness);
         }
     }
-    fb.swap();
 }

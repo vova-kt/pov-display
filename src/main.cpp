@@ -10,6 +10,7 @@
 #include "motor.h"
 #include "web/web_server.h"
 
+#include "animation.h"
 #include "patterns/pattern.h"
 #include "patterns/solid.h"
 #include "patterns/rainbow.h"
@@ -83,7 +84,13 @@ static void patternTaskFunc(void*) {
 
         uint8_t pi = cfg.activePattern;
         if (pi >= NUM_PATTERNS) pi = 0;
-        patterns[pi]->generate(fb, cfg, millis());
+        uint32_t now = millis();
+        patterns[pi]->generate(fb, cfg, now);
+
+        AnimationState animState;
+        applyAnimations(animState, fb, now);
+        fb.swap();
+        scheduler.setPhaseOffset(cfg.phaseOffset + animState.sliceOffset);
 
         // When not spinning, push slice 0 directly to the strip
         uint32_t lastHall = hall.lastTriggerMs();
@@ -121,6 +128,7 @@ void setup() {
 
     // Load saved config
     cfg.loadFromNvs();
+    loadAnimationsFromNvs();
 
     // Init LED driver
     if (!leds.init(PIN_LED_CLK, PIN_LED_MOSI, cfg.spiClockMhz, MAX_LEDS)) {
@@ -157,6 +165,7 @@ void setup() {
     uint8_t pi = cfg.activePattern;
     if (pi >= NUM_PATTERNS) pi = 0;
     patterns[pi]->generate(fb, cfg, millis());
+    fb.swap();
 
     // Start WiFi AP
     WiFi.mode(WIFI_AP);

@@ -130,6 +130,10 @@ def check_sim_html(d):
              d['mirrorPattern'], extract_checkbox_checked(html, 'mirror'))
     mismatch(errors, 'sim/index.html', 'radial-balance',
              d['radialBalance'], extract_checkbox_checked(html, 'radial-balance'))
+    mismatch(errors, 'sim/index.html', 'text-mode',
+             str(d['textMode']), extract_selected_option(html, 'text-mode'))
+    mismatch(errors, 'sim/index.html', 'text-delay',
+             str(d['textDelayMs']), extract_input_val(html, 'text-delay'))
     return errors
 
 
@@ -173,6 +177,10 @@ def check_web_ui(d):
              d['mirrorPattern'], extract_checkbox_checked(html, 'mirror'))
     mismatch(errors, 'src/web/web_ui.h', 'radialBalance',
              d['radialBalance'], extract_checkbox_checked(html, 'radialBalance'))
+    mismatch(errors, 'src/web/web_ui.h', 'textMode',
+             str(d['textMode']), extract_selected_option(html, 'textMode'))
+    mismatch(errors, 'src/web/web_ui.h', 'textDelayMs',
+             str(d['textDelayMs']), extract_input_val(html, 'textDelayMs'))
     return errors
 
 

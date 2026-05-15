@@ -19,7 +19,6 @@ void ScannerPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeM
         }
         fb.setPixel(s, pos, cfg.colorR, cfg.colorG, cfg.colorB, cfg.brightness);
     }
-    fb.swap();
 
     static uint32_t lastLog = 0;
     if (timeMs - lastLog >= 10000) {

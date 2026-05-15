@@ -24,6 +24,9 @@ void Config::loadFromNvs() {
     colorG        = prefs.getUChar("colorG",       colorG);
     colorB        = prefs.getUChar("colorB",       colorB);
 
+    textMode      = prefs.getUChar("textMode",     textMode);
+    textDelayMs   = prefs.getUShort("textDelay",   textDelayMs);
+
     // Motor / hardware
     numArms       = prefs.getUChar("numArms",      numArms);
     targetHz      = prefs.getUChar("targetHz",     targetHz);
@@ -57,6 +60,9 @@ void Config::saveToNvs() {
     prefs.putUChar("colorR",      colorR);
     prefs.putUChar("colorG",      colorG);
     prefs.putUChar("colorB",      colorB);
+
+    prefs.putUChar("textMode",    textMode);
+    prefs.putUShort("textDelay",  textDelayMs);
 
     // Motor / hardware
     prefs.putUChar("numArms",     numArms);

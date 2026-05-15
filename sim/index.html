@@ -74,6 +74,7 @@
     cursor: pointer; border-radius: 3px; font-size: 12px;
   }
   .controls-row button:hover { background: #444; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -112,14 +113,33 @@
     <label>Radial bal.</label>
     <input type="checkbox" id="radial-balance" checked>
   </div>
-  <div class="row">
-    <label>Text</label>
-    <input type="text" id="text" value="FUSION" maxlength="63">
+  <div id="text-opts" class="hidden">
+    <div class="row">
+      <label>Text mode</label>
+      <select id="text-mode">
+        <option value="0" selected>Static</option>
+        <option value="1">Spell</option>
+        <option value="2">Word by Word</option>
+        <option value="3">Marquee</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Text</label>
+      <input type="text" id="text" value="FUSION" maxlength="63">
+    </div>
+    <div class="row" id="text-delay-row">
+      <label>Delay</label>
+      <input type="range" id="text-delay" min="50" max="2000" step="50" value="500">
+      <span class="val" id="text-delay-val">500 ms</span>
+    </div>
   </div>
   <div class="row">
     <label>Image</label>
     <input type="file" id="image-file" accept="image/*" style="font-size:11px;color:#aaa">
   </div>
+
+  <h2>Animations</h2>
+  <div id="anim-controls"></div>
 
   <h2>Geometry (mm)</h2>
   <div class="row">

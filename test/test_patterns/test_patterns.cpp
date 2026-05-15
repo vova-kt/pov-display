@@ -32,6 +32,7 @@ void tearDown() {
 void test_solid_fills_all_pixels() {
     SolidPattern solid;
     solid.generate(fb, cfg, 0);
+    fb.swap();
 
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
@@ -52,6 +53,7 @@ void test_solid_uses_config_color() {
 
     SolidPattern solid;
     solid.generate(fb, cfg, 0);
+    fb.swap();
 
     const Pixel* slice = fb.getSlice(0);
     TEST_ASSERT_EQUAL_UINT8(10, slice[0].red);
@@ -63,9 +65,11 @@ void test_solid_uses_config_color() {
 void test_solid_ignores_time() {
     SolidPattern solid;
     solid.generate(fb, cfg, 0);
+    fb.swap();
     uint8_t r0 = fb.getSlice(0)[0].red;
 
     solid.generate(fb, cfg, 99999);
+    fb.swap();
     TEST_ASSERT_EQUAL_UINT8(r0, fb.getSlice(0)[0].red);
 }
 
@@ -79,6 +83,7 @@ void test_solid_name() {
 void test_rainbow_different_slices_different_hues() {
     RainbowPattern rainbow;
     rainbow.generate(fb, cfg, 0);
+    fb.swap();
 
     const Pixel* s0 = fb.getSlice(0);
     const Pixel* s9 = fb.getSlice(9);
@@ -91,6 +96,7 @@ void test_rainbow_different_slices_different_hues() {
 void test_rainbow_same_leds_within_slice() {
     RainbowPattern rainbow;
     rainbow.generate(fb, cfg, 0);
+    fb.swap();
 
     const Pixel* slice = fb.getSlice(0);
     for (uint16_t l = 1; l < fb.numLeds(); l++) {
@@ -104,10 +110,12 @@ void test_rainbow_animates_over_time() {
     RainbowPattern rainbow;
 
     rainbow.generate(fb, cfg, 0);
+    fb.swap();
     const Pixel* at0 = fb.getSlice(0);
     uint8_t r0 = at0[0].red, g0 = at0[0].green, b0 = at0[0].blue;
 
     rainbow.generate(fb, cfg, 1000);
+    fb.swap();
     const Pixel* at1k = fb.getSlice(0);
     bool different = (r0 != at1k[0].red) ||
                      (g0 != at1k[0].green) ||
@@ -119,6 +127,7 @@ void test_rainbow_uses_config_brightness() {
     cfg.brightness = 20;
     RainbowPattern rainbow;
     rainbow.generate(fb, cfg, 0);
+    fb.swap();
 
     const Pixel* slice = fb.getSlice(0);
     TEST_ASSERT_EQUAL_UINT8(0xE0 | 20, slice[0].brightness);
@@ -134,6 +143,7 @@ void test_rainbow_name() {
 void test_scanner_position_at_time_zero() {
     ScannerPattern scanner;
     scanner.generate(fb, cfg, 0);
+    fb.swap();
 
     const Pixel* slice = fb.getSlice(0);
     TEST_ASSERT_EQUAL_UINT8(255, slice[0].red);
@@ -144,6 +154,7 @@ void test_scanner_position_advances() {
     ScannerPattern scanner;
     // delay=32, pos = (32 / 32) % 10 = 1
     scanner.generate(fb, cfg, 32);
+    fb.swap();
 
     const Pixel* slice = fb.getSlice(0);
     TEST_ASSERT_EQUAL_UINT8(0, slice[0].red);
@@ -154,6 +165,7 @@ void test_scanner_wraps_around() {
     ScannerPattern scanner;
     // delay=32, pos = (320 / 32) % 10 = 0
     scanner.generate(fb, cfg, 320);
+    fb.swap();
 
     const Pixel* slice = fb.getSlice(0);
     TEST_ASSERT_EQUAL_UINT8(255, slice[0].red);
@@ -163,6 +175,7 @@ void test_scanner_only_one_led_lit() {
     ScannerPattern scanner;
     // delay=32, pos = (64 / 32) % 10 = 2
     scanner.generate(fb, cfg, 64);
+    fb.swap();
 
     const Pixel* slice = fb.getSlice(0);
     int litCount = 0;
@@ -177,6 +190,7 @@ void test_scanner_all_slices_same() {
     ScannerPattern scanner;
     // delay=32, pos = (64 / 32) % 10 = 2
     scanner.generate(fb, cfg, 64);
+    fb.swap();
 
     const Pixel* s0 = fb.getSlice(0);
     const Pixel* s5 = fb.getSlice(5);
@@ -196,6 +210,7 @@ void test_text_empty_string_blank() {
     TextPattern text;
     strcpy(cfg.text, "");
     text.generate(fb, cfg, 0);
+    fb.swap();
 
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
@@ -209,6 +224,7 @@ void test_text_renders_pixels() {
     TextPattern text;
     strcpy(cfg.text, "A");
     text.generate(fb, cfg, 0);
+    fb.swap();
 
     int litCount = 0;
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
@@ -224,6 +240,7 @@ void test_text_single_char_produces_lit_pixels() {
     TextPattern text;
     strcpy(cfg.text, "I");
     text.generate(fb, cfg, 0);
+    fb.swap();
 
     int litCount = 0;
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
@@ -243,6 +260,7 @@ void test_text_uses_config_color() {
 
     TextPattern text;
     text.generate(fb, cfg, 0);
+    fb.swap();
 
     bool found = false;
     for (uint16_t s = 0; s < fb.numSlices() && !found; s++) {
@@ -263,6 +281,7 @@ void test_text_centered_on_disc() {
     TextPattern text;
     strcpy(cfg.text, "H");
     text.generate(fb, cfg, 0);
+    fb.swap();
 
     int litInner = 0;
     int litOuter = 0;
@@ -283,6 +302,137 @@ void test_text_centered_on_disc() {
 void test_text_name() {
     TextPattern text;
     TEST_ASSERT_EQUAL_STRING("text", text.name());
+}
+
+// ---------- Text Spell Mode ----------
+
+static int countLitPixels(Framebuffer& fb) {
+    int count = 0;
+    for (uint16_t s = 0; s < fb.numSlices(); s++) {
+        const Pixel* slice = fb.getSlice(s);
+        for (uint16_t l = 0; l < fb.numLeds(); l++) {
+            if (slice[l].brightness != 0) count++;
+        }
+    }
+    return count;
+}
+
+void test_spell_produces_different_frames() {
+    TextPattern text;
+    cfg.textMode = 1;
+    cfg.textDelayMs = 100;
+    strcpy(cfg.text, "ABC");
+
+    text.generate(fb, cfg, 0);
+    fb.swap();
+    int lit0 = countLitPixels(fb);
+    TEST_ASSERT_GREATER_THAN(0, lit0);
+
+    text.generate(fb, cfg, 100);
+    fb.swap();
+    int lit100 = countLitPixels(fb);
+
+    TEST_ASSERT_NOT_EQUAL(lit0, lit100);
+}
+
+void test_spell_loops_after_full_reveal() {
+    TextPattern text;
+    cfg.textMode = 1;
+    cfg.textDelayMs = 100;
+    strcpy(cfg.text, "AB");
+    // cycle = len(2) + 2 = 4 steps. At step 4 (400ms) it wraps to step 0 (1 char).
+    text.generate(fb, cfg, 400);
+    fb.swap();
+    int litWrapped = countLitPixels(fb);
+
+    text.generate(fb, cfg, 0);
+    fb.swap();
+    int litStart = countLitPixels(fb);
+
+    TEST_ASSERT_EQUAL_INT(litStart, litWrapped);
+}
+
+// ---------- Text Word Mode ----------
+
+void test_word_reveals_progressively() {
+    TextPattern text;
+    cfg.textMode = 2;
+    cfg.textDelayMs = 100;
+    strcpy(cfg.text, "HI WORLD");
+
+    text.generate(fb, cfg, 0);
+    fb.swap();
+    int lit0 = countLitPixels(fb);
+
+    text.generate(fb, cfg, 100);
+    fb.swap();
+    int lit100 = countLitPixels(fb);
+
+    TEST_ASSERT_GREATER_THAN(0, lit0);
+    TEST_ASSERT_GREATER_THAN(lit0, lit100);
+}
+
+// ---------- Text Marquee Mode ----------
+
+void test_marquee_changes_over_time() {
+    TextPattern text;
+    cfg.textMode = 3;
+    cfg.textDelayMs = 100;
+    strcpy(cfg.text, "SCROLL");
+
+    text.generate(fb, cfg, 0);
+    fb.swap();
+
+    uint8_t snapshot0[36 * 10 * 4];
+    for (uint16_t s = 0; s < fb.numSlices(); s++) {
+        const Pixel* slice = fb.getSlice(s);
+        memcpy(snapshot0 + s * fb.numLeds() * 4, slice, fb.numLeds() * sizeof(Pixel));
+    }
+
+    text.generate(fb, cfg, 2000);
+    fb.swap();
+
+    bool different = false;
+    for (uint16_t s = 0; s < fb.numSlices() && !different; s++) {
+        const Pixel* slice = fb.getSlice(s);
+        const Pixel* prev = (const Pixel*)(snapshot0 + s * fb.numLeds() * 4);
+        for (uint16_t l = 0; l < fb.numLeds() && !different; l++) {
+            if (slice[l].red != prev[l].red || slice[l].green != prev[l].green ||
+                slice[l].blue != prev[l].blue || slice[l].brightness != prev[l].brightness)
+                different = true;
+        }
+    }
+    TEST_ASSERT_TRUE_MESSAGE(different, "Marquee should produce different frames at different times");
+}
+
+void test_marquee_renders_pixels() {
+    TextPattern text;
+    cfg.textMode = 3;
+    cfg.textDelayMs = 100;
+    strcpy(cfg.text, "HELLO");
+
+    // Marquee starts text off-screen right; advance enough for text to scroll into view
+    text.generate(fb, cfg, 5000);
+    fb.swap();
+    TEST_ASSERT_GREATER_THAN(0, countLitPixels(fb));
+}
+
+// ---------- Text static mode unchanged ----------
+
+void test_static_mode_ignores_time() {
+    TextPattern text;
+    cfg.textMode = 0;
+    strcpy(cfg.text, "A");
+
+    text.generate(fb, cfg, 0);
+    fb.swap();
+    int lit0 = countLitPixels(fb);
+
+    text.generate(fb, cfg, 99999);
+    fb.swap();
+    int litLater = countLitPixels(fb);
+
+    TEST_ASSERT_EQUAL_INT(lit0, litLater);
 }
 
 int main() {
@@ -312,6 +462,13 @@ int main() {
     RUN_TEST(test_text_uses_config_color);
     RUN_TEST(test_text_centered_on_disc);
     RUN_TEST(test_text_name);
+
+    RUN_TEST(test_spell_produces_different_frames);
+    RUN_TEST(test_spell_loops_after_full_reveal);
+    RUN_TEST(test_word_reveals_progressively);
+    RUN_TEST(test_marquee_changes_over_time);
+    RUN_TEST(test_marquee_renders_pixels);
+    RUN_TEST(test_static_mode_ignores_time);
 
     return UNITY_END();
 }

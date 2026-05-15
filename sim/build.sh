@@ -17,7 +17,16 @@ EXPORTED='[
   "_sim_init","_sim_resize",
   "_sim_num_slices","_sim_num_leds",
   "_sim_set_brightness","_sim_set_color","_sim_set_phase_offset","_sim_set_text",
+  "_sim_set_text_mode","_sim_set_text_delay",
   "_sim_num_patterns","_sim_pattern_name",
+  "_sim_set_mirror_pattern","_sim_set_radial_balance",
+  "_sim_num_animations","_sim_animation_name","_sim_animation_key",
+  "_sim_animation_param_count","_sim_animation_param_key",
+  "_sim_animation_param_label","_sim_animation_param_value",
+  "_sim_animation_param_default","_sim_animation_param_min",
+  "_sim_animation_param_max","_sim_animation_param_preset_count",
+  "_sim_animation_param_preset_label","_sim_animation_param_preset_value",
+  "_sim_set_animation_param",
   "_sim_renderer_init","_sim_renderer_resize",
   "_sim_renderer_set_hub_frac","_sim_renderer_set_gap_frac",
   "_sim_renderer_set_show_overruns","_sim_renderer_set_show_hall_marker",
@@ -26,6 +35,7 @@ EXPORTED='[
   "_sim_timing_set_hall_jitter","_sim_timing_set_hall_miss",
   "_sim_timing_set_timer_drift","_sim_timing_set_pattern_lag",
   "_sim_timing_set_spi_clock",
+  "_sim_timing_set_display_hz",
   "_sim_frame",
   "_sim_get_actual_rpm","_sim_get_slice_interval_us",
   "_sim_get_spi_transfer_us","_sim_get_headroom_us",
@@ -59,6 +69,7 @@ em++ -O2 \
   ../src/patterns/scanner.cpp \
   ../src/patterns/text.cpp \
   ../src/patterns/image.cpp \
+  ../src/animation.cpp \
   timing.cpp \
   renderer.cpp \
   sim_bridge.cpp \

@@ -29,6 +29,8 @@ struct Config {
     uint8_t  colorG         = 0;
     uint8_t  colorB         = 0;
     char     text[64]       = "FUSION";
+    uint8_t  textMode       = 0;      // 0=static, 1=spell, 2=word, 3=marquee
+    uint16_t textDelayMs    = 500;    // timing for text animations
 
     uint8_t  numArms        = 2;      // 1, 2, or 4 — physical arm count
     uint8_t  targetHz       = 60;     // target refresh rate (12, 24, 25, 30, 60)

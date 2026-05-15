@@ -34,5 +34,4 @@ void RainbowPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeM
             fb.setPixel(s, l, r, g, b, cfg.brightness);
         }
     }
-    fb.swap();
 }

@@ -34,6 +34,8 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
 .btns>*{flex:1}
 .chk{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:.85em}
 .chk input{width:auto;margin:0}
+.sub{margin-left:8px;padding-left:8px;border-left:2px solid #333}
+.hidden{display:none}
 </style>
 </head>
 <body>
@@ -59,16 +61,34 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
   <option value="4">Image</option>
  </select>
 
+ <div id="textOpts" class="sub hidden">
+  <label>Text Mode</label>
+  <select id="textMode">
+   <option value="0" selected>Static</option>
+   <option value="1">Spell</option>
+   <option value="2">Word by Word</option>
+   <option value="3">Marquee</option>
+  </select>
+  <label>Text</label>
+  <input type="text" id="text" maxlength="63" value="FUSION">
+  <div id="textDelayRow">
+   <label>Delay (<span id="delayVal">500</span> ms)</label>
+   <input type="range" id="textDelayMs" min="50" max="2000" step="50" value="500" oninput="$('#delayVal').textContent=this.value">
+  </div>
+ </div>
+
  <label>Image</label>
  <input type="file" id="imageFile" accept="image/*" style="font-size:.85em;margin-bottom:10px">
 
  <label>Color</label>
  <input type="color" id="color" value="#ff0000">
 
- <label>Text (for text pattern)</label>
- <input type="text" id="text" maxlength="63" value="FUSION">
-
  <div class="chk"><input type="checkbox" id="mirror" checked><label for="mirror">Mirror</label></div>
+</div>
+
+<div class="card" id="animCard">
+ <h2>Animations</h2>
+ <div id="animControls"></div>
 </div>
 
 <div class="card">
@@ -139,6 +159,7 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
 
 <script>
 const $=s=>document.querySelector(s);
+let animMeta=[];
 
 function rgbToHex(r,g,b){return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');}
 function hexToRgb(h){const m=h.match(/\w\w/g);return m?m.map(x=>parseInt(x,16)):[255,0,0];}
@@ -148,6 +169,55 @@ function updateTargetRpm(){
  $('#tgtRpm').textContent=Math.round(hz*60/arms);
 }
 
+function updateTextOpts(){
+ const isText=$('#pattern').value==='2';
+ $('#textOpts').classList.toggle('hidden',!isText);
+ const mode=+$('#textMode').value;
+ $('#textDelayRow').classList.toggle('hidden',mode===0);
+}
+
+function buildAnimControls(animations){
+ animMeta=animations||[];
+ const container=$('#animControls');
+ container.innerHTML='';
+ for(const a of animMeta){
+  for(const p of a.params){
+   const label=document.createElement('label');
+   label.textContent=a.name+' '+p.label;
+   container.appendChild(label);
+   if(p.presets&&p.presets.length){
+    const sel=document.createElement('select');
+    sel.id='anim_'+a.key+'_'+p.key;
+    for(const pr of p.presets){
+     const opt=document.createElement('option');
+     opt.value=pr[1];opt.textContent=pr[0];
+     sel.appendChild(opt);
+    }
+    sel.value=p.value;
+    container.appendChild(sel);
+   }else{
+    const inp=document.createElement('input');
+    inp.type='range';inp.id='anim_'+a.key+'_'+p.key;
+    inp.min=p.min;inp.max=p.max;inp.value=p.value;
+    container.appendChild(inp);
+   }
+  }
+ }
+}
+
+function collectAnimations(){
+ const obj={};
+ for(const a of animMeta){
+  const ap={};
+  for(const p of a.params){
+   const el=$('#anim_'+a.key+'_'+p.key);
+   if(el) ap[p.key]=+el.value;
+  }
+  obj[a.key]=ap;
+ }
+ return obj;
+}
+
 async function loadConfig(){
  try{
   const r=await fetch('/api/config');
@@ -155,6 +225,9 @@ async function loadConfig(){
   $('#pattern').value=c.activePattern;
   $('#color').value=rgbToHex(c.colorR,c.colorG,c.colorB);
   $('#text').value=c.text;
+  $('#textMode').value=c.textMode||0;
+  $('#textDelayMs').value=c.textDelayMs||500;
+  $('#delayVal').textContent=c.textDelayMs||500;
   $('#mirror').checked=c.mirrorPattern!==false;
   $('#targetHz').value=c.targetHz||30;
   $('#numArms').value=c.numArms||1;
@@ -165,6 +238,8 @@ async function loadConfig(){
   $('#numSlices').value=c.numSlices;
   $('#phaseOffset').value=((c.phaseOffset+90)%360+360)%360;
   $('#escPulse').value=c.escPulseUs;$('#escVal').textContent=c.escPulseUs;
+  buildAnimControls(c.animations);
+  updateTextOpts();
  }catch(e){console.error(e);}
 }
 
@@ -174,6 +249,8 @@ async function apply(){
   activePattern:+$('#pattern').value,
   colorR:rgb[0],colorG:rgb[1],colorB:rgb[2],
   text:$('#text').value,
+  textMode:+$('#textMode').value,
+  textDelayMs:+$('#textDelayMs').value,
   mirrorPattern:$('#mirror').checked,
   numArms:+$('#numArms').value,
   targetHz:+$('#targetHz').value,
@@ -182,7 +259,8 @@ async function apply(){
   numLeds:+$('#numLeds').value,
   numSlices:+$('#numSlices').value,
   phaseOffset:+$('#phaseOffset').value-90,
-  escPulseUs:+$('#escPulse').value
+  escPulseUs:+$('#escPulse').value,
+  animations:collectAnimations()
  };
  await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 }
@@ -208,6 +286,9 @@ async function pollStatus(){
  }catch(e){}
 }
 
+$('#pattern').addEventListener('change',updateTextOpts);
+$('#textMode').addEventListener('change',updateTextOpts);
+
 $('#imageFile').addEventListener('change',async e=>{
  const file=e.target.files[0];if(!file)return;
  const numLeds=+$('#numLeds').value||26;
@@ -218,7 +299,6 @@ $('#imageFile').addEventListener('change',async e=>{
  });
  $('#pattern').value=4;
 });
-
 loadConfig();
 setInterval(pollStatus,1000);
 </script>

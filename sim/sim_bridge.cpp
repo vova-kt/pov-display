@@ -1,7 +1,9 @@
 #include <emscripten.h>
 #include <cstring>
+#include <cstdio>
 #include "framebuffer.h"
 #include "config.h"
+#include "animation.h"
 #include "timing.h"
 #include "renderer.h"
 #include "patterns/solid.h"
@@ -71,6 +73,12 @@ void sim_set_text(const char* t) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void sim_set_text_mode(uint8_t m) { if (m <= 3) cfg.textMode = m; }
+
+EMSCRIPTEN_KEEPALIVE
+void sim_set_text_delay(uint16_t ms) { cfg.textDelayMs = ms; }
+
+EMSCRIPTEN_KEEPALIVE
 uint8_t sim_num_patterns() { return NUM_PATTERNS; }
 
 EMSCRIPTEN_KEEPALIVE
@@ -84,6 +92,91 @@ uint16_t sim_num_slices() { return fb.numSlices(); }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t sim_num_leds() { return fb.numLeds(); }
+
+// --- Animation introspection ---
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t sim_num_animations() { return G_NUM_ANIMATIONS; }
+
+EMSCRIPTEN_KEEPALIVE
+const char* sim_animation_name(uint8_t i) {
+    return i < G_NUM_ANIMATIONS ? g_animations[i]->name() : "";
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* sim_animation_key(uint8_t i) {
+    return i < G_NUM_ANIMATIONS ? g_animations[i]->key() : "";
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t sim_animation_param_count(uint8_t i) {
+    return i < G_NUM_ANIMATIONS ? g_animations[i]->paramCount() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* sim_animation_param_key(uint8_t ai, uint8_t pi) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return "";
+    return g_animations[ai]->param(pi).key;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* sim_animation_param_label(uint8_t ai, uint8_t pi) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return "";
+    return g_animations[ai]->param(pi).label;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int16_t sim_animation_param_value(uint8_t ai, uint8_t pi) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
+    return g_animations[ai]->param(pi).value;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int16_t sim_animation_param_default(uint8_t ai, uint8_t pi) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
+    return g_animations[ai]->param(pi).defaultVal;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int16_t sim_animation_param_min(uint8_t ai, uint8_t pi) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
+    return g_animations[ai]->param(pi).min;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int16_t sim_animation_param_max(uint8_t ai, uint8_t pi) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
+    return g_animations[ai]->param(pi).max;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t sim_animation_param_preset_count(uint8_t ai, uint8_t pi) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
+    return g_animations[ai]->param(pi).presetCount;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* sim_animation_param_preset_label(uint8_t ai, uint8_t pi, uint8_t ki) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return "";
+    const AnimParam& p = g_animations[ai]->param(pi);
+    return ki < p.presetCount ? p.presets[ki].label : "";
+}
+
+EMSCRIPTEN_KEEPALIVE
+int16_t sim_animation_param_preset_value(uint8_t ai, uint8_t pi, uint8_t ki) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
+    const AnimParam& p = g_animations[ai]->param(pi);
+    return ki < p.presetCount ? p.presets[ki].value : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void sim_set_animation_param(uint8_t ai, uint8_t pi, int16_t value) {
+    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return;
+    AnimParam& p = g_animations[ai]->param(pi);
+    if (value >= p.min && value <= p.max) p.value = value;
+}
+
+// --- Renderer ---
 
 EMSCRIPTEN_KEEPALIVE
 bool sim_renderer_init() {
@@ -141,12 +234,24 @@ void sim_frame(float dtMs, float simTimeMs, uint8_t patternIndex) {
 
     if (lastFrame.shouldGenerate && patternIndex < NUM_PATTERNS) {
         patterns[patternIndex]->generate(fb, cfg, (uint32_t)simTimeMs);
-    }
 
-    renderer_render(fb, cfg,
-                    lastFrame.armAngle, lastFrame.armSweep,
-                    lastFrame.hallOffsetAngle, lastFrame.hasOverruns,
-                    fb.numSlices());
+        AnimationState animState;
+        applyAnimations(animState, fb, (uint32_t)simTimeMs);
+        fb.swap();
+
+        int16_t savedPhase = cfg.phaseOffset;
+        cfg.phaseOffset += animState.sliceOffset;
+        renderer_render(fb, cfg,
+                        lastFrame.armAngle, lastFrame.armSweep,
+                        lastFrame.hallOffsetAngle, lastFrame.hasOverruns,
+                        fb.numSlices());
+        cfg.phaseOffset = savedPhase;
+    } else {
+        renderer_render(fb, cfg,
+                        lastFrame.armAngle, lastFrame.armSweep,
+                        lastFrame.hallOffsetAngle, lastFrame.hasOverruns,
+                        fb.numSlices());
+    }
 }
 
 EMSCRIPTEN_KEEPALIVE float sim_get_actual_rpm()       { return lastFrame.actualRpm; }

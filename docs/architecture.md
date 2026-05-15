@@ -37,6 +37,14 @@ At 1200 RPM / 360 slices / 36 LEDs @ 20 MHz SPI:
 
 At 144 LEDs the SPI transfer exceeds the slice interval — reduce to ~180 slices or increase SPI clock. The system doesn't auto-adjust yet; this is a manual tradeoff via the web UI.
 
+## Animation system
+
+Animations are time-dependent effects applied *after* pattern generation but *before* `fb.swap()`. This ordering lets animations modify the back buffer or produce metadata (like `sliceOffset` for rotation) without interfering with pattern logic.
+
+The design is a polymorphic registry: each animation is a subclass of `Animation` with self-describing `AnimParam` parameters. A global array `g_animations[]` in `src/animation.cpp` holds all registered animations. `applyAnimations()` iterates the registry, skipping inactive ones. Parameters live in the animation objects — not in `Config` — so adding a new animation never touches Config or NVS schema. See `src/animation.h` for the base class and `src/animations/rotation.h` for the first concrete implementation.
+
+Adding a new animation: create a class in `src/animations/`, add one line to `src/animation.cpp`, then wire UI plumbing. The frame loops in `main.cpp` and `sim_bridge.cpp` never change because they call `applyAnimations()` generically.
+
 ## Source map
 
 Entry point and task creation: `src/main.cpp`

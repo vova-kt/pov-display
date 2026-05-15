@@ -44,6 +44,66 @@ function applyGeometry() {
   document.getElementById('ro-arm-radius').textContent = Math.round(g.armMm) + ' mm';
 }
 
+function updateTextOpts() {
+  const isText = activePattern === 2;
+  document.getElementById('text-opts').classList.toggle('hidden', !isText);
+  const mode = +document.getElementById('text-mode').value;
+  document.getElementById('text-delay-row').classList.toggle('hidden', mode === 0);
+}
+
+function buildAnimationControls() {
+  const container = document.getElementById('anim-controls');
+  container.innerHTML = '';
+  for (let i = 0; i < sim.animationCount; i++) {
+    const name = sim.animationName(i);
+    for (let j = 0; j < sim.animParamCount(i); j++) {
+      const label = sim.animParamLabel(i, j);
+      const presetCount = sim.animParamPresetCount(i, j);
+
+      const row = document.createElement('div');
+      row.className = 'row';
+      const lbl = document.createElement('label');
+      lbl.textContent = name + ' ' + label;
+      row.appendChild(lbl);
+
+      if (presetCount > 0) {
+        const sel = document.createElement('select');
+        sel.dataset.ai = i;
+        sel.dataset.pi = j;
+        for (let k = 0; k < presetCount; k++) {
+          const opt = document.createElement('option');
+          opt.value = sim.animParamPresetValue(i, j, k);
+          opt.textContent = sim.animParamPresetLabel(i, j, k);
+          sel.appendChild(opt);
+        }
+        sel.value = sim.animParamValue(i, j);
+        sel.addEventListener('change', e => {
+          sim.setAnimParam(+e.target.dataset.ai, +e.target.dataset.pi, +e.target.value);
+        });
+        row.appendChild(sel);
+      } else {
+        const inp = document.createElement('input');
+        inp.type = 'range';
+        inp.dataset.ai = i;
+        inp.dataset.pi = j;
+        inp.min = sim.animParamMin(i, j);
+        inp.max = sim.animParamMax(i, j);
+        inp.value = sim.animParamValue(i, j);
+        const val = document.createElement('span');
+        val.className = 'val';
+        val.textContent = inp.value;
+        inp.addEventListener('input', e => {
+          sim.setAnimParam(+e.target.dataset.ai, +e.target.dataset.pi, +e.target.value);
+          val.textContent = e.target.value;
+        });
+        row.appendChild(inp);
+        row.appendChild(val);
+      }
+      container.appendChild(row);
+    }
+  }
+}
+
 async function init() {
   const canvas = document.getElementById('pov-canvas');
 
@@ -61,6 +121,7 @@ async function init() {
   sim.setPhaseOffset(+document.getElementById('phase-offset').value - 90);
 
   buildPatternSelector();
+  buildAnimationControls();
   bindControls();
   applyGeometry();
 
@@ -97,7 +158,10 @@ function buildPatternSelector() {
 function bindControls() {
   const on = (id, evt, fn) => document.getElementById(id).addEventListener(evt, fn);
 
-  on('pattern', 'change', e => { activePattern = +e.target.value; });
+  on('pattern', 'change', e => {
+    activePattern = +e.target.value;
+    updateTextOpts();
+  });
 
   on('color', 'input', e => {
     const hex = e.target.value;
@@ -115,6 +179,16 @@ function bindControls() {
   });
 
   on('text', 'input', e => { sim.setText(e.target.value); });
+
+  on('text-mode', 'change', e => {
+    sim.setTextMode(+e.target.value);
+    updateTextOpts();
+  });
+
+  on('text-delay', 'input', e => {
+    sim.setTextDelay(+e.target.value);
+    document.getElementById('text-delay-val').textContent = e.target.value + ' ms';
+  });
 
   on('radial-balance', 'change', e => {
     sim.setRadialBalance(e.target.checked);
