@@ -20,7 +20,7 @@ void loadPatternsFromNvs() {
                 if (par.textBuf && par.textBufSize > 0)
                     prefs.getString(nvsKey, par.textBuf, par.textBufSize);
             } else {
-                par.value = prefs.getInt(nvsKey, par.defaultVal);
+                param_set_int(par, prefs.getInt(nvsKey, par.defaultVal));
             }
         }
     }

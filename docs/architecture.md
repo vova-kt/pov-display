@@ -44,7 +44,7 @@ At 144 LEDs the SPI transfer exceeds the slice interval — reduce to ~180 slice
 Every user-facing setting lives in a unified registry backed by the same `Param` type. There are three classes of parameters:
 
 - **Top-level settings** (brightness, color, numArms, etc.) — registered in `src/settings_registry.cpp` with getter/setter function pointers into `Config` fields.
-- **Pattern params** (e.g. TextPattern's text, mode, delayMs, marginLeds) — declared inside each `Pattern` subclass, mirroring how animations work.
+- **Pattern params** (e.g. TextPattern's text, mode, fixed delay cadence, margin) — declared inside each `Pattern` subclass, mirroring how animations work.
 - **Animation params** (e.g. RotationAnimation's speed and direction) — declared inside each `Animation` subclass.
 
 Both `Pattern` and `Animation` share the `Param` struct from `src/param.h`. The settings registry emits a single JSON model that the shared JS renderer (`sim/js/settings_ui.js`, also embedded in the MCU UI via `/js/settings.js`) uses to build the two-tab control panel without any hand-coded HTML. Adding a setting means one registry entry; adding a pattern or animation param means one array member — the renderer and both UIs pick it up automatically.

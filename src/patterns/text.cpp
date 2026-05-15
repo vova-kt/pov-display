@@ -5,6 +5,11 @@ static const ParamOption kTextModeOptions[] = {
     {"Static", 0}, {"Spell", 1}, {"Word", 2}, {"Marquee", 3}
 };
 
+static const ParamOption kTextDelayOptions[] = {
+    {"50 ms", 50}, {"100 ms", 100}, {"250 ms", 250},
+    {"500 ms", 500}, {"1000 ms", 1000}, {"2000 ms", 2000}
+};
+
 // Low-scale odd-length words can put a real glyph over the no-LED center gap.
 // Keep this as a named, local layout hack so it is easy to remove when the
 // physical pixel count or font strategy changes.
@@ -31,9 +36,9 @@ TextPattern::TextPattern() {
         nullptr, 0
     };
     storage_[2] = {
-        "delayMs", "Delay ms", ParamType::Int,
+        "delayMs", "Delay ms", ParamType::Enum,
         500, 500, 50, 2000,
-        nullptr, 0,
+        kTextDelayOptions, 6,
         nullptr, 0
     };
     storage_[3] = {

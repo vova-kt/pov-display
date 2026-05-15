@@ -89,7 +89,7 @@ void sim_set_text_mode(uint8_t m) {
 EMSCRIPTEN_KEEPALIVE
 void sim_set_text_delay(uint16_t ms) {
     Param* p = textParam("delayMs");
-    if (p) p->value = ms;
+    if (p) param_set_int(*p, ms);
 }
 
 EMSCRIPTEN_KEEPALIVE

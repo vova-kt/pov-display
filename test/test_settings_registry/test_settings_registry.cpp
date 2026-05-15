@@ -1,6 +1,7 @@
 #include <unity.h>
 #include <cstring>
 #include <ArduinoJson.h>
+#include <Preferences.h>
 #include "config.h"
 #include "settings_registry.h"
 #include "patterns/registry.h"
@@ -93,6 +94,25 @@ void test_tojson_text_pattern_has_params() {
         }
     }
     TEST_FAIL_MESSAGE("text pattern not found");
+}
+
+void test_tojson_text_delay_is_fixed_enum() {
+    JsonDocument doc;
+    settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
+    for (JsonObject p : doc["patterns"].as<JsonArray>()) {
+        if (strcmp(p["key"].as<const char*>(), "text") != 0) continue;
+        for (JsonObject param : p["params"].as<JsonArray>()) {
+            if (strcmp(param["key"].as<const char*>(), "delayMs") != 0) continue;
+            TEST_ASSERT_EQUAL_STRING("enum", param["type"].as<const char*>());
+            JsonArray options = param["options"].as<JsonArray>();
+            TEST_ASSERT_EQUAL_INT(6, options.size());
+            const int expected[] = {50, 100, 250, 500, 1000, 2000};
+            for (uint8_t i = 0; i < 6; i++)
+                TEST_ASSERT_EQUAL_INT(expected[i], options[i][1].as<int>());
+            return;
+        }
+    }
+    TEST_FAIL_MESSAGE("text delayMs param not found");
 }
 
 void test_tojson_includes_animations() {
@@ -226,6 +246,24 @@ void test_apply_text_margin_param() {
     TEST_ASSERT_EQUAL_INT32(4, g_patterns[idx]->findParam("marginLeds")->value);
 }
 
+void test_apply_text_delay_accepts_only_fixed_values() {
+    int idx = g_pattern_index("text");
+    TEST_ASSERT_GREATER_OR_EQUAL(0, idx);
+    Param* delay = g_patterns[idx]->findParam("delayMs");
+    TEST_ASSERT_NOT_NULL(delay);
+    delay->value = 500;
+
+    JsonDocument doc;
+    doc["patterns"]["text"]["delayMs"] = 250;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+    TEST_ASSERT_EQUAL_INT32(250, delay->value);
+
+    doc.clear();
+    doc["patterns"]["text"]["delayMs"] = 333;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+    TEST_ASSERT_EQUAL_INT32(250, delay->value);
+}
+
 void test_apply_text_truncates_long_string() {
     char longStr[128];
     memset(longStr, 'A', 127);
@@ -324,6 +362,23 @@ void test_nvs_roundtrip() {
     TEST_ASSERT_EQUAL_UINT8(4, cfg.numArms);
 }
 
+void test_pattern_nvs_rejects_invalid_text_delay() {
+    int idx = g_pattern_index("text");
+    TEST_ASSERT_GREATER_OR_EQUAL(0, idx);
+    Param* delay = g_patterns[idx]->findParam("delayMs");
+    TEST_ASSERT_NOT_NULL(delay);
+    delay->value = 500;
+
+    Preferences prefs;
+    TEST_ASSERT_TRUE(prefs.begin("pov", false));
+    prefs.putInt("p_text_delayMs", 333);
+    prefs.end();
+
+    loadPatternsFromNvs();
+
+    TEST_ASSERT_EQUAL_INT32(500, delay->value);
+}
+
 int main() {
     UNITY_BEGIN();
 
@@ -333,6 +388,7 @@ int main() {
     RUN_TEST(test_tojson_color_packed);
     RUN_TEST(test_tojson_includes_patterns);
     RUN_TEST(test_tojson_text_pattern_has_params);
+    RUN_TEST(test_tojson_text_delay_is_fixed_enum);
     RUN_TEST(test_tojson_includes_animations);
     RUN_TEST(test_tojson_includes_animation_stack);
     RUN_TEST(test_tojson_includes_scale_animation);
@@ -350,6 +406,7 @@ int main() {
     RUN_TEST(test_apply_text_param);
     RUN_TEST(test_apply_text_mode_param);
     RUN_TEST(test_apply_text_margin_param);
+    RUN_TEST(test_apply_text_delay_accepts_only_fixed_values);
     RUN_TEST(test_apply_text_truncates_long_string);
     RUN_TEST(test_apply_animation_param);
     RUN_TEST(test_apply_scale_animation_param);
@@ -360,6 +417,7 @@ int main() {
     RUN_TEST(test_scope_sim_no_mcu_only);
 
     RUN_TEST(test_nvs_roundtrip);
+    RUN_TEST(test_pattern_nvs_rejects_invalid_text_delay);
 
     return UNITY_END();
 }
