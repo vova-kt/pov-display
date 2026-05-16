@@ -5,7 +5,7 @@
 #include "config.h"
 #include "settings_registry.h"
 #include "patterns/registry.h"
-#include "animation.h"
+#include "effect.h"
 
 static Config cfg;
 
@@ -30,18 +30,17 @@ static JsonObject findSetting(JsonDocument& doc, const char* key) {
     return JsonObject();
 }
 
-static Animation* animationByKey(const char* key) {
-    for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++)
-        if (strcmp(g_animations[i]->key(), key) == 0) return g_animations[i];
+static Effect* effectByKey(const char* key) {
+    for (uint8_t i = 0; i < G_NUM_EFFECTS; i++)
+        if (strcmp(g_effects[i]->key(), key) == 0) return g_effects[i];
     return nullptr;
 }
 
 void setUp() {
     cfg = Config();
     settings_registry::init(&cfg);
-    // Reset animations to defaults.
-    for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++) g_animations[i]->resetDefaults();
-    resetAnimationStackDefaults();
+    for (uint8_t i = 0; i < G_NUM_EFFECTS; i++) g_effects[i]->resetDefaults();
+    resetEffectStackDefaults();
 }
 
 void tearDown() {}
@@ -64,7 +63,7 @@ void test_tojson_picture_has_ordered_sections() {
     JsonArray sections = picture["sections"].as<JsonArray>();
     TEST_ASSERT_EQUAL_INT(3, sections.size());
     TEST_ASSERT_EQUAL_STRING("pattern", sections[0]["key"].as<const char*>());
-    TEST_ASSERT_EQUAL_STRING("animations", sections[1]["key"].as<const char*>());
+    TEST_ASSERT_EQUAL_STRING("effects", sections[1]["key"].as<const char*>());
     TEST_ASSERT_EQUAL_STRING("global", sections[2]["key"].as<const char*>());
 }
 
@@ -103,15 +102,15 @@ void test_tojson_dynamic_params_have_sections() {
             foundText = true;
         }
     }
-    for (JsonObject a : doc["animations"].as<JsonArray>()) {
-        if (strcmp(a["key"].as<const char*>(), "rot") == 0) {
-            TEST_ASSERT_EQUAL_STRING("picture", a["group"].as<const char*>());
-            TEST_ASSERT_EQUAL_STRING("animations", a["section"].as<const char*>());
+    for (JsonObject e : doc["effects"].as<JsonArray>()) {
+        if (strcmp(e["key"].as<const char*>(), "rot") == 0) {
+            TEST_ASSERT_EQUAL_STRING("picture", e["group"].as<const char*>());
+            TEST_ASSERT_EQUAL_STRING("effects", e["section"].as<const char*>());
             foundRot = true;
         }
     }
     TEST_ASSERT_TRUE_MESSAGE(foundText, "text pattern section not found");
-    TEST_ASSERT_TRUE_MESSAGE(foundRot, "rotation animation section not found");
+    TEST_ASSERT_TRUE_MESSAGE(foundRot, "rotation effect section not found");
 }
 
 void test_tojson_activepattern_toplevel() {
@@ -200,48 +199,48 @@ void test_tojson_matrix_pattern_has_speed_param() {
     TEST_FAIL_MESSAGE("matrix pattern not found");
 }
 
-void test_tojson_includes_animations() {
+void test_tojson_includes_effects() {
     JsonDocument doc;
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
-    TEST_ASSERT_TRUE(doc["animations"].is<JsonArray>());
-    TEST_ASSERT_GREATER_THAN(0, doc["animations"].as<JsonArray>().size());
+    TEST_ASSERT_TRUE(doc["effects"].is<JsonArray>());
+    TEST_ASSERT_GREATER_THAN(0, doc["effects"].as<JsonArray>().size());
 }
 
-void test_tojson_includes_animation_stack() {
+void test_tojson_includes_effect_stack() {
     JsonDocument doc;
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
-    TEST_ASSERT_TRUE(doc["animationStack"].is<JsonArray>());
-    TEST_ASSERT_EQUAL_INT(G_NUM_ANIMATION_SLOTS, doc["animationStack"].as<JsonArray>().size());
-    TEST_ASSERT_EQUAL_STRING("rot", doc["animationStack"][0].as<const char*>());
-    TEST_ASSERT_EQUAL_STRING("", doc["animationStack"][1].as<const char*>());
+    TEST_ASSERT_TRUE(doc["effectStack"].is<JsonArray>());
+    TEST_ASSERT_EQUAL_INT(MAX_EFFECT_SLOTS, doc["effectStack"].as<JsonArray>().size());
+    for (uint8_t i = 0; i < MAX_EFFECT_SLOTS; i++)
+        TEST_ASSERT_EQUAL_STRING("", doc["effectStack"][i].as<const char*>());
 }
 
-void test_tojson_includes_scale_animation() {
+void test_tojson_includes_scale_effect() {
     JsonDocument doc;
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
-    for (JsonObject a : doc["animations"].as<JsonArray>()) {
-        if (strcmp(a["key"].as<const char*>(), "scale") == 0) {
-            TEST_ASSERT_EQUAL_STRING("Scale", a["name"].as<const char*>());
-            TEST_ASSERT_TRUE(a["params"].is<JsonArray>());
-            TEST_ASSERT_EQUAL_INT(2, a["params"].as<JsonArray>().size());
+    for (JsonObject e : doc["effects"].as<JsonArray>()) {
+        if (strcmp(e["key"].as<const char*>(), "scale") == 0) {
+            TEST_ASSERT_EQUAL_STRING("Scale", e["name"].as<const char*>());
+            TEST_ASSERT_TRUE(e["params"].is<JsonArray>());
+            TEST_ASSERT_EQUAL_INT(2, e["params"].as<JsonArray>().size());
             return;
         }
     }
-    TEST_FAIL_MESSAGE("scale animation not found");
+    TEST_FAIL_MESSAGE("scale effect not found");
 }
 
-void test_tojson_includes_fisheye_scale_animation() {
+void test_tojson_includes_fisheye_scale_effect() {
     JsonDocument doc;
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
-    for (JsonObject a : doc["animations"].as<JsonArray>()) {
-        if (strcmp(a["key"].as<const char*>(), "fisheye") == 0) {
-            TEST_ASSERT_EQUAL_STRING("Fisheye Scale", a["name"].as<const char*>());
-            TEST_ASSERT_TRUE(a["params"].is<JsonArray>());
-            TEST_ASSERT_EQUAL_INT(2, a["params"].as<JsonArray>().size());
+    for (JsonObject e : doc["effects"].as<JsonArray>()) {
+        if (strcmp(e["key"].as<const char*>(), "fisheye") == 0) {
+            TEST_ASSERT_EQUAL_STRING("Fisheye Scale", e["name"].as<const char*>());
+            TEST_ASSERT_TRUE(e["params"].is<JsonArray>());
+            TEST_ASSERT_EQUAL_INT(2, e["params"].as<JsonArray>().size());
             return;
         }
     }
-    TEST_FAIL_MESSAGE("fisheye animation not found");
+    TEST_FAIL_MESSAGE("fisheye effect not found");
 }
 
 // ── applyJson settings ────────────────────────────────────────────────────
@@ -393,65 +392,62 @@ void test_apply_matrix_speed_clamps_to_range() {
     TEST_ASSERT_EQUAL_INT32(1, speed->value);
 }
 
-// ── applyJson animation params ─────────────────────────────────────────────
+// ── applyJson effect params ────────────────────────────────────────────────
 
-void test_apply_animation_param() {
+void test_apply_effect_param() {
     JsonDocument doc;
-    doc["animations"]["rot"]["speed"] = 45;
-    doc["animations"]["rot"]["direction"] = -1;
+    doc["effects"]["rot"]["speed"] = 45;
+    doc["effects"]["rot"]["direction"] = -1;
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
-    TEST_ASSERT_EQUAL_INT32(45, g_animations[0]->findParam("speed")->value);
-    TEST_ASSERT_EQUAL_INT32(-1, g_animations[0]->findParam("direction")->value);
+
+    Effect* rot = effectByKey("rot");
+    TEST_ASSERT_NOT_NULL(rot);
+    TEST_ASSERT_EQUAL_INT32(45, rot->findParam("speed")->value);
+    TEST_ASSERT_EQUAL_INT32(-1, rot->findParam("direction")->value);
 }
 
-void test_apply_scale_animation_param() {
+void test_apply_scale_effect_param() {
     JsonDocument doc;
-    doc["animations"]["scale"]["duration"] = 1000;
-    doc["animations"]["scale"]["factor"] = 20;
+    doc["effects"]["scale"]["duration"] = 1000;
+    doc["effects"]["scale"]["factor"] = 20;
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
 
-    Animation* scale = nullptr;
-    for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++) {
-        if (strcmp(g_animations[i]->key(), "scale") == 0) {
-            scale = g_animations[i];
-            break;
-        }
-    }
+    Effect* scale = effectByKey("scale");
     TEST_ASSERT_NOT_NULL(scale);
     TEST_ASSERT_EQUAL_INT32(1000, scale->findParam("duration")->value);
     TEST_ASSERT_EQUAL_INT32(20, scale->findParam("factor")->value);
 }
 
-void test_apply_fisheye_scale_animation_param() {
+void test_apply_fisheye_scale_effect_param() {
     JsonDocument doc;
-    doc["animations"]["fisheye"]["duration"] = 2000;
-    doc["animations"]["fisheye"]["factor"] = 30;
+    doc["effects"]["fisheye"]["duration"] = 2000;
+    doc["effects"]["fisheye"]["factor"] = 30;
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
 
-    Animation* fisheye = animationByKey("fisheye");
+    Effect* fisheye = effectByKey("fisheye");
     TEST_ASSERT_NOT_NULL(fisheye);
     TEST_ASSERT_EQUAL_INT32(2000, fisheye->findParam("duration")->value);
     TEST_ASSERT_EQUAL_INT32(30, fisheye->findParam("factor")->value);
 }
 
-void test_apply_animation_stack_order() {
+void test_apply_effect_stack_order() {
     JsonDocument doc;
-    doc["animationStack"][0] = "scale";
-    doc["animationStack"][1] = "rot";
+    doc["effectStack"][0] = "scale";
+    doc["effectStack"][1] = "rot";
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
 
-    TEST_ASSERT_EQUAL_STRING("scale", animationSlotKey(0));
-    TEST_ASSERT_EQUAL_STRING("rot", animationSlotKey(1));
+    TEST_ASSERT_EQUAL_STRING("scale", effectSlotKey(0));
+    TEST_ASSERT_EQUAL_STRING("rot", effectSlotKey(1));
 }
 
-void test_apply_animation_stack_rejects_unknown() {
-    TEST_ASSERT_TRUE(setAnimationSlot(0, "rot"));
+void test_apply_effect_stack_rejects_unknown() {
+    TEST_ASSERT_TRUE(setEffectSlot(0, "rot"));
 
     JsonDocument doc;
-    doc["animationStack"][0] = "missing";
+    doc["effectStack"][0] = "missing";
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
 
-    TEST_ASSERT_EQUAL_STRING("rot", animationSlotKey(0));
+    TEST_ASSERT_EQUAL_STRING("rot", effectSlotKey(0));
 }
 
 // ── Scope filter ───────────────────────────────────────────────────────────
@@ -516,10 +512,10 @@ int main() {
     RUN_TEST(test_tojson_text_pattern_has_params);
     RUN_TEST(test_tojson_text_delay_is_fixed_enum);
     RUN_TEST(test_tojson_matrix_pattern_has_speed_param);
-    RUN_TEST(test_tojson_includes_animations);
-    RUN_TEST(test_tojson_includes_animation_stack);
-    RUN_TEST(test_tojson_includes_scale_animation);
-    RUN_TEST(test_tojson_includes_fisheye_scale_animation);
+    RUN_TEST(test_tojson_includes_effects);
+    RUN_TEST(test_tojson_includes_effect_stack);
+    RUN_TEST(test_tojson_includes_scale_effect);
+    RUN_TEST(test_tojson_includes_fisheye_scale_effect);
 
     RUN_TEST(test_apply_sets_brightness);
     RUN_TEST(test_apply_clamps_brightness_to_max);
@@ -537,11 +533,11 @@ int main() {
     RUN_TEST(test_apply_text_delay_accepts_only_fixed_values);
     RUN_TEST(test_apply_text_truncates_long_string);
     RUN_TEST(test_apply_matrix_speed_clamps_to_range);
-    RUN_TEST(test_apply_animation_param);
-    RUN_TEST(test_apply_scale_animation_param);
-    RUN_TEST(test_apply_fisheye_scale_animation_param);
-    RUN_TEST(test_apply_animation_stack_order);
-    RUN_TEST(test_apply_animation_stack_rejects_unknown);
+    RUN_TEST(test_apply_effect_param);
+    RUN_TEST(test_apply_scale_effect_param);
+    RUN_TEST(test_apply_fisheye_scale_effect_param);
+    RUN_TEST(test_apply_effect_stack_order);
+    RUN_TEST(test_apply_effect_stack_rejects_unknown);
 
     RUN_TEST(test_scope_mcu_no_sim_settings);
     RUN_TEST(test_scope_sim_no_mcu_only);

@@ -83,8 +83,8 @@ export class SettingsUI {
 
       if (group.key === 'picture' && section.key === 'pattern')
         this._renderPatternPanels(sectionEl);
-      if (group.key === 'picture' && section.key === 'animations')
-        this._renderAnimationStack(sectionEl);
+      if (group.key === 'picture' && section.key === 'effects')
+        this._renderEffectStack(sectionEl);
 
       panel.appendChild(sectionEl);
     }
@@ -185,12 +185,12 @@ export class SettingsUI {
     return wrap;
   }
 
-  _renderAnimationStack(panel) {
-    const stack = this._model.animationStack || [];
-    const slotCount = stack.length || 2;
+  _renderEffectStack(panel) {
+    const stack = this._model.effectStack || [];
+    const slotCount = stack.length || 4;
     for (let slot = 0; slot < slotCount; slot++) {
       const row = el('div', 'setting-row');
-      row.appendChild(label('Animation ' + (slot + 1)));
+      row.appendChild(label('Effect ' + (slot + 1)));
 
       const sel = el('select');
       const none = el('option');
@@ -198,26 +198,26 @@ export class SettingsUI {
       none.textContent = 'None';
       sel.appendChild(none);
 
-      for (const anim of this._model.animations || []) {
+      for (const fx of this._model.effects || []) {
         const opt = el('option');
-        opt.value = anim.key;
-        opt.textContent = anim.name;
+        opt.value = fx.key;
+        opt.textContent = fx.name;
         sel.appendChild(opt);
       }
 
       sel.value = stack[slot] ?? '';
-      sel.addEventListener('change', () => this._changeAnimationSlot(slot, sel.value));
+      sel.addEventListener('change', () => this._changeEffectSlot(slot, sel.value));
       row.appendChild(sel);
       panel.appendChild(row);
 
-      const paramsWrap = el('div', 'animation-slot-params');
+      const paramsWrap = el('div', 'effect-slot-params');
       paramsWrap.dataset.slot = slot;
-      for (const anim of this._model.animations || []) {
-        const selected = anim.key === (stack[slot] ?? '');
-        const div = el('div', 'animation-params' + (selected ? '' : ' hidden'));
-        div.dataset.animKey = anim.key;
-        for (const p of anim.params || [])
-          div.appendChild(this._makeNestedParamRow(p, 'animations', anim.key));
+      for (const fx of this._model.effects || []) {
+        const selected = fx.key === (stack[slot] ?? '');
+        const div = el('div', 'effect-params' + (selected ? '' : ' hidden'));
+        div.dataset.fxKey = fx.key;
+        for (const p of fx.params || [])
+          div.appendChild(this._makeNestedParamRow(p, 'effects', fx.key));
         paramsWrap.appendChild(div);
       }
       panel.appendChild(paramsWrap);
@@ -331,21 +331,21 @@ export class SettingsUI {
     else this._flush();
   }
 
-  _changeAnimationSlot(slot, value) {
-    if (!Array.isArray(this._model.animationStack))
-      this._model.animationStack = [];
-    this._model.animationStack[slot] = value;
-    this._showAnimationSlotParams(slot, value);
-    const slotCount = this._model.animationStack.length || 2;
-    this._pending.animationStack = this._model.animationStack.slice(0, slotCount);
+  _changeEffectSlot(slot, value) {
+    if (!Array.isArray(this._model.effectStack))
+      this._model.effectStack = [];
+    this._model.effectStack[slot] = value;
+    this._showEffectSlotParams(slot, value);
+    const slotCount = this._model.effectStack.length || 4;
+    this._pending.effectStack = this._model.effectStack.slice(0, slotCount);
     this._flush();
   }
 
-  _showAnimationSlotParams(slot, value) {
-    const wrap = this._root.querySelector(`.animation-slot-params[data-slot="${slot}"]`);
+  _showEffectSlotParams(slot, value) {
+    const wrap = this._root.querySelector(`.effect-slot-params[data-slot="${slot}"]`);
     if (!wrap) return;
-    for (const div of wrap.querySelectorAll('.animation-params'))
-      div.classList.toggle('hidden', div.dataset.animKey !== value);
+    for (const div of wrap.querySelectorAll('.effect-params'))
+      div.classList.toggle('hidden', div.dataset.fxKey !== value);
   }
 
   _flush() {

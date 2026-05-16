@@ -1,6 +1,6 @@
 #include "settings_registry.h"
 #include "config.h"
-#include "animation.h"
+#include "effect.h"
 #include "patterns/registry.h"
 #include <Preferences.h>
 #include <cstring>
@@ -197,7 +197,7 @@ struct SectionDef {
 
 static const SectionDef kSections[] = {
     { "picture",  "pattern",    "Pattern",    true  },
-    { "picture",  "animations", "Animations", true  },
+    { "picture",  "effects",    "Effects",     true  },
     { "picture",  "global",     "Global",     true  },
     { "hardware", "hardware",   "Hardware",   false },
     { "hardware", "playback",   "Playback",   false },
@@ -267,21 +267,21 @@ void toJson(JsonObject root, Scope side) {
             emitParam(params.add<JsonObject>(), p->param(j));
     }
 
-    JsonArray animStack = root["animationStack"].to<JsonArray>();
-    for (uint8_t i = 0; i < G_NUM_ANIMATION_SLOTS; i++)
-        animStack.add(animationSlotKey(i));
+    JsonArray fxStack = root["effectStack"].to<JsonArray>();
+    for (uint8_t i = 0; i < MAX_EFFECT_SLOTS; i++)
+        fxStack.add(effectSlotKey(i));
 
-    JsonArray anims = root["animations"].to<JsonArray>();
-    for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++) {
-        Animation* a = g_animations[i];
-        JsonObject aObj = anims.add<JsonObject>();
-        aObj["key"]   = a->key();
-        aObj["name"]  = a->name();
-        aObj["group"] = "picture";
-        aObj["section"] = "animations";
-        JsonArray params = aObj["params"].to<JsonArray>();
-        for (uint8_t j = 0; j < a->paramCount(); j++)
-            emitParam(params.add<JsonObject>(), a->param(j));
+    JsonArray effects = root["effects"].to<JsonArray>();
+    for (uint8_t i = 0; i < G_NUM_EFFECTS; i++) {
+        Effect* e = g_effects[i];
+        JsonObject eObj = effects.add<JsonObject>();
+        eObj["key"]   = e->key();
+        eObj["name"]  = e->name();
+        eObj["group"] = "picture";
+        eObj["section"] = "effects";
+        JsonArray params = eObj["params"].to<JsonArray>();
+        for (uint8_t j = 0; j < e->paramCount(); j++)
+            emitParam(params.add<JsonObject>(), e->param(j));
     }
 }
 
@@ -380,33 +380,31 @@ void applyJson(JsonObjectConst patch, Scope side) {
         }
     }
 
-    // animationStack: ["rot", "scale"] where "" means no animation in that slot
-    JsonArrayConst animationStack = patch["animationStack"].as<JsonArrayConst>();
-    if (!animationStack.isNull()) {
+    JsonArrayConst effectStack = patch["effectStack"].as<JsonArrayConst>();
+    if (!effectStack.isNull()) {
         uint8_t slot = 0;
-        for (JsonVariantConst v : animationStack) {
-            if (slot >= G_NUM_ANIMATION_SLOTS) break;
+        for (JsonVariantConst v : effectStack) {
+            if (slot >= MAX_EFFECT_SLOTS) break;
             if (v.is<const char*>())
-                setAnimationSlot(slot, v.as<const char*>());
+                setEffectSlot(slot, v.as<const char*>());
             slot++;
         }
     }
 
-    // animations: { animKey: { paramKey: value, ... }, ... }
-    JsonObjectConst animations = patch["animations"].as<JsonObjectConst>();
-    if (!animations.isNull()) {
-        for (JsonPairConst akv : animations) {
-            Animation* a = nullptr;
-            for (uint8_t i = 0; i < G_NUM_ANIMATIONS; i++)
-                if (strcmp(g_animations[i]->key(), akv.key().c_str()) == 0) {
-                    a = g_animations[i];
+    JsonObjectConst effects = patch["effects"].as<JsonObjectConst>();
+    if (!effects.isNull()) {
+        for (JsonPairConst ekv : effects) {
+            Effect* e = nullptr;
+            for (uint8_t i = 0; i < G_NUM_EFFECTS; i++)
+                if (strcmp(g_effects[i]->key(), ekv.key().c_str()) == 0) {
+                    e = g_effects[i];
                     break;
                 }
-            if (!a) continue;
-            JsonObjectConst aObj = akv.value().as<JsonObjectConst>();
-            if (aObj.isNull()) continue;
-            for (JsonPairConst kv : aObj) {
-                Param* param = a->findParam(kv.key().c_str());
+            if (!e) continue;
+            JsonObjectConst eObj = ekv.value().as<JsonObjectConst>();
+            if (eObj.isNull()) continue;
+            for (JsonPairConst kv : eObj) {
+                Param* param = e->findParam(kv.key().c_str());
                 if (!param) continue;
                 applyParamValue(*param, kv.value());
             }

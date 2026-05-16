@@ -2,7 +2,7 @@
 #include "web_ui.h"
 #include "image_processor_js.h"
 #include "settings_js.h"
-#include "../animation.h"
+#include "../effect.h"
 #include "../settings_registry.h"
 #include "../patterns/registry.h"
 #include <ArduinoJson.h>
@@ -93,7 +93,7 @@ void PovWebServer::setupRoutes() {
         xSemaphoreTake(cfgMutex_, portMAX_DELAY);
         settings_registry::saveToNvs();
         savePatternsToNvs();
-        saveAnimationsToNvs();
+        saveEffectsToNvs();
         xSemaphoreGive(cfgMutex_);
         req->send(200, "application/json", "{\"ok\":true}");
     });

@@ -10,4 +10,4 @@ The POV display stores frames as polar slices and LED radii. A uniform radial zo
 
 ## Practical takeaway
 
-Use fisheye scaling when the desired effect is a breathing center bulge without losing the outer silhouette. It should stay as a post-pattern framebuffer animation so every pattern gets the same lens behavior and the frame loops do not need pattern-specific branches.
+Use fisheye scaling when the desired effect is a breathing center bulge without losing the outer silhouette. It should stay as a post-pattern framebuffer effect so every pattern gets the same lens behavior and the frame loops do not need pattern-specific branches.

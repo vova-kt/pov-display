@@ -32,7 +32,7 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
 .settings-section-title{margin-bottom:8px;color:#7fdbca;font-size:.75em;font-weight:700;text-transform:uppercase;letter-spacing:0}
 .setting-row{margin-bottom:10px}
 .setting-subrow label{padding-left:10px}
-.animation-slot-params,.pattern-params{margin-bottom:8px}
+.effect-slot-params,.pattern-params{margin-bottom:8px}
 .pattern-params{} .pattern-params.hidden{display:none}
 .status{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .stat{text-align:center}

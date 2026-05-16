@@ -1,5 +1,5 @@
 #pragma once
-#include "../animation.h"
+#include "../effect.h"
 #include "../framebuffer.h"
 
 namespace {
@@ -12,9 +12,9 @@ constexpr ParamOption kFisheyeScaleFactorOptions[] = {
 };
 }
 
-class FisheyeScaleAnimation : public Animation {
+class FisheyeScaleEffect : public Effect {
 public:
-    FisheyeScaleAnimation() {
+    FisheyeScaleEffect() {
         params_ = storage_;
         paramCount_ = 2;
     }
@@ -23,7 +23,7 @@ public:
     const char* key() const override { return "fisheye"; }
     bool active() const override { return true; }
 
-    void apply(AnimationState&, Framebuffer& fb, uint32_t timeMs) override {
+    void apply(EffectState&, Framebuffer& fb, uint32_t timeMs) override {
         int32_t durationMs = storage_[0].value;
         int32_t maxScaleTenths = storage_[1].value;
         if (durationMs <= 0 || maxScaleTenths <= 10) return;

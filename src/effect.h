@@ -5,19 +5,19 @@
 
 class Framebuffer;
 
-struct AnimationState {
+struct EffectState {
     int16_t sliceOffset = 0;
 };
 
-constexpr uint8_t G_NUM_ANIMATION_SLOTS = 2;
+constexpr uint8_t MAX_EFFECT_SLOTS = 4;
 
-class Animation {
+class Effect {
 public:
-    virtual ~Animation() = default;
+    virtual ~Effect() = default;
     virtual const char* name() const = 0;
     virtual const char* key() const = 0;
     virtual bool active() const = 0;
-    virtual void apply(AnimationState& state, Framebuffer& fb, uint32_t timeMs) = 0;
+    virtual void apply(EffectState& state, Framebuffer& fb, uint32_t timeMs) = 0;
 
     uint8_t paramCount() const { return paramCount_; }
     Param& param(uint8_t i) { return params_[i]; }
@@ -39,16 +39,16 @@ protected:
     uint8_t paramCount_ = 0;
 };
 
-void applyAnimations(AnimationState& state, Framebuffer& fb, uint32_t timeMs);
+void applyEffects(EffectState& state, Framebuffer& fb, uint32_t timeMs);
 
-int8_t animationIndexForKey(const char* key);
-const char* animationSlotKey(uint8_t slot);
-bool setAnimationSlot(uint8_t slot, const char* key);
-void resetAnimationStackDefaults();
+int8_t effectIndexForKey(const char* key);
+const char* effectSlotKey(uint8_t slot);
+bool setEffectSlot(uint8_t slot, const char* key);
+void resetEffectStackDefaults();
 
-void loadAnimationsFromNvs();
-void saveAnimationsToNvs();
+void loadEffectsFromNvs();
+void saveEffectsToNvs();
 
-extern Animation* const g_animations[];
-extern const uint8_t G_NUM_ANIMATIONS;
-extern int8_t g_animationStack[G_NUM_ANIMATION_SLOTS];
+extern Effect* const g_effects[];
+extern const uint8_t G_NUM_EFFECTS;
+extern int8_t g_effectStack[MAX_EFFECT_SLOTS];

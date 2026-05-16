@@ -3,10 +3,10 @@
 #include <cstdio>
 #include "framebuffer.h"
 #include "config.h"
-#include "animation.h"
+#include "effect.h"
 #include "timing.h"
 #include "renderer.h"
-#include "animation_phase.h"
+#include "effect_phase.h"
 #include "settings_registry.h"
 #include "settings_registry_sim.h"
 #include "patterns/registry.h"
@@ -17,11 +17,11 @@ static Framebuffer fb;
 static Config cfg;
 static TimingState ts;
 static FrameResult lastFrame;
-static SimAnimationPhase animPhase;
+static SimEffectPhase effectPhase;
 
 static void render_current_frame() {
     int16_t savedPhase = cfg.phaseOffset;
-    cfg.phaseOffset = animPhase.phaseOffset(cfg.phaseOffset);
+    cfg.phaseOffset = effectPhase.phaseOffset(cfg.phaseOffset);
     renderer_render(fb, cfg,
                     lastFrame.armAngle, lastFrame.armSweep,
                     lastFrame.hallOffsetAngle, lastFrame.hasOverruns,
@@ -36,7 +36,7 @@ bool sim_init(uint16_t numSlices, uint16_t numLeds) {
     ts.numSlices = numSlices;
     ts.numLeds = numLeds;
     timing_init(ts);
-    animPhase.reset();
+    effectPhase.reset();
     bool ok = fb.init(numSlices, numLeds);
     settings_registry::init(&cfg);
     sim_registry_bind(&ts, &cfg, &fb);
@@ -107,89 +107,6 @@ uint16_t sim_num_slices() { return fb.numSlices(); }
 EMSCRIPTEN_KEEPALIVE
 uint16_t sim_num_leds() { return fb.numLeds(); }
 
-// --- Animation introspection ---
-
-EMSCRIPTEN_KEEPALIVE
-uint8_t sim_num_animations() { return G_NUM_ANIMATIONS; }
-
-EMSCRIPTEN_KEEPALIVE
-const char* sim_animation_name(uint8_t i) {
-    return i < G_NUM_ANIMATIONS ? g_animations[i]->name() : "";
-}
-
-EMSCRIPTEN_KEEPALIVE
-const char* sim_animation_key(uint8_t i) {
-    return i < G_NUM_ANIMATIONS ? g_animations[i]->key() : "";
-}
-
-EMSCRIPTEN_KEEPALIVE
-uint8_t sim_animation_param_count(uint8_t i) {
-    return i < G_NUM_ANIMATIONS ? g_animations[i]->paramCount() : 0;
-}
-
-EMSCRIPTEN_KEEPALIVE
-const char* sim_animation_param_key(uint8_t ai, uint8_t pi) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return "";
-    return g_animations[ai]->param(pi).key;
-}
-
-EMSCRIPTEN_KEEPALIVE
-const char* sim_animation_param_label(uint8_t ai, uint8_t pi) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return "";
-    return g_animations[ai]->param(pi).label;
-}
-
-EMSCRIPTEN_KEEPALIVE
-int16_t sim_animation_param_value(uint8_t ai, uint8_t pi) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
-    return g_animations[ai]->param(pi).value;
-}
-
-EMSCRIPTEN_KEEPALIVE
-int16_t sim_animation_param_default(uint8_t ai, uint8_t pi) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
-    return g_animations[ai]->param(pi).defaultVal;
-}
-
-EMSCRIPTEN_KEEPALIVE
-int16_t sim_animation_param_min(uint8_t ai, uint8_t pi) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
-    return g_animations[ai]->param(pi).min;
-}
-
-EMSCRIPTEN_KEEPALIVE
-int16_t sim_animation_param_max(uint8_t ai, uint8_t pi) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
-    return g_animations[ai]->param(pi).max;
-}
-
-EMSCRIPTEN_KEEPALIVE
-uint8_t sim_animation_param_preset_count(uint8_t ai, uint8_t pi) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
-    return g_animations[ai]->param(pi).optionCount;
-}
-
-EMSCRIPTEN_KEEPALIVE
-const char* sim_animation_param_preset_label(uint8_t ai, uint8_t pi, uint8_t ki) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return "";
-    const Param& p = g_animations[ai]->param(pi);
-    return ki < p.optionCount ? p.options[ki].label : "";
-}
-
-EMSCRIPTEN_KEEPALIVE
-int16_t sim_animation_param_preset_value(uint8_t ai, uint8_t pi, uint8_t ki) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return 0;
-    const Param& p = g_animations[ai]->param(pi);
-    return ki < p.optionCount ? p.options[ki].value : 0;
-}
-
-EMSCRIPTEN_KEEPALIVE
-void sim_set_animation_param(uint8_t ai, uint8_t pi, int16_t value) {
-    if (ai >= G_NUM_ANIMATIONS || pi >= g_animations[ai]->paramCount()) return;
-    Param& p = g_animations[ai]->param(pi);
-    if (value >= p.min && value <= p.max) p.value = value;
-}
-
 // --- Renderer ---
 
 EMSCRIPTEN_KEEPALIVE
@@ -249,9 +166,9 @@ void sim_frame(float dtMs, float simTimeMs, uint8_t patternIndex) {
     if (lastFrame.shouldGenerate && patternIndex < G_NUM_PATTERNS) {
         g_patterns[patternIndex]->generate(fb, cfg, (uint32_t)simTimeMs);
 
-        AnimationState animState;
-        applyAnimations(animState, fb, (uint32_t)simTimeMs);
-        animPhase.update(animState);
+        EffectState effectState;
+        applyEffects(effectState, fb, (uint32_t)simTimeMs);
+        effectPhase.update(effectState);
         fb.swap();
 
         render_current_frame();
@@ -301,7 +218,7 @@ bool sim_apply_settings_json(const char* json) {
     }
     renderer_set_num_arms(cfg.numArms);
     ts.spiClockMhz = cfg.spiClockMhz;
-    // RPM is derived from targetHz × 60 / numArms
+    // RPM is derived from targetHz x 60 / numArms
     ts.rpm = (float)cfg.targetHz * 60.0f / (float)cfg.numArms;
     return true;
 }

@@ -10,7 +10,7 @@
 #include "motor.h"
 #include "web/web_server.h"
 
-#include "animation.h"
+#include "effect.h"
 #include "settings_registry.h"
 #include "patterns/pattern.h"
 #include "patterns/registry.h"
@@ -77,10 +77,10 @@ static void patternTaskFunc(void*) {
         uint32_t now = millis();
         g_patterns[pi]->generate(fb, cfg, now);
 
-        AnimationState animState;
-        applyAnimations(animState, fb, now);
+        EffectState effectState;
+        applyEffects(effectState, fb, now);
         fb.swap();
-        scheduler.setPhaseOffset(cfg.phaseOffset + animState.sliceOffset);
+        scheduler.setPhaseOffset(cfg.phaseOffset + effectState.sliceOffset);
 
         // When not spinning, push slice 0 directly to the strip
         uint32_t lastHall = hall.lastTriggerMs();
@@ -120,7 +120,7 @@ void setup() {
     settings_registry::init(&cfg);
     settings_registry::loadFromNvs();
     loadPatternsFromNvs();
-    loadAnimationsFromNvs();
+    loadEffectsFromNvs();
 
     // Init LED driver
     if (!leds.init(PIN_LED_CLK, PIN_LED_MOSI, cfg.spiClockMhz, MAX_LEDS)) {

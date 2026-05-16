@@ -1,4 +1,4 @@
-# Animation Proposals
+# Effect Proposals
 
 - **Pulse Ring** (both) - Brightness expands outward from the hub in soft repeating waves.
 - **Comet Tail** (both) - The image or text leaves a fading angular trail as it moves.

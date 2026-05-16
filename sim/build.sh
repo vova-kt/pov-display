@@ -24,13 +24,6 @@ EXPORTED='[
   "_sim_set_text_mode","_sim_set_text_delay",
   "_sim_num_patterns","_sim_pattern_name",
   "_sim_set_mirror_pattern","_sim_set_radial_balance",
-  "_sim_num_animations","_sim_animation_name","_sim_animation_key",
-  "_sim_animation_param_count","_sim_animation_param_key",
-  "_sim_animation_param_label","_sim_animation_param_value",
-  "_sim_animation_param_default","_sim_animation_param_min",
-  "_sim_animation_param_max","_sim_animation_param_preset_count",
-  "_sim_animation_param_preset_label","_sim_animation_param_preset_value",
-  "_sim_set_animation_param",
   "_sim_renderer_init","_sim_renderer_resize",
   "_sim_renderer_set_hub_frac","_sim_renderer_set_gap_frac",
   "_sim_renderer_set_show_overruns","_sim_renderer_set_show_hall_marker",
@@ -71,7 +64,7 @@ em++ -O2 \
   ../src/canvas.cpp \
   ../src/transforms/polar_transform.cpp \
   ../src/patterns/*.cpp \
-  ../src/animation.cpp \
+  ../src/effect.cpp \
   ../src/settings_registry.cpp \
   settings_registry_sim.cpp \
   timing.cpp \

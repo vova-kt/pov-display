@@ -20,7 +20,7 @@ Patterns take multiple milliseconds to regenerate a full frame (360 slices × N 
 
 Buffers are allocated with `MALLOC_CAP_DMA` so SPI can DMA directly from them without an intermediate copy.
 
-Pattern generation owns only the back-buffer contents. The frame loop owns publication: generate the pattern, apply animations, then swap exactly once. Keeping that ownership boundary avoids one buffer carrying an animated phase while another buffer still carries the previous static image.
+Pattern generation owns only the back-buffer contents. The frame loop owns publication: generate the pattern, apply effects, then swap exactly once. Keeping that ownership boundary avoids one buffer carrying an effect phase while another buffer still carries the previous static image.
 
 ## Why embedded HTML (not SPIFFS)
 
@@ -44,20 +44,20 @@ At 144 LEDs the SPI transfer exceeds the slice interval — reduce to ~180 slice
 Every user-facing setting lives in a unified registry backed by the same `Param` type. There are three classes of parameters:
 
 - **Top-level settings** (brightness, color, numArms, etc.) — registered in `src/settings_registry.cpp` with getter/setter function pointers into `Config` fields.
-- **Pattern params** (e.g. TextPattern's text, mode, fixed delay cadence, margin) — declared inside each `Pattern` subclass, mirroring how animations work.
-- **Animation params** (e.g. RotationAnimation's speed and direction) — declared inside each `Animation` subclass.
+- **Pattern params** (e.g. TextPattern's text, mode, fixed delay cadence, margin) — declared inside each `Pattern` subclass, mirroring how effects work.
+- **Effect params** (e.g. RotationEffect's speed and direction) — declared inside each `Effect` subclass.
 
-Both `Pattern` and `Animation` share the `Param` struct from `src/param.h`. The settings registry emits a single JSON model that the shared JS renderer (`sim/js/settings_ui.js`, also embedded in the MCU UI via `/js/settings.js`) uses to build the two-tab control panel without any hand-coded HTML. Adding a setting means one registry entry; adding a pattern or animation param means one array member — the renderer and both UIs pick it up automatically.
+Both `Pattern` and `Effect` share the `Param` struct from `src/param.h`. The settings registry emits a single JSON model that the shared JS renderer (`sim/js/settings_ui.js`, also embedded in the MCU UI via `/js/settings.js`) uses to build the two-tab control panel without any hand-coded HTML. Adding a setting means one registry entry; adding a pattern or effect param means one array member — the renderer and both UIs pick it up automatically.
 
 Scope flags (`Both`, `McuOnly`, `SimOnly`) control which settings appear in each UI. The JSON is pre-filtered server-side so each client only sees applicable entries. See `src/settings_registry.h` and `docs/settings.md`.
 
-## Animation ordering
+## Effect ordering
 
-Animations are applied *after* pattern generation but *before* `fb.swap()`. This lets them modify the back buffer or produce metadata (like `sliceOffset` for rotation) without interfering with pattern logic. Framebuffer animations such as scale and fisheye scale remap existing polar samples in place, keeping the cost bounded by the framebuffer size and avoiding per-pattern zoom state. The frame loops in `main.cpp` and `sim_bridge.cpp` call `applyAnimations()` generically — adding a new animation never requires changing the loop.
+Effects are applied *after* pattern generation but *before* `fb.swap()`. This lets them modify the back buffer or produce metadata (like `sliceOffset` for rotation) without interfering with pattern logic. Framebuffer effects such as scale and fisheye scale remap existing polar samples in place, keeping the cost bounded by the framebuffer size and avoiding per-pattern zoom state. The frame loops in `main.cpp` and `sim_bridge.cpp` call `applyEffects()` generically — adding a new effect never requires changing the loop.
 
-Rotation direction is modeled as an animation param, not a motor setting: it changes the rendered image phase while leaving physical spin direction alone.
+Rotation direction is modeled as an effect param, not a motor setting: it changes the rendered image phase while leaving physical spin direction alone.
 
-The simulator can render display frames without regenerating the pattern every time. It therefore keeps the last generated animation phase and applies it while re-rendering the existing framebuffer, matching the MCU scheduler's persistent phase offset between pattern-task iterations.
+The simulator can render display frames without regenerating the pattern every time. It therefore keeps the last generated effect phase and applies it while re-rendering the existing framebuffer, matching the MCU scheduler's persistent phase offset between pattern-task iterations.
 
 ## Source map
 

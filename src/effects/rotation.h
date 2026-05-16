@@ -1,5 +1,5 @@
 #pragma once
-#include "../animation.h"
+#include "../effect.h"
 
 namespace {
 constexpr ParamOption kRotOptions[] = {
@@ -11,9 +11,9 @@ constexpr ParamOption kRotDirectionOptions[] = {
 };
 }
 
-class RotationAnimation : public Animation {
+class RotationEffect : public Effect {
 public:
-    RotationAnimation() {
+    RotationEffect() {
         params_ = storage_;
         paramCount_ = 2;
     }
@@ -22,7 +22,7 @@ public:
     const char* key() const override { return "rot"; }
     bool active() const override { return storage_[0].value != 0; }
 
-    void apply(AnimationState& state, Framebuffer&, uint32_t timeMs) override {
+    void apply(EffectState& state, Framebuffer&, uint32_t timeMs) override {
         int32_t degPerSec = storage_[0].value * storage_[1].value;
         state.sliceOffset += (int16_t)((degPerSec * (int32_t)(timeMs / 10) / 100) % 360);
     }

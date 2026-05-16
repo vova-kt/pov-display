@@ -1,13 +1,13 @@
 #pragma once
 
 #include <cstdint>
-#include "animation.h"
+#include "effect.h"
 
-class SimAnimationPhase {
+class SimEffectPhase {
 public:
     void reset() { sliceOffset_ = 0; }
 
-    void update(const AnimationState& state) {
+    void update(const EffectState& state) {
         sliceOffset_ = state.sliceOffset;
     }
 

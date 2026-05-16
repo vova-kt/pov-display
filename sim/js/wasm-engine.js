@@ -18,22 +18,6 @@ export class PovSim {
     this._simNumPatterns   = module.cwrap('sim_num_patterns', 'number', []);
     this._simPatternName   = module.cwrap('sim_pattern_name', 'string', ['number']);
 
-    // Animation introspection
-    this._simNumAnimations       = module.cwrap('sim_num_animations', 'number', []);
-    this._simAnimationName       = module.cwrap('sim_animation_name', 'string', ['number']);
-    this._simAnimationKey        = module.cwrap('sim_animation_key', 'string', ['number']);
-    this._simAnimParamCount      = module.cwrap('sim_animation_param_count', 'number', ['number']);
-    this._simAnimParamKey        = module.cwrap('sim_animation_param_key', 'string', ['number', 'number']);
-    this._simAnimParamLabel      = module.cwrap('sim_animation_param_label', 'string', ['number', 'number']);
-    this._simAnimParamValue      = module.cwrap('sim_animation_param_value', 'number', ['number', 'number']);
-    this._simAnimParamDefault    = module.cwrap('sim_animation_param_default', 'number', ['number', 'number']);
-    this._simAnimParamMin        = module.cwrap('sim_animation_param_min', 'number', ['number', 'number']);
-    this._simAnimParamMax        = module.cwrap('sim_animation_param_max', 'number', ['number', 'number']);
-    this._simAnimParamPresetCount = module.cwrap('sim_animation_param_preset_count', 'number', ['number', 'number']);
-    this._simAnimParamPresetLabel = module.cwrap('sim_animation_param_preset_label', 'string', ['number', 'number', 'number']);
-    this._simAnimParamPresetValue = module.cwrap('sim_animation_param_preset_value', 'number', ['number', 'number', 'number']);
-    this._simSetAnimParam        = module.cwrap('sim_set_animation_param', null, ['number', 'number', 'number']);
-
     this._rendererInit          = module.cwrap('sim_renderer_init', 'boolean', []);
     this._rendererResize        = module.cwrap('sim_renderer_resize', null, ['number', 'number']);
     this._rendererSetHubFrac    = module.cwrap('sim_renderer_set_hub_frac', null, ['number']);
@@ -106,21 +90,6 @@ export class PovSim {
     this._mod._free(ptr);
     return ok;
   }
-
-  get animationCount() { return this._simNumAnimations(); }
-  animationName(i)  { return this._simAnimationName(i); }
-  animationKey(i)   { return this._simAnimationKey(i); }
-  animParamCount(i) { return this._simAnimParamCount(i); }
-  animParamKey(i, j)     { return this._simAnimParamKey(i, j); }
-  animParamLabel(i, j)   { return this._simAnimParamLabel(i, j); }
-  animParamValue(i, j)   { return this._simAnimParamValue(i, j); }
-  animParamDefault(i, j) { return this._simAnimParamDefault(i, j); }
-  animParamMin(i, j)     { return this._simAnimParamMin(i, j); }
-  animParamMax(i, j)     { return this._simAnimParamMax(i, j); }
-  animParamPresetCount(i, j)      { return this._simAnimParamPresetCount(i, j); }
-  animParamPresetLabel(i, j, k)   { return this._simAnimParamPresetLabel(i, j, k); }
-  animParamPresetValue(i, j, k)   { return this._simAnimParamPresetValue(i, j, k); }
-  setAnimParam(i, j, v)  { this._simSetAnimParam(i, j, v); }
 
   rendererResize(w, h) { this._rendererResize(w, h); }
   setHubFraction(f)    { this._rendererSetHubFrac(f); }
