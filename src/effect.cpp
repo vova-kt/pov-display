@@ -2,12 +2,14 @@
 #include "effects/rotation.h"
 #include "effects/scale.h"
 #include "effects/fisheye_scale.h"
+#include "effects/bloom.h"
 
 static RotationEffect s_rotation;
 static ScaleEffect s_scale;
 static FisheyeScaleEffect s_fisheyeScale;
+static BloomEffect s_bloom;
 
-Effect* const g_effects[] = { &s_rotation, &s_scale, &s_fisheyeScale };
+Effect* const g_effects[] = { &s_rotation, &s_scale, &s_fisheyeScale, &s_bloom };
 const uint8_t G_NUM_EFFECTS = sizeof(g_effects) / sizeof(g_effects[0]);
 int8_t g_effectStack[MAX_EFFECT_SLOTS] = {-1, -1, -1, -1};
 

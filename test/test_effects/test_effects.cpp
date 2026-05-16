@@ -2,6 +2,7 @@
 #include <cstring>
 #include "framebuffer.h"
 #include "effect.h"
+#include "effects/bloom.h"
 #include "effects/fisheye_scale.h"
 #include "effects/rotation.h"
 #include "effects/scale.h"
@@ -431,6 +432,192 @@ void test_effect_nvs_roundtrip_stack_and_scale_param() {
     TEST_ASSERT_EQUAL_INT32(30, scale->findParam("factor")->value);
 }
 
+// ---------- BloomEffect metadata ----------
+
+void test_bloom_name() {
+    BloomEffect bloom;
+    TEST_ASSERT_EQUAL_STRING("Bloom", bloom.name());
+}
+
+void test_bloom_key() {
+    BloomEffect bloom;
+    TEST_ASSERT_EQUAL_STRING("bloom", bloom.key());
+}
+
+void test_bloom_has_params() {
+    BloomEffect bloom;
+    TEST_ASSERT_EQUAL_UINT8(3, bloom.paramCount());
+    TEST_ASSERT_EQUAL_STRING("radius", bloom.param(0).key);
+    TEST_ASSERT_EQUAL_STRING("Radius", bloom.param(0).label);
+    TEST_ASSERT_EQUAL_STRING("intensity", bloom.param(1).key);
+    TEST_ASSERT_EQUAL_STRING("Intensity", bloom.param(1).label);
+    TEST_ASSERT_EQUAL_STRING("threshold", bloom.param(2).key);
+    TEST_ASSERT_EQUAL_STRING("Threshold", bloom.param(2).label);
+}
+
+void test_bloom_radius_presets() {
+    BloomEffect bloom;
+    const Param& p = bloom.param(0);
+    TEST_ASSERT_EQUAL_UINT8(4, p.optionCount);
+    TEST_ASSERT_EQUAL_STRING("1 LED", p.options[0].label);
+    TEST_ASSERT_EQUAL_INT32(1, p.options[0].value);
+    TEST_ASSERT_EQUAL_STRING("4 LEDs", p.options[3].label);
+    TEST_ASSERT_EQUAL_INT32(4, p.options[3].value);
+}
+
+void test_bloom_intensity_presets() {
+    BloomEffect bloom;
+    const Param& p = bloom.param(1);
+    TEST_ASSERT_EQUAL_UINT8(4, p.optionCount);
+    TEST_ASSERT_EQUAL_STRING("25%", p.options[0].label);
+    TEST_ASSERT_EQUAL_INT32(64, p.options[0].value);
+    TEST_ASSERT_EQUAL_STRING("100%", p.options[3].label);
+    TEST_ASSERT_EQUAL_INT32(255, p.options[3].value);
+}
+
+void test_bloom_threshold_presets() {
+    BloomEffect bloom;
+    const Param& p = bloom.param(2);
+    TEST_ASSERT_EQUAL_UINT8(4, p.optionCount);
+    TEST_ASSERT_EQUAL_STRING("Off", p.options[0].label);
+    TEST_ASSERT_EQUAL_INT32(0, p.options[0].value);
+    TEST_ASSERT_EQUAL_STRING("High", p.options[3].label);
+    TEST_ASSERT_EQUAL_INT32(192, p.options[3].value);
+}
+
+void test_bloom_defaults() {
+    BloomEffect bloom;
+    TEST_ASSERT_EQUAL_INT32(2, bloom.param(0).value);
+    TEST_ASSERT_EQUAL_INT32(128, bloom.param(1).value);
+    TEST_ASSERT_EQUAL_INT32(128, bloom.param(2).value);
+}
+
+// ---------- BloomEffect::apply ----------
+
+void test_bloom_noop_dark_frame() {
+    BloomEffect bloom;
+    bloom.param(2).value = 128;
+    fb.clearBack();
+
+    fb.setPixel(0, 3, 50, 50, 50, 31);
+
+    EffectState state;
+    bloom.apply(state, fb, 0);
+
+    Pixel* slice = fb.backSlice(0);
+    TEST_ASSERT_EQUAL_UINT8(50, slice[3].red);
+    TEST_ASSERT_EQUAL_UINT8(0, slice[2].red);
+    TEST_ASSERT_EQUAL_UINT8(0, slice[4].red);
+}
+
+void test_bloom_spreads_bright_pixel() {
+    BloomEffect bloom;
+    bloom.param(0).value = 2;
+    bloom.param(1).value = 255;
+    bloom.param(2).value = 0;
+    fb.clearBack();
+
+    fb.setPixel(0, 5, 200, 0, 0, 31);
+
+    EffectState state;
+    bloom.apply(state, fb, 0);
+
+    Pixel* slice = fb.backSlice(0);
+    TEST_ASSERT_GREATER_THAN(0, slice[4].red);
+    TEST_ASSERT_GREATER_THAN(0, slice[6].red);
+    TEST_ASSERT_GREATER_THAN(0, slice[3].red);
+    TEST_ASSERT_EQUAL_UINT8(0, slice[2].red);
+}
+
+void test_bloom_respects_threshold() {
+    BloomEffect bloom;
+    bloom.param(0).value = 1;
+    bloom.param(1).value = 255;
+    bloom.param(2).value = 128;
+    fb.clearBack();
+
+    fb.setPixel(0, 5, 100, 0, 0, 31);
+
+    EffectState state;
+    bloom.apply(state, fb, 0);
+
+    Pixel* slice = fb.backSlice(0);
+    TEST_ASSERT_EQUAL_UINT8(0, slice[4].red);
+    TEST_ASSERT_EQUAL_UINT8(0, slice[6].red);
+}
+
+void test_bloom_above_threshold_spreads() {
+    BloomEffect bloom;
+    bloom.param(0).value = 1;
+    bloom.param(1).value = 255;
+    bloom.param(2).value = 128;
+    fb.clearBack();
+
+    fb.setPixel(0, 5, 200, 0, 0, 31);
+
+    EffectState state;
+    bloom.apply(state, fb, 0);
+
+    Pixel* slice = fb.backSlice(0);
+    TEST_ASSERT_GREATER_THAN(0, slice[4].red);
+    TEST_ASSERT_GREATER_THAN(0, slice[6].red);
+}
+
+void test_bloom_clamps_to_255() {
+    BloomEffect bloom;
+    bloom.param(0).value = 1;
+    bloom.param(1).value = 255;
+    bloom.param(2).value = 0;
+    fb.clearBack();
+
+    fb.setPixel(0, 5, 255, 255, 255, 31);
+    fb.setPixel(0, 6, 255, 255, 255, 31);
+
+    EffectState state;
+    bloom.apply(state, fb, 0);
+
+    Pixel* slice = fb.backSlice(0);
+    TEST_ASSERT_EQUAL_UINT8(255, slice[5].red);
+    TEST_ASSERT_EQUAL_UINT8(255, slice[6].red);
+}
+
+void test_bloom_linear_falloff() {
+    BloomEffect bloom;
+    bloom.param(0).value = 2;
+    bloom.param(1).value = 255;
+    bloom.param(2).value = 0;
+    fb.clearBack();
+
+    fb.setPixel(0, 5, 200, 0, 0, 31);
+
+    EffectState state;
+    bloom.apply(state, fb, 0);
+
+    Pixel* slice = fb.backSlice(0);
+    TEST_ASSERT_GREATER_THAN(slice[3].red, slice[4].red);
+}
+
+void test_bloom_propagates_brightness() {
+    BloomEffect bloom;
+    bloom.param(0).value = 1;
+    bloom.param(1).value = 255;
+    bloom.param(2).value = 0;
+    fb.clearBack();
+
+    fb.setPixel(0, 5, 200, 0, 0, 20);
+
+    EffectState state;
+    bloom.apply(state, fb, 0);
+
+    Pixel* slice = fb.backSlice(0);
+    TEST_ASSERT_EQUAL_UINT8(20, slice[4].brightness & 0x1F);
+    TEST_ASSERT_EQUAL_UINT8(20, slice[6].brightness & 0x1F);
+}
+
+void test_bloom_registered_in_registry() {
+    TEST_ASSERT_NOT_NULL(effectByKey("bloom"));
+}
+
 // ---------- Simulator effect phase ----------
 
 void test_sim_phase_keeps_last_offset_between_generation_frames() {
@@ -491,6 +678,22 @@ int main() {
     RUN_TEST(test_fisheye_scale_factor_presets);
     RUN_TEST(test_fisheye_scale_noop_at_cycle_start);
     RUN_TEST(test_fisheye_scale_expands_center_and_anchors_edge);
+
+    RUN_TEST(test_bloom_name);
+    RUN_TEST(test_bloom_key);
+    RUN_TEST(test_bloom_has_params);
+    RUN_TEST(test_bloom_radius_presets);
+    RUN_TEST(test_bloom_intensity_presets);
+    RUN_TEST(test_bloom_threshold_presets);
+    RUN_TEST(test_bloom_defaults);
+    RUN_TEST(test_bloom_noop_dark_frame);
+    RUN_TEST(test_bloom_spreads_bright_pixel);
+    RUN_TEST(test_bloom_respects_threshold);
+    RUN_TEST(test_bloom_above_threshold_spreads);
+    RUN_TEST(test_bloom_clamps_to_255);
+    RUN_TEST(test_bloom_linear_falloff);
+    RUN_TEST(test_bloom_propagates_brightness);
+    RUN_TEST(test_bloom_registered_in_registry);
 
     RUN_TEST(test_find_param_exists);
     RUN_TEST(test_find_param_missing);
