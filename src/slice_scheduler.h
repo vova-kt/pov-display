@@ -4,11 +4,11 @@
 #include <esp_timer.h>
 #include "framebuffer.h"
 #include "hal_spi_leds.h"
-#include "hall_sensor.h"
+#include "timing_source.h"
 
 class SliceScheduler {
 public:
-    void init(Framebuffer* fb, LedDriver* leds, HallSensor* hall);
+    void init(Framebuffer* fb, LedDriver* leds, TimingSource* timing);
     void start();
     void stop();
     void setPhaseOffset(int16_t offset) { phaseOffset_ = offset; }
@@ -23,7 +23,7 @@ private:
 
     Framebuffer*       fb_          = nullptr;
     LedDriver*         leds_        = nullptr;
-    HallSensor*        hall_        = nullptr;
+    TimingSource*      timing_      = nullptr;
     esp_timer_handle_t timer_       = nullptr;
     TaskHandle_t       renderTask_  = nullptr;
 

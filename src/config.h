@@ -2,11 +2,19 @@
 #include <cstdint>
 #include <Arduino.h>
 
-// --- Pin assignments (XIAO ESP32-C6 board labels) ---
+// --- Pin assignments (overridable via -DPIN_xxx=Dy build flags) ---
+#ifndef PIN_LED_CLK
 constexpr uint8_t PIN_LED_CLK  = D8;   // SPI SCK
+#endif
+#ifndef PIN_LED_MOSI
 constexpr uint8_t PIN_LED_MOSI = D10;  // SPI MOSI
+#endif
+#ifndef PIN_HALL
 constexpr uint8_t PIN_HALL     = D2;
+#endif
+#ifndef PIN_ESC
 constexpr uint8_t PIN_ESC      = D3;
+#endif
 
 // --- Compile-time limits ---
 #ifndef MAX_LEDS

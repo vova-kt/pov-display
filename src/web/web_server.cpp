@@ -62,6 +62,7 @@ void PovWebServer::setupRoutes() {
             xSemaphoreTake(cfgMutex_, portMAX_DELAY);
             settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
             xSemaphoreGive(cfgMutex_);
+            if (relayCb_) relayCb_(bodyBuffer_.c_str(), bodyBuffer_.length());
             bodyBuffer_ = "";
 
             if (configCb_) configCb_();

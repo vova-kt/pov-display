@@ -5,11 +5,9 @@
 #include "config.h"
 #include "framebuffer.h"
 #include "hal_spi_leds.h"
-#include "hall_sensor.h"
-#include "hall_timing_source.h"
 #include "slice_scheduler.h"
-#include "motor.h"
-#include "web/web_server.h"
+#include "comm/wifi_timing.h"
+#include "comm/config_relay.h"
 
 #include "effect.h"
 #include "settings_registry.h"
@@ -17,31 +15,19 @@
 #include "patterns/registry.h"
 #include "patterns/image.h"
 
-// --- Globals ---
-static Config         cfg;
-static Framebuffer    fb;
-static LedDriver      leds;
-static HallSensor     hall;
-static HallTimingSource hallTiming(&hall);
-static SliceScheduler scheduler;
-static Motor          motor;
-static PovWebServer   webServer;
+static Config              cfg;
+static Framebuffer         fb;
+static LedDriver           leds;
+static WifiTimingSource    timing;
+static SliceScheduler      scheduler;
+static ConfigRelayReceiver configRx;
 
 static volatile bool configDirty = false;
 
-// --- Callbacks ---
 static void onConfigChanged() {
     configDirty = true;
 }
 
-static void onImageUpload(const uint8_t* rgbData, uint16_t width, uint16_t height) {
-    g_image_pattern()->loadImage(rgbData, width, height);
-    int idx = g_pattern_index("image");
-    if (idx >= 0) cfg.activePattern = (uint8_t)idx;
-    configDirty = true;
-}
-
-// --- Pattern task (Core 1, lower priority than render) ---
 static void patternTaskFunc(void*) {
     bool wasDirectMode = false;
 
@@ -49,7 +35,6 @@ static void patternTaskFunc(void*) {
         if (configDirty) {
             configDirty = false;
 
-            // Resize framebuffer if LED count or slice count changed
             if (cfg.numLeds != fb.numLeds() || cfg.numSlices != fb.numSlices()) {
                 size_t need = (size_t)cfg.numSlices * cfg.numLeds * sizeof(Pixel) * 2;
                 size_t dmaFree = heap_caps_get_free_size(MALLOC_CAP_DMA);
@@ -71,7 +56,13 @@ static void patternTaskFunc(void*) {
             scheduler.setPhaseOffset(cfg.phaseOffset);
             scheduler.setMirror(cfg.mirrorPattern);
             leds.recomputeScale(cfg.numLeds, cfg.radialBalance);
-            motor.setPulseUs(cfg.escPulseUs);
+
+#ifdef MAX_BRIGHTNESS_CAP
+            if (cfg.maxBrightness > MAX_BRIGHTNESS_CAP)
+                cfg.maxBrightness = MAX_BRIGHTNESS_CAP;
+            if (cfg.brightness > cfg.maxBrightness)
+                cfg.brightness = cfg.maxBrightness;
+#endif
         }
 
         uint8_t pi = cfg.activePattern;
@@ -84,9 +75,8 @@ static void patternTaskFunc(void*) {
         fb.swap();
         scheduler.setPhaseOffset(cfg.phaseOffset + effectState.sliceOffset);
 
-        // When not spinning, push slice 0 directly to the strip
-        uint32_t lastHall = hallTiming.lastTriggerMs();
-        bool spinning = (lastHall > 0) && ((millis() - lastHall) < 500);
+        uint32_t lastTrig = timing.lastTriggerMs();
+        bool spinning = (lastTrig > 0) && ((millis() - lastTrig) < 500);
         if (!spinning) {
             if (!wasDirectMode) {
                 Serial.printf("[pattern] direct mode: pushing slice 0 to strip (%u leds)\n", fb.numLeds());
@@ -95,36 +85,47 @@ static void patternTaskFunc(void*) {
             const Pixel* data = fb.getSlice(0);
             leds.sendSlice(data, fb.numLeds());
         } else if (wasDirectMode) {
-            Serial.println("[pattern] scheduler mode: hall sensor active");
+            Serial.println("[pattern] scheduler mode: wifi timing active");
             wasDirectMode = false;
         }
 
-        // ~30 fps for animated patterns
         vTaskDelay(pdMS_TO_TICKS(33));
     }
 }
 
-// --- Hall sensor polling task (Core 1) ---
-static void hallPollTaskFunc(void*) {
+static void timingTask(void*) {
     for (;;) {
-        if (hallTiming.consumeNewRotation()) {
+        timing.poll();
+        if (timing.consumeNewRotation()) {
             scheduler.onNewRotation();
         }
-        vTaskDelay(1); // 1 tick ≈ 1ms — fast enough for rotation detection
+        vTaskDelay(1);
+    }
+}
+
+static void configRecvTask(void*) {
+    for (;;) {
+        configRx.poll();
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("POV Display starting...");
+    Serial.println("POV Rotating MCU starting...");
 
-    // Load saved config
     settings_registry::init(&cfg);
     settings_registry::loadFromNvs();
     loadPatternsFromNvs();
     loadEffectsFromNvs();
 
-    // Init LED driver
+#ifdef MAX_BRIGHTNESS_CAP
+    if (cfg.maxBrightness > MAX_BRIGHTNESS_CAP)
+        cfg.maxBrightness = MAX_BRIGHTNESS_CAP;
+    if (cfg.brightness > cfg.maxBrightness)
+        cfg.brightness = cfg.maxBrightness;
+#endif
+
     if (!leds.init(PIN_LED_CLK, PIN_LED_MOSI, cfg.spiClockMhz, MAX_LEDS)) {
         Serial.println("SPI init failed!");
         return;
@@ -132,7 +133,6 @@ void setup() {
     leds.allOff(cfg.numLeds);
     leds.recomputeScale(cfg.numLeds, cfg.radialBalance);
 
-    // Init framebuffer
     size_t dmaFree = heap_caps_get_free_size(MALLOC_CAP_DMA);
     size_t fbNeed  = (size_t)cfg.numSlices * cfg.numLeds * sizeof(Pixel) * 2;
     Serial.printf("DMA free: %u bytes, FB needs: %u bytes (%ux%u)\n",
@@ -142,44 +142,35 @@ void setup() {
         return;
     }
 
-    // Init hall sensor
-    hall.init(PIN_HALL);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin("POV-Display", "756Rhebpv!");
+    Serial.print("Connecting to AP");
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(100);
+        Serial.print(".");
+    }
+    Serial.printf("\nConnected, IP: %s\n", WiFi.localIP().toString().c_str());
 
-    // Init slice scheduler (creates render task)
-    scheduler.init(&fb, &leds, &hallTiming);
+    timing.init();
+    configRx.init();
+    configRx.onConfigChange(onConfigChanged);
+
+    scheduler.init(&fb, &leds, &timing);
     scheduler.setNumSlices(cfg.numSlices);
     scheduler.setPhaseOffset(cfg.phaseOffset);
     scheduler.setMirror(cfg.mirrorPattern);
     scheduler.start();
 
-    // Init motor
-    motor.init(PIN_ESC);
-
-    // Generate initial frame
     uint8_t pi = cfg.activePattern;
     if (pi >= G_NUM_PATTERNS) pi = 0;
     g_patterns[pi]->generate(fb, cfg, millis());
     fb.swap();
 
-    // Start WiFi AP
-    WiFi.mode(WIFI_AP);
-    bool apOk = WiFi.softAP("POV-Display", "756Rhebpv!");
-    Serial.printf("softAP: %s\n", apOk ? "OK" : "FAILED");
-    Serial.printf("AP IP: %s  MAC: %s\n",
-                  WiFi.softAPIP().toString().c_str(),
-                  WiFi.softAPmacAddress().c_str());
-
-    // Start web server
-    Serial.println("Starting web server...");
-    webServer.init(&cfg, &hall, &fb, &motor);
-    webServer.onConfigChange(onConfigChanged);
-    webServer.onImageUpload(onImageUpload);
-    Serial.println("Web server started on port 80");
-
     xTaskCreate(patternTaskFunc, "pattern", 8192, nullptr, 10, nullptr);
-    xTaskCreate(hallPollTaskFunc, "hallpoll", 2048, nullptr, 20, nullptr);
+    xTaskCreate(timingTask, "timing", 2048, nullptr, 20, nullptr);
+    xTaskCreate(configRecvTask, "cfgrecv", 4096, nullptr, 5, nullptr);
 
-    Serial.println("Ready.");
+    Serial.println("Rotating MCU ready.");
 }
 
 void loop() {

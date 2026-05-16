@@ -13,6 +13,9 @@ public:
     using ConfigCallback = void(*)(void);
     void onConfigChange(ConfigCallback cb) { configCb_ = cb; }
 
+    using RelayCallback = void(*)(const char* json, size_t len);
+    void onConfigRelay(RelayCallback cb) { relayCb_ = cb; }
+
     using ImageCallback = void(*)(const uint8_t* rgbData, uint16_t width, uint16_t height);
     void onImageUpload(ImageCallback cb) { imageCb_ = cb; }
 
@@ -25,6 +28,7 @@ private:
     Framebuffer*   fb_    = nullptr;
     Motor*         motor_ = nullptr;
     ConfigCallback configCb_ = nullptr;
+    RelayCallback  relayCb_  = nullptr;
     ImageCallback  imageCb_  = nullptr;
     SemaphoreHandle_t cfgMutex_ = nullptr;
     String bodyBuffer_;

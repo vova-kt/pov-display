@@ -26,6 +26,11 @@ pio device monitor   # serial console (115200 baud)
 ./deploy.sh                # compile + flash + monitor in one shot
 ./deploy.sh --no-monitor   # compile + flash, skip monitor
 ./deploy.sh --monitor-only # just open serial monitor
+
+# Dual-MCU wireless testing (no slip ring)
+./deploy_st.sh             # compile + flash stationary firmware + monitor
+./deploy_rot.sh            # compile + flash rotating firmware + monitor
+# Both accept --no-monitor and --monitor-only like deploy.sh
 ```
 
 ## Tests
@@ -64,9 +69,11 @@ One-time setup: `git config core.hooksPath .githooks`
 - **Effect pipeline** (`src/effect.h`) — polymorphic `Effect` base class with self-describing `Param` parameters. Global registry and four-slot stack live in `src/effect.cpp`. Effects run in stack order after pattern generation but before `fb.swap()`; they can mutate the back framebuffer (scale, fisheye scale, bloom) or emit `EffectState` (rotation `sliceOffset`). The simulator persists the last rotation phase across render-only frames so reused framebuffers do not draw a static duplicate. Adding a new effect: one class in `src/effects/`, one registry line — frame loops never change.
 - **Shared UI renderer** — `sim/js/settings_ui.js` builds the two-tab sectioned settings form (Picture / Hardware) from the registry JSON. Pattern and effect params render next to their owning selectors. Embedded in the MCU UI via `/js/settings.js`. Both UIs share the same renderer code.
 
+- **Dual-MCU wireless mode** — for testing without a slip ring. Stationary C6 (hall + motor + WiFi AP + web UI) broadcasts rotation timing and config patches over UDP to a rotating C3/C6 (patterns + LEDs + WiFi client). `TimingSource` interface (`src/timing_source.h`) decouples `SliceScheduler` from `HallSensor`; `HallTimingSource` wraps the local sensor, `WifiTimingSource` receives UDP. Three PlatformIO envs: `esp32c6` (single-MCU), `stationary`, `rotating`. See `docs/dual-mcu.md`.
+
 - **Arm layout**: 2-arm "golden star". LED strip placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU mounts behind the blade. Hub radius = 0.
 
-Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3. See `src/config.h`.
+Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). See `src/config.h`.
 
 ## Browser simulator
 
@@ -87,4 +94,5 @@ C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates 
 - `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, fisheye distortion, power budget & runtime estimates, perception rendering, polar distortion correction.
 - `docs/simulator.md` — WASM simulator architecture, timing model, how to extend.
 - `docs/settings.md` — settings registry design, Param semantics, scope filter, UI structure.
+- `docs/dual-mcu.md` — wireless dual-MCU testing setup, power budget, communication protocol, build modes.
 - `docs/effect-proposals.md` — short candidate effect ideas for text, image, and shared categories.

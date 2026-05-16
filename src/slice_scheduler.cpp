@@ -2,10 +2,10 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-void SliceScheduler::init(Framebuffer* fb, LedDriver* leds, HallSensor* hall) {
-    fb_   = fb;
-    leds_ = leds;
-    hall_ = hall;
+void SliceScheduler::init(Framebuffer* fb, LedDriver* leds, TimingSource* timing) {
+    fb_     = fb;
+    leds_   = leds;
+    timing_ = timing;
 
     esp_timer_create_args_t args = {};
     args.callback = timerCallback;
@@ -28,7 +28,7 @@ void SliceScheduler::stop() {
 void SliceScheduler::onNewRotation() {
     if (!running_) return;
 
-    uint32_t periodUs = hall_->rotationPeriodUs();
+    uint32_t periodUs = timing_->rotationPeriodUs();
     if (periodUs == 0) return;
 
     uint32_t sliceIntervalUs = periodUs / numSlices_;
