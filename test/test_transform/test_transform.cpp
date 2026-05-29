@@ -54,7 +54,7 @@ void test_canvas_brightness_encoding() {
     TEST_ASSERT_TRUE(canvas.init(10, 10));
     canvas.setPixel(0, 0, 255, 0, 0, 16);
     Pixel p = canvas.pixelAt(0, 0);
-    TEST_ASSERT_EQUAL_UINT8(0xE0 | 16, p.brightness);
+    TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix | 16, p.brightness);
 }
 
 void test_canvas_clear_zeros_pixels() {
@@ -95,7 +95,7 @@ void test_polar_empty_canvas_produces_empty_fb() {
     for (uint16_t s = 0; s < 36; s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t led = 0; led < 10; led++) {
-            TEST_ASSERT_EQUAL_UINT8(0, slice[led].brightness);
+            TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix, slice[led].brightness);
         }
     }
 }
@@ -116,7 +116,7 @@ void test_polar_center_pixel_maps_to_inner_leds() {
     int litAtLed0 = 0;
     for (uint16_t s = 0; s < 36; s++) {
         const Pixel* slice = fb.getSlice(s);
-        if (slice[0].brightness != 0) litAtLed0++;
+        if (slice[0].brightness != kHd107sBrightnessPrefix) litAtLed0++;
     }
     TEST_ASSERT_GREATER_THAN(0, litAtLed0);
 }
@@ -137,7 +137,7 @@ void test_polar_right_edge_maps_to_slice0_outer_led() {
     bool foundOuterLed = false;
     for (uint16_t s = 0; s < 36; s++) {
         const Pixel* slice = fb.getSlice(s);
-        if (slice[9].brightness != 0) {
+        if (slice[9].brightness != kHd107sBrightnessPrefix) {
             foundOuterLed = true;
             break;
         }
@@ -163,11 +163,11 @@ void test_polar_brightness_preserved() {
     for (uint16_t s = 0; s < 36 && !found; s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t led = 0; led < 10; led++) {
-            if (slice[led].brightness != 0) {
+            if (slice[led].brightness != kHd107sBrightnessPrefix) {
                 TEST_ASSERT_EQUAL_UINT8(200, slice[led].red);
                 TEST_ASSERT_EQUAL_UINT8(100, slice[led].green);
                 TEST_ASSERT_EQUAL_UINT8(50, slice[led].blue);
-                TEST_ASSERT_EQUAL_UINT8(0xE0 | 25, slice[led].brightness);
+                TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix | 25, slice[led].brightness);
                 found = true;
                 break;
             }
@@ -195,7 +195,7 @@ void test_polar_full_canvas_fills_all_fb_pixels() {
     for (uint16_t s = 0; s < 36; s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t led = 0; led < 10; led++) {
-            if (slice[led].brightness != 0) litCount++;
+            if (slice[led].brightness != kHd107sBrightnessPrefix) litCount++;
         }
     }
     TEST_ASSERT_EQUAL(36 * 10, litCount);
@@ -229,7 +229,7 @@ void test_polar_lut_rebuild_with_new_dimensions() {
     for (uint16_t s = 0; s < 72; s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t led = 0; led < 20; led++) {
-            if (slice[led].brightness != 0) litCount++;
+            if (slice[led].brightness != kHd107sBrightnessPrefix) litCount++;
         }
     }
     TEST_ASSERT_EQUAL(72 * 20, litCount);
@@ -255,12 +255,12 @@ void test_polar_angular_symmetry() {
     for (uint16_t s = 0; s < 90; s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t led = 0; led < 10; led++)
-            if (slice[led].brightness != 0) litRight++;
+            if (slice[led].brightness != kHd107sBrightnessPrefix) litRight++;
     }
     for (uint16_t s = 90; s < 270; s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t led = 0; led < 10; led++)
-            if (slice[led].brightness != 0) litLeft++;
+            if (slice[led].brightness != kHd107sBrightnessPrefix) litLeft++;
     }
     TEST_ASSERT_GREATER_THAN(0, litRight);
     TEST_ASSERT_GREATER_THAN(litLeft, litRight);
@@ -283,7 +283,7 @@ void test_identity_copies_pixels_1to1() {
     TEST_ASSERT_EQUAL_UINT8(100, slice[3].red);
     TEST_ASSERT_EQUAL_UINT8(200, slice[3].green);
     TEST_ASSERT_EQUAL_UINT8(50, slice[3].blue);
-    TEST_ASSERT_EQUAL_UINT8(0xE0 | 20, slice[3].brightness);
+    TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix | 20, slice[3].brightness);
 }
 
 void test_identity_clamps_to_smaller_dimension() {
@@ -299,7 +299,7 @@ void test_identity_clamps_to_smaller_dimension() {
 
     const Pixel* slice = fb.getSlice(35);
     for (uint16_t led = 0; led < 10; led++) {
-        TEST_ASSERT_EQUAL_UINT8(0, slice[led].brightness);
+        TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix, slice[led].brightness);
     }
 }
 
@@ -315,7 +315,7 @@ void test_identity_empty_canvas_produces_empty_fb() {
     for (uint16_t s = 0; s < 36; s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t led = 0; led < 10; led++) {
-            TEST_ASSERT_EQUAL_UINT8(0, slice[led].brightness);
+            TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix, slice[led].brightness);
         }
     }
 }

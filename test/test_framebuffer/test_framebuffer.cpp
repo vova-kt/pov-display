@@ -23,7 +23,7 @@ void test_init_clears_buffers() {
         TEST_ASSERT_EQUAL_UINT8(0, slice[l].red);
         TEST_ASSERT_EQUAL_UINT8(0, slice[l].green);
         TEST_ASSERT_EQUAL_UINT8(0, slice[l].blue);
-        TEST_ASSERT_EQUAL_UINT8(0, slice[l].brightness);
+        TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix, slice[l].brightness);
     }
 }
 
@@ -38,7 +38,7 @@ void test_set_pixel_stores_rgba() {
 void test_brightness_encoding() {
     fb.setPixel(0, 0, 0, 0, 0, 15);
     Pixel* back = fb.backSlice(0);
-    TEST_ASSERT_EQUAL_UINT8(0xE0 | 15, back[0].brightness);
+    TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix | 15, back[0].brightness);
 }
 
 void test_brightness_mask() {
@@ -77,7 +77,7 @@ void test_clear_back_zeros_pixels() {
     TEST_ASSERT_EQUAL_UINT8(0, back[0].red);
     TEST_ASSERT_EQUAL_UINT8(0, back[0].green);
     TEST_ASSERT_EQUAL_UINT8(0, back[0].blue);
-    TEST_ASSERT_EQUAL_UINT8(0, back[0].brightness);
+    TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix, back[0].brightness);
 }
 
 void test_clear_back_preserves_front() {

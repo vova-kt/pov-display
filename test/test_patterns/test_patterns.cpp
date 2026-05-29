@@ -56,7 +56,7 @@ void test_solid_fills_all_pixels() {
             TEST_ASSERT_EQUAL_UINT8(255, slice[l].red);
             TEST_ASSERT_EQUAL_UINT8(0, slice[l].green);
             TEST_ASSERT_EQUAL_UINT8(0, slice[l].blue);
-            TEST_ASSERT_EQUAL_UINT8(0xE0 | 16, slice[l].brightness);
+            TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix | 16, slice[l].brightness);
         }
     }
 }
@@ -75,7 +75,7 @@ void test_solid_uses_config_color() {
     TEST_ASSERT_EQUAL_UINT8(10, slice[0].red);
     TEST_ASSERT_EQUAL_UINT8(20, slice[0].green);
     TEST_ASSERT_EQUAL_UINT8(30, slice[0].blue);
-    TEST_ASSERT_EQUAL_UINT8(0xE0 | 5, slice[0].brightness);
+    TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix | 5, slice[0].brightness);
 }
 
 void test_solid_ignores_time() {
@@ -146,7 +146,7 @@ void test_rainbow_uses_config_brightness() {
     fb.swap();
 
     const Pixel* slice = fb.getSlice(0);
-    TEST_ASSERT_EQUAL_UINT8(0xE0 | 20, slice[0].brightness);
+    TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix | 20, slice[0].brightness);
 }
 
 void test_rainbow_name() {
@@ -231,7 +231,7 @@ void test_text_empty_string_blank() {
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            TEST_ASSERT_EQUAL_UINT8(0, slice[l].brightness);
+            TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix, slice[l].brightness);
         }
     }
 }
@@ -246,7 +246,7 @@ void test_text_renders_pixels() {
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            if (slice[l].brightness != 0) litCount++;
+            if (slice[l].brightness != kHd107sBrightnessPrefix) litCount++;
         }
     }
     TEST_ASSERT_GREATER_THAN(0, litCount);
@@ -262,7 +262,7 @@ void test_text_single_char_produces_lit_pixels() {
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            if (slice[l].brightness != 0) litCount++;
+            if (slice[l].brightness != kHd107sBrightnessPrefix) litCount++;
         }
     }
     TEST_ASSERT_GREATER_THAN(0, litCount);
@@ -282,7 +282,7 @@ void test_text_uses_config_color() {
     for (uint16_t s = 0; s < fb.numSlices() && !found; s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t l = 0; l < fb.numLeds() && !found; l++) {
-            if (slice[l].brightness != 0) {
+            if (slice[l].brightness != kHd107sBrightnessPrefix) {
                 TEST_ASSERT_EQUAL_UINT8(10, slice[l].red);
                 TEST_ASSERT_EQUAL_UINT8(20, slice[l].green);
                 TEST_ASSERT_EQUAL_UINT8(30, slice[l].blue);
@@ -305,7 +305,7 @@ void test_text_centered_on_disc() {
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            if (slice[l].brightness != 0) {
+            if (slice[l].brightness != kHd107sBrightnessPrefix) {
                 if (l < midLed) litInner++;
                 else litOuter++;
             }
@@ -327,7 +327,7 @@ static int countLitPixels(Framebuffer& fb) {
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            if (slice[l].brightness != 0) count++;
+            if (slice[l].brightness != kHd107sBrightnessPrefix) count++;
         }
     }
     return count;
@@ -336,7 +336,7 @@ static int countLitPixels(Framebuffer& fb) {
 static int countLitOnLed(Framebuffer& fb, uint16_t led) {
     int count = 0;
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
-        if (fb.getSlice(s)[led].brightness != 0) count++;
+        if (fb.getSlice(s)[led].brightness != kHd107sBrightnessPrefix) count++;
     }
     return count;
 }
@@ -346,7 +346,7 @@ static uint16_t maxLitLed(Framebuffer& fb) {
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            if (slice[l].brightness != 0 && l > maxLed) maxLed = l;
+            if (slice[l].brightness != kHd107sBrightnessPrefix && l > maxLed) maxLed = l;
         }
     }
     return maxLed;
@@ -392,7 +392,7 @@ void test_matrix_renders_neon_green_drop() {
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
         const Pixel* slice = fb.getSlice(s);
         for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            if (slice[l].brightness == 0) continue;
+            if (slice[l].brightness == kHd107sBrightnessPrefix) continue;
             litCount++;
             TEST_ASSERT_GREATER_OR_EQUAL(slice[l].red, slice[l].green);
             TEST_ASSERT_GREATER_OR_EQUAL(slice[l].blue, slice[l].green);
@@ -587,10 +587,10 @@ void test_image_without_upload_waits_for_caller_swap() {
     TEST_ASSERT_EQUAL_UINT8(7, front[0].red);
     TEST_ASSERT_EQUAL_UINT8(8, front[0].green);
     TEST_ASSERT_EQUAL_UINT8(9, front[0].blue);
-    TEST_ASSERT_EQUAL_UINT8(0xE0 | 10, front[0].brightness);
+    TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix | 10, front[0].brightness);
 
     fb.swap();
-    TEST_ASSERT_EQUAL_UINT8(0, fb.getSlice(0)[0].brightness);
+    TEST_ASSERT_EQUAL_UINT8(kHd107sBrightnessPrefix, fb.getSlice(0)[0].brightness);
 }
 
 void test_image_with_upload_waits_for_caller_swap() {

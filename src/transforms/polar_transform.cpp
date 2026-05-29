@@ -70,7 +70,7 @@ void PolarTransform::apply(const Canvas& canvas, Framebuffer& fb, const Config&)
 
             Pixel p = canvas.pixelAt(cx, cy);
             if (p.brightness == 0) continue;
-            fb.setPixel(s, led, p.red, p.green, p.blue, p.brightness & 0x1F);
+            fb.setPixel(s, led, p.red, p.green, p.blue, p.brightness & kHd107sBrightnessMask);
         }
     }
 }

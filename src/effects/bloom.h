@@ -91,8 +91,8 @@ public:
 
                     if (addR | addG | addB) {
                         uint8_t srcBr = maxBrightness(scratch, lo, hi, (int32_t)led);
-                        if (srcBr > (slice[led].brightness & 0x1F))
-                            slice[led].brightness = 0xE0 | srcBr;
+                        if (srcBr > (slice[led].brightness & kHd107sBrightnessMask))
+                            slice[led].brightness = kHd107sBrightnessPrefix | srcBr;
                     }
                 }
             }

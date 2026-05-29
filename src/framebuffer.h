@@ -2,12 +2,17 @@
 #include <cstdint>
 #include <cstddef>
 
+static constexpr uint8_t kHd107sBrightnessPrefix = 0xE0; // HD107S top-3-bit marker (111xxxxx)
+static constexpr uint8_t kHd107sBrightnessMask   = 0x1F; // 5-bit brightness value field
+
 struct __attribute__((packed)) Pixel {
-    uint8_t brightness;  // 0xE0 | (0..31)
+    uint8_t brightness; // kHd107sBrightnessPrefix | (0..31)
     uint8_t blue;
     uint8_t green;
     uint8_t red;
 };
+
+static constexpr Pixel kBlackPixel = {kHd107sBrightnessPrefix, 0, 0, 0};
 
 class Framebuffer {
 public:

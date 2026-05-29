@@ -31,7 +31,7 @@ void Canvas::setPixel(uint16_t x, uint16_t y,
                       uint8_t r, uint8_t g, uint8_t b, uint8_t brightness) {
     if (x >= width_ || y >= height_) return;
     Pixel& p = buffer_[(size_t)y * width_ + x];
-    p.brightness = 0xE0 | (brightness & 0x1F);
+    p.brightness = kHd107sBrightnessPrefix | (brightness & kHd107sBrightnessMask);
     p.blue  = b;
     p.green = g;
     p.red   = r;

@@ -13,6 +13,7 @@ These are project rules. Follow them on every change.
 9. **New features require tests.** Every new feature, pattern, or behavioral change must include tests in the appropriate `test/` suite. Update existing tests when refactoring changes observable behavior (e.g. moving `fb.swap()` out of patterns). Run `pio test -e native` before considering any change complete.
 10. **Simulator logic stays in C++.** All sim rendering, physics, and perception models live in `sim/*.cpp` compiled to WASM. JavaScript (`sim/js/`) is only DOM event glue and readout updates — no computation or GL calls. When adding sim features, implement in C++.
 11. **Sim/MCU settings parity.** Every user-facing setting must exist in both the simulator and the MCU firmware. When adding any config field, UI control, or runtime toggle, implement it in both `sim/` and `src/`.
+12. **No magic numbers.** Use named constants (`static constexpr`, `constexpr`, `#define`) instead of bare numeric literals. Each constant gets a short inline comment explaining what the value means (e.g. `static constexpr uint8_t kHd107sBrightnessPrefix = 0xE0; // HD107S top-3-bit marker`).
 
 These rules echo [Anthropic's CLAUDE.md guidance](https://code.claude.com/docs/en/best-practices) — keep this file lean (it loads every session);
 

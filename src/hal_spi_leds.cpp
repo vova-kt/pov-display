@@ -88,7 +88,7 @@ void LedDriver::allOff(uint16_t count) {
     memset(txBuf_, 0x00, 4);
     uint16_t pos = 4;
     for (uint16_t i = 0; i < count; i++) {
-        txBuf_[pos++] = 0xE0;  // brightness=0
+        txBuf_[pos++] = kHd107sBrightnessPrefix;
         txBuf_[pos++] = 0;
         txBuf_[pos++] = 0;
         txBuf_[pos++] = 0;

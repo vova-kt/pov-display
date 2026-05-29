@@ -9,14 +9,6 @@ void ScannerPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeM
     uint16_t pos = (timeMs / delay) % n;
 
     for (uint16_t s = 0; s < fb.numSlices(); s++) {
-        for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            fb.setPixel(s, l, 0, 0, 0, cfg.brightness);
-        }
-    }
-    for (uint16_t s = 0; s < fb.numSlices(); s++) {
-        for (uint16_t l = 0; l < fb.numLeds(); l++) {
-            fb.setPixel(s, l, 0, 0, 0, cfg.brightness);
-        }
         fb.setPixel(s, pos, cfg.colorR, cfg.colorG, cfg.colorB, cfg.brightness);
     }
 

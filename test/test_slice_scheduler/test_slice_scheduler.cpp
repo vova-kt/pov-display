@@ -46,7 +46,7 @@ static SliceScheduler sched;
 static void fillSlice(uint16_t slice, uint8_t r, uint8_t g, uint8_t b) {
     Pixel* row = fb.backSlice(slice);
     for (uint16_t i = 0; i < fb.numLeds(); i++)
-        row[i] = {(uint8_t)(0xE0 | 16), b, g, r};
+        row[i] = {(uint8_t)(kHd107sBrightnessPrefix | 16), b, g, r};
 }
 
 void setUp() {

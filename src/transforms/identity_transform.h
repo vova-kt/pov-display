@@ -13,7 +13,7 @@ public:
             for (uint16_t y = 0; y < h; y++) {
                 Pixel p = canvas.pixelAt(x, y);
                 if (p.brightness == 0) continue;
-                fb.setPixel(x, y, p.red, p.green, p.blue, p.brightness & 0x1F);
+                fb.setPixel(x, y, p.red, p.green, p.blue, p.brightness & kHd107sBrightnessMask);
             }
         }
     }
