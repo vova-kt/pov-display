@@ -9,6 +9,7 @@
 #include "hall_timing_source.h"
 #include "slice_scheduler.h"
 #include "motor.h"
+#include "motor_control.h"
 #include "web/web_server.h"
 
 #include "effect.h"
@@ -25,9 +26,12 @@ static HallSensor     hall;
 static HallTimingSource hallTiming(&hall);
 static SliceScheduler scheduler;
 static Motor          motor;
+static MotorSpeedController motorControl;
 static PovWebServer   webServer;
 
 static volatile bool configDirty = false;
+static constexpr bool kLogPixelDebug = false;    // enable verbose [dbg] pixel/frame serial diagnostics
+static constexpr bool kLogHallIdleDebug = false; // enable verbose [hall-dbg] idle Hall serial diagnostics
 
 // --- Callbacks ---
 static void onConfigChanged() {
@@ -76,7 +80,6 @@ static void patternTaskFunc(void*) {
             scheduler.setMirror(cfg.mirrorPattern);
             leds.recomputeScale(cfg.numLeds, cfg.radialBalance);
             leds.setReversed(cfg.stripReversed);
-            motor.setPulseUs(cfg.escPulseUs);
         }
 
         uint8_t pi = cfg.activePattern;
@@ -91,14 +94,14 @@ static void patternTaskFunc(void*) {
 
         // When not spinning, ask the render task to push slice 0
         uint32_t lastHall = hallTiming.lastTriggerMs();
-        bool spinning = (lastHall > 0) && ((millis() - lastHall) < 500);
+        bool spinning = freshHallRpm(hall.rpm(), lastHall, millis()) > 0;
         if (!spinning) {
             if (!wasDirectMode) {
                 Serial.printf("[pattern] direct mode: pushing slice 0 to strip (%u leds)\n", fb.numLeds());
                 wasDirectMode = true;
             }
 
-            if (frameCount % 90 == 0) {
+            if (kLogPixelDebug && frameCount % 90 == 0) {
                 const Pixel* data = fb.getSlice(0);
                 uint32_t nonZero = 0;
                 for (uint16_t i = 0; i < fb.numLeds(); i++) {
@@ -138,8 +141,12 @@ static void hallPollTaskFunc(void*) {
             trigCount++;
             uint32_t now = millis();
             if (now - lastLogMs > 2000) {
-                Serial.printf("[hall] trig #%lu  rpm=%lu  period=%luus  pin=%d\n",
-                              trigCount, hall.rpm(), hall.rotationPeriodUs(),
+                uint32_t expectedRpm = targetRefreshHzToRpm(cfg.targetHz, cfg.numArms);
+                uint32_t actualRpm = hall.rpm();
+                int32_t rpmError = (int32_t)expectedRpm - (int32_t)actualRpm;
+                Serial.printf("[hall] rpm expected=%lu actual=%lu expected-actual=%ld  trig #%lu  period=%luus  pin=%d\n",
+                              (unsigned long)expectedRpm, (unsigned long)actualRpm, (long)rpmError,
+                              (unsigned long)trigCount, (unsigned long)hall.rotationPeriodUs(),
                               digitalRead(PIN_HALL));
                 lastLogMs = now;
             }
@@ -148,8 +155,8 @@ static void hallPollTaskFunc(void*) {
 
         uint32_t now = millis();
         uint32_t lastHall = hall.lastTriggerMs();
-        bool spinning = (lastHall > 0) && ((now - lastHall) < 500);
-        if (!spinning && (now - lastIdleLogMs > 1000)) {
+        bool spinning = freshHallRpm(hall.rpm(), lastHall, now) > 0;
+        if (kLogHallIdleDebug && !spinning && (now - lastIdleLogMs > 1000)) {
             Serial.printf("[hall-dbg] pin=%d  lastTrig=%lums ago  rpm=%lu  period=%luus  trigs=%lu\n",
                           digitalRead(PIN_HALL),
                           lastHall ? (now - lastHall) : 0,
@@ -159,6 +166,59 @@ static void hallPollTaskFunc(void*) {
         }
 
         vTaskDelay(1);
+    }
+}
+
+// --- Closed-loop motor control task ---
+static void motorControlTaskFunc(void*) {
+    uint8_t lastTargetHz = cfg.targetHz;
+    uint8_t lastNumArms = cfg.numArms;
+    bool lastStopped = true;
+    uint32_t lastControlMs = 0;
+
+    for (;;) {
+        bool stopped = cfg.motorStopped;
+        uint8_t targetHz = cfg.targetHz;
+        uint8_t numArms = cfg.numArms;
+
+        if (stopped) {
+            if (!lastStopped || cfg.escPulseUs != kStopPulseUs) {
+                motorControl.stop();
+                cfg.escPulseUs = motorControl.pulseUs();
+                motor.stop();
+            }
+            lastStopped = true;
+        } else {
+            uint32_t now = millis();
+            bool targetChanged = targetHz != lastTargetHz || numArms != lastNumArms;
+
+            if (lastStopped || !motorControl.running()) {
+                motorControl.start(targetHz, numArms);
+                cfg.escPulseUs = motorControl.pulseUs();
+                motor.setPulseUs(cfg.escPulseUs);
+                lastControlMs = now;
+            } else if (targetChanged) {
+                motorControl.setTarget(targetHz, numArms);
+            }
+
+            if (now - lastControlMs >= kMotorControlIntervalMs) {
+                uint32_t measuredRpm = freshHallRpm(hall.rpm(), hall.lastTriggerMs(), now);
+                uint16_t nextPulse = motorControl.update(measuredRpm);
+                if (nextPulse != cfg.escPulseUs) {
+                    cfg.escPulseUs = nextPulse;
+                    motor.setPulseUs(nextPulse);
+                    Serial.printf("[motor-ctl] target=%lu rpm measured=%lu pulse=%u\n",
+                                  motorControl.targetRpm(), measuredRpm, nextPulse);
+                }
+                lastControlMs = now;
+            }
+
+            lastStopped = false;
+        }
+
+        lastTargetHz = targetHz;
+        lastNumArms = numArms;
+        vTaskDelay(pdMS_TO_TICKS(kMotorControlTaskDelayMs));
     }
 }
 
@@ -225,9 +285,11 @@ void setup() {
     scheduler.start();
     Serial.println("[scheduler] started");
 
-    // Boot stays stopped; the Start command derives escPulseUs from targetHz.
-    Serial.printf("[motor] targetHz=%u numArms=%u -> escPulseUs=%u\n",
-                  cfg.targetHz, cfg.numArms, cfg.escPulseUs);
+    // Boot stays stopped; the motor control task owns ESC pulses after Start.
+    Serial.printf("[motor] targetHz=%u numArms=%u targetRpm=%lu escPulseUs=%u\n",
+                  cfg.targetHz, cfg.numArms,
+                  targetRefreshHzToRpm(cfg.targetHz, cfg.numArms),
+                  cfg.escPulseUs);
     motor.setPulseUs(cfg.escPulseUs);
 
     // Generate initial frame
@@ -254,6 +316,7 @@ void setup() {
 
     xTaskCreate(patternTaskFunc, "pattern", 8192, nullptr, 10, nullptr);
     xTaskCreate(hallPollTaskFunc, "hallpoll", 2048, nullptr, 20, nullptr);
+    xTaskCreate(motorControlTaskFunc, "motorctl", 2048, nullptr, 9, nullptr);
 
     Serial.printf("Free heap: %u  Free DMA: %u\n",
                   ESP.getFreeHeap(),

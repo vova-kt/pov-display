@@ -24,7 +24,7 @@ Centered text has one deliberate low-scale escape hatch in `src/patterns/text.cp
 
 ## Scope filter
 
-Settings carry a `Scope` tag: `Both`, `McuOnly`, or `SimOnly`. The registry's `toJson()` pre-filters by scope, so each client receives only what applies. Fixed hardware fields such as LED count, strip direction, SPI clock, brightness cap, and arm count are build-time constants on MCU targets but `SimOnly` controls in the browser. Sim diagnostics (jitter sliders, displayHz, overlays) are also `SimOnly`. Motor speed (`escPulseUs`) is derived from `targetHz` and `NUM_ARMS` when the motor is running or when the Start command is used; boot and Reset Preferences leave the transient motor state stopped.
+Settings carry a `Scope` tag: `Both`, `McuOnly`, or `SimOnly`. The registry's `toJson()` pre-filters by scope, so each client receives only what applies. Fixed hardware fields such as LED count, strip direction, SPI clock, brightness cap, RPM cap, and arm count are build-time constants on MCU targets but `SimOnly` controls in the browser. Sim diagnostics (jitter sliders, displayHz, overlays) are also `SimOnly`. Motor speed is exposed as refresh rate, not raw throttle: `targetHz` sets the RPM target, `HW_MAX_RPM` caps it for the assembled hardware, and the Hall-feedback controller in `src/motor_control.cpp` owns the transient `escPulseUs` command while running. Boot and Reset Preferences leave the motor stopped. See [closed-loop speed control](concepts/closed-loop-speed-control.md) for the control rationale.
 
 For the wire format and the full registered entry list, see `src/settings_registry.cpp` directly — duplicating the schema here would rot.
 
@@ -34,10 +34,10 @@ Build-time config is for hardware wiring, capacity, and environment behavior tha
 
 - **Pin wiring** — `PIN_LED_CLK`, `PIN_LED_MOSI`, `PIN_HALL`, and `PIN_ESC` bind firmware roles to board pins.
 - **Framebuffer and strip capacity** — `MAX_LEDS`, `MAX_SLICES`, and `NUM_SLICES` size fixed buffers and timing assumptions before runtime settings are applied.
-- **Fixed hardware build fields** — `HW_NUM_LEDS`, `HW_STRIP_REVERSED`, `HW_SPI_CLOCK_MHZ`, and `HW_MAX_BRIGHTNESS` describe the assembled display and power envelope. The simulator mirrors them as `SimOnly` controls.
+- **Fixed hardware build fields** — `HW_NUM_LEDS`, `HW_STRIP_REVERSED`, `HW_SPI_CLOCK_MHZ`, `HW_MAX_BRIGHTNESS`, and `HW_MAX_RPM` describe the assembled display and power envelope. The simulator mirrors the explorable hardware fields as `SimOnly` controls.
 - **Physical arm count** — `NUM_ARMS` is a firmware build constant on MCU targets; the simulator exposes arm count separately so multi-arm rendering can be explored without reflashing.
 - **Hardware geometry** — `LED_SIZE_MM`, `LED_GAP_MM`, and `HUB_RADIUS_MM` describe the physical strip and hub geometry used by simulator and layout code.
-- **ESC pulse mapping** — `kStopPulseUs`, `kMinSpinPulseUs`, `kMaxPulseUs`, and `kMaxRpm` define the derived refresh-rate-to-motor command range.
+- **Motor control** — ESC pulse bounds and feedback tuning constants live with the hardware defaults in `src/config.h`; the controller behavior lives in `src/motor_control.cpp`.
 - **Platform behavior** — `CORE_DEBUG_LEVEL` and `CONFIG_ASYNC_TCP_USE_WDT` are environment-level PlatformIO flags for diagnostics and AsyncTCP watchdog behavior.
 
 When changing one of these, update `platformio.ini` for the target environment and keep the defaults in `src/config.h` sensible for tests and simulator builds.

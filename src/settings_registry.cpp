@@ -41,10 +41,6 @@ static void     set_color(int32_t v)         {
 static int32_t  get_targetHz()               { return s_cfg->targetHz; }
 static void     set_targetHz(int32_t v)      {
     s_cfg->targetHz = (uint8_t)v;
-    if (!s_cfg->motorStopped) {
-        uint32_t rpm = (uint32_t)s_cfg->targetHz * 60 / s_cfg->numArms;
-        s_cfg->escPulseUs = rpmToPulseUs(rpm);
-    }
 }
 static int32_t  get_mirror()                 { return s_cfg->mirrorPattern ? 1 : 0; }
 static void     set_mirror(int32_t v)        { s_cfg->mirrorPattern = v != 0; }

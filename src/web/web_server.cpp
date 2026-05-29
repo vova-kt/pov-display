@@ -4,6 +4,7 @@
 #include "settings_js.h"
 #include "../effect.h"
 #include "../settings_registry.h"
+#include "../motor_control.h"
 #include "../patterns/registry.h"
 #include <ArduinoJson.h>
 
@@ -91,7 +92,7 @@ void PovWebServer::setupRoutes() {
 
     server_.on("/api/status", HTTP_GET, [this](AsyncWebServerRequest* req) {
         JsonDocument doc;
-        doc["rpm"]          = hall_->rpm();
+        doc["rpm"]          = freshHallRpm(hall_->rpm(), hall_->lastTriggerMs(), millis());
         doc["freeHeap"]     = ESP.getFreeHeap();
         doc["uptime"]       = millis();
         doc["motorStopped"] = cfg_->motorStopped;
@@ -124,8 +125,7 @@ void PovWebServer::setupRoutes() {
         Serial.println("WebServer: POST /api/motor/start");
         xSemaphoreTake(cfgMutex_, portMAX_DELAY);
         cfg_->motorStopped = false;
-        uint32_t rpm = (uint32_t)cfg_->targetHz * 60 / cfg_->numArms;
-        cfg_->escPulseUs = rpmToPulseUs(rpm);
+        cfg_->escPulseUs = kMotorStartupPulseUs;
         xSemaphoreGive(cfgMutex_);
         motor_->setPulseUs(cfg_->escPulseUs);
         if (configCb_) configCb_();

@@ -28,6 +28,10 @@ Runtime framebuffer resize is coordinated by `SliceScheduler`: the timer is stop
 
 SPIFFS requires a separate flash partition, upload step, and filesystem overhead. The web UI is ~10 KB of HTML/CSS/JS — trivially fits in a PROGMEM string. One `pio run -t upload` deploys everything. Maintenance actions such as preferences reset and controller reboot stay in the same page so field use does not need serial access. If the UI grows past ~50 KB, move to LittleFS.
 
+## Diagnostics
+
+Boot, resize, Hall, and motor-control serial logs stay enabled for field debugging. The periodic Hall log leads with expected, actual, and expected-minus-actual RPM so speed error is scannable before trigger details. High-volume pixel and idle-Hall diagnostics are kept in `src/main.cpp` but disabled by default because they add noise during normal spin testing.
+
 ## Why AsyncWebServer
 
 `ESPAsyncWebServer` handles requests without blocking — important since it shares the single core with rendering. The ESP-IDF HTTP server works but requires more boilerplate for the same result.
@@ -40,6 +44,10 @@ At 1200 RPM / 360 slices / 36 LEDs @ 20 MHz SPI:
 - Headroom: ~79 µs
 
 At 144 LEDs the SPI transfer exceeds the slice interval at 360 slices. To accommodate longer strips, reduce the slice count via the compile-time build configuration (`NUM_SLICES` build flag/constant) or increase the fixed SPI clock build setting. Slice count still lives on `Config` so the framebuffer and scheduler share one runtime value after boot, but it is not exposed through the settings registry or UI.
+
+## Motor speed control
+
+Refresh rate is the user-facing target; ESC pulse width is an internal actuator. The active firmware runs a low-priority motor control task that compares fresh Hall-derived RPM with the RPM implied by `targetHz` and physical arm count, capped by the build-time `HW_MAX_RPM`, then nudges the ESC pulse toward the target. Stale Hall RPM is treated as no measurement so the controller uses the bounded startup ramp instead of chasing old speed data. The compact controller lives in `src/motor_control.cpp`; the control-loop concept is summarized in `docs/concepts/closed-loop-speed-control.md`.
 
 ## Settings & params
 
@@ -79,4 +87,5 @@ Patterns: `src/patterns/`
 Canvas (rectangular pixel buffer): `src/canvas.h`, `src/canvas.cpp`
 Coordinate transforms: `src/coord_transform.h`, `src/transforms/`
 Motor ESC: `src/motor.h`, `src/motor.cpp`
+Motor speed controller: `src/motor_control.h`, `src/motor_control.cpp`
 Web server + UI: `src/web/`

@@ -35,7 +35,7 @@ Since calibration is lost on every power-off, the firmware runs it on every boot
          ↳ Motor may briefly twitch but 500 ms limits spin-up
 ~835 ms  Switch to 1000 µs (min throttle) for 4 s
          ↳ ESC records min, completes calibration, arms
-~4.8 s   Arm complete. Firmware applies saved throttle (default 1200 µs = ~20%)
+~4.8 s   Arm complete. Firmware holds minimum throttle until Start is pressed
 ```
 
 **Why 2000 µs must come first**: if the ESC sees only 1000 µs, it doesn't recognise the throttle range (calibration doesn't persist on this ESC) and enters continuous error beeping. The 2000→1000 sequence teaches it the range on every boot.
@@ -78,7 +78,7 @@ The ESC expects standard servo-style PWM: 50 Hz (20 ms period), pulse width 1000
 
 The ESP32-C6 LEDC generates this at 16-bit resolution. At 80 MHz APB clock, the fractional divider (24 + 106/256) gives exactly 50 Hz — no frequency drift. One duty tick = 0.305 µs, so the 1000 µs pulse resolves to 3276 ticks (999.76 µs actual). Well within ESC tolerance.
 
-Throttle mapping: 1000 µs = stop, ~1150 µs = spin threshold, and 2000 µs = full. The web UI exposes refresh rate and start/stop; firmware derives the ESC pulse from refresh rate only while the motor is running or when Start is pressed. Boot and Reset Preferences hold the 1000 µs stop pulse.
+Throttle mapping is only a pulse-width protocol, not a reliable speed map. The web UI exposes refresh rate and start/stop; when running, firmware uses Hall RPM feedback to adjust the ESC pulse toward the selected refresh rate, capped by `HW_MAX_RPM`. Boot and Reset Preferences hold the 1000 µs stop pulse. See [closed-loop speed control](closed-loop-speed-control.md) for why raw ESC pulse is treated as an internal actuator.
 
 ## Swapping ESCs
 

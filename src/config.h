@@ -42,40 +42,44 @@ constexpr uint8_t NUM_ARMS = 2;    // physical arm count (overridable via -DNUM_
 #ifndef HW_MAX_BRIGHTNESS
 #define HW_MAX_BRIGHTNESS 31 // Safety cap for 5-bit HD107S brightness
 #endif
+#ifndef HW_MAX_RPM
+#define HW_MAX_RPM 900 // Safety cap for closed-loop motor speed target
+#endif
 
 // --- Hardware geometry (144 LEDs/m strip: 3.0 mm pixel, 3.5 mm gap, 6.5 mm pitch) ---
 constexpr float   LED_SIZE_MM    = 3.0f;
 constexpr float   LED_GAP_MM     = 3.5f;
 constexpr uint8_t HUB_RADIUS_MM  = 1;
 
-// --- ESC pulse mapping (linear: 1150 µs at 0 RPM spin threshold → 2000 µs at 3600 RPM) ---
-static constexpr uint16_t kStopPulseUs    = 1000;
-static constexpr uint16_t kMinSpinPulseUs = 1150;
-static constexpr uint16_t kMaxPulseUs     = 2000;
-static constexpr uint32_t kMaxRpm         = 3600; // 60 Hz × 60 s / 1 arm
-
-inline uint16_t rpmToPulseUs(uint32_t rpm) {
-    if (rpm == 0) return kStopPulseUs;
-    uint16_t pulse = kMinSpinPulseUs + (uint16_t)(rpm * (kMaxPulseUs - kMinSpinPulseUs) / kMaxRpm);
-    return pulse > kMaxPulseUs ? kMaxPulseUs : pulse;
-}
+// --- ESC pulse bounds and closed-loop motor control ---
+static constexpr uint16_t kStopPulseUs              = 1000; // ESC calibrated minimum/stop pulse
+static constexpr uint16_t kMotorStartupPulseUs      = 1150; // conservative first pulse before Hall feedback
+static constexpr uint16_t kMaxPulseUs               = 2000; // ESC calibrated maximum pulse
+static constexpr uint16_t kNoHallStartupMaxPulseUs  = 1250; // cap while waiting for the first Hall pulse
+static constexpr uint8_t  kNoHallRampStepUs         = 5;    // slow startup ramp per control tick
+static constexpr uint16_t kMotorControlIntervalMs   = 100;  // throttle correction cadence
+static constexpr uint8_t  kMotorControlTaskDelayMs  = 25;   // task poll interval for start/stop changes
+static constexpr uint16_t kMotorControlDeadbandRpm  = 15;   // ignore tiny Hall measurement noise
+static constexpr uint8_t  kMotorControlRpmPerUs     = 8;    // RPM error represented by one pulse µs step
+static constexpr uint8_t  kMotorControlMaxStepUs    = 100;  // largest pulse correction per tick
+static constexpr uint16_t kHallFreshTimeoutMs       = 500;  // Hall RPM is stale after this quiet interval
 
 // --- Runtime configuration ---
 struct Config {
     uint16_t numLeds        = HW_NUM_LEDS;
     uint16_t numSlices      = NUM_SLICES;
-    uint8_t  brightness     = 16;     // 0..31 HD107S global brightness
+    uint8_t  brightness     = 2;     // 0..31 HD107S global brightness
     uint8_t  maxBrightness  = HW_MAX_BRIGHTNESS;
     int16_t  phaseOffset    = 0;
 
     uint8_t  activePattern  = 3;
     uint8_t  colorR         = 255;
-    uint8_t  colorG         = 0;
-    uint8_t  colorB         = 0;
+    uint8_t  colorG         = 255;
+    uint8_t  colorB         = 255;
 
     uint8_t  numArms        = NUM_ARMS; // physical arm count (build-time constant)
     uint8_t  targetHz       = 12;     // target refresh rate (12, 24, 25, 30, 60)
-    uint16_t escPulseUs     = kStopPulseUs; // derived from targetHz; 1000=stop
+    uint16_t escPulseUs     = kStopPulseUs; // current ESC command; motor controller updates while running
     bool     motorStopped   = true;   // transient: default-safe stopped state
     uint8_t  spiClockMhz    = HW_SPI_CLOCK_MHZ;
     bool     mirrorPattern  = true;

@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include "config.h"
+#include "motor_control.h"
 #include "settings_registry.h"
 #include "patterns/registry.h"
 #include "effect.h"
@@ -545,33 +546,82 @@ void test_pattern_nvs_rejects_invalid_text_delay() {
     TEST_ASSERT_EQUAL_INT32(500, delay->value);
 }
 
-// ── Motor pulse derivation ────────────────────────────────────────────────
+// ── Motor speed control ───────────────────────────────────────────────────
 
-void test_targetHz_recomputes_escPulse() {
-    cfg.motorStopped = false;
-    cfg.numArms = 2;
-    JsonDocument doc;
-    doc["settings"]["targetHz"] = 30;
-    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
-    // 30 Hz × 60 / 2 arms = 900 RPM → 1150 + 900*850/3600 = 1362
-    TEST_ASSERT_EQUAL_UINT16(1362, cfg.escPulseUs);
+static constexpr uint8_t kLowRefreshHz = 12;         // lowest selectable refresh rate
+static constexpr uint8_t kMidRefreshHz = 30;         // middle selectable refresh rate
+static constexpr uint8_t kHighRefreshHz = 60;        // highest selectable refresh rate
+static constexpr uint8_t kTwoArmCount = 2;           // default physical arm count
+static constexpr uint8_t kSingleArmCount = 1;        // worst-case RPM arm count
+static constexpr uint32_t kLowTwoArmRpm = 360;       // 12 Hz on two arms
+static constexpr uint32_t kMidTwoArmRpm = 900;       // 30 Hz on two arms
+static constexpr uint32_t kHighSingleArmUncappedRpm = 3600; // 60 Hz on one arm before safety cap
+static constexpr uint32_t kConfiguredMaxRpm = 900;   // HW_MAX_RPM build default
+static constexpr uint16_t kPreviousPulseUs = 1500;   // arbitrary running throttle command
+static constexpr uint32_t kObservedFastRpm = 1440;   // 48 Hz on two arms, observed failure case
+static constexpr uint32_t kNoHallMeasuredRpm = 0;    // no Hall pulse seen yet
+static constexpr uint32_t kHallMeasuredRpm = 146;    // slow but valid Hall measurement
+static constexpr uint32_t kNowMs = 2000;             // arbitrary control-loop timestamp
+static constexpr uint8_t kStaleExtraMs = 1;          // just past freshness timeout
+static constexpr uint8_t kRampToCapTicks = 40;       // enough ticks to hit no-Hall startup cap
+
+void test_target_rpm_uses_arm_count() {
+    TEST_ASSERT_EQUAL_UINT32(kConfiguredMaxRpm, HW_MAX_RPM);
+    TEST_ASSERT_EQUAL_UINT32(kLowTwoArmRpm, targetRefreshHzToRpm(kLowRefreshHz, kTwoArmCount));
+    TEST_ASSERT_EQUAL_UINT32(kMidTwoArmRpm, targetRefreshHzToRpm(kMidRefreshHz, kTwoArmCount));
+    TEST_ASSERT_GREATER_THAN(kConfiguredMaxRpm, kHighSingleArmUncappedRpm);
+    TEST_ASSERT_EQUAL_UINT32(kConfiguredMaxRpm, targetRefreshHzToRpm(kHighRefreshHz, kSingleArmCount));
 }
 
-void test_max_rpm_clamps_pulse() {
+void test_targetHz_does_not_open_loop_recompute_pulse() {
     cfg.motorStopped = false;
-    cfg.numArms = 1;
+    cfg.numArms = kTwoArmCount;
+    cfg.escPulseUs = kPreviousPulseUs;
     JsonDocument doc;
-    doc["settings"]["targetHz"] = 60;
+    doc["settings"]["targetHz"] = kMidRefreshHz;
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
-    // 60 Hz × 60 / 1 arm = 3600 RPM → 1150 + 850 = 2000 (max)
-    TEST_ASSERT_EQUAL_UINT16(2000, cfg.escPulseUs);
+    TEST_ASSERT_EQUAL_UINT16(kPreviousPulseUs, cfg.escPulseUs);
+}
+
+void test_hall_rpm_expires_when_trigger_is_stale() {
+    TEST_ASSERT_EQUAL_UINT32(kHallMeasuredRpm,
+        freshHallRpm(kHallMeasuredRpm, kNowMs - kHallFreshTimeoutMs, kNowMs));
+    TEST_ASSERT_EQUAL_UINT32(kNoHallMeasuredRpm,
+        freshHallRpm(kHallMeasuredRpm, kNowMs - kHallFreshTimeoutMs - kStaleExtraMs, kNowMs));
+    TEST_ASSERT_EQUAL_UINT32(kNoHallMeasuredRpm,
+        freshHallRpm(kHallMeasuredRpm, 0, kNowMs));
+}
+
+void test_motor_controller_starts_conservatively() {
+    MotorSpeedController ctl;
+    ctl.start(kLowRefreshHz, kTwoArmCount);
+    TEST_ASSERT_TRUE(ctl.running());
+    TEST_ASSERT_EQUAL_UINT32(kLowTwoArmRpm, ctl.targetRpm());
+    TEST_ASSERT_EQUAL_UINT16(kMotorStartupPulseUs, ctl.pulseUs());
+}
+
+void test_motor_controller_cuts_throttle_when_hz_too_high() {
+    MotorSpeedController ctl;
+    ctl.start(kLowRefreshHz, kTwoArmCount);
+    uint16_t pulse = ctl.update(kObservedFastRpm);
+    TEST_ASSERT_LESS_THAN(kMotorStartupPulseUs, pulse);
+    TEST_ASSERT_EQUAL_UINT16(kMotorStartupPulseUs - kMotorControlMaxStepUs, pulse);
+}
+
+void test_motor_controller_ramps_without_hall_feedback() {
+    MotorSpeedController ctl;
+    ctl.start(kLowRefreshHz, kTwoArmCount);
+    uint16_t pulse = ctl.update(kNoHallMeasuredRpm);
+    TEST_ASSERT_EQUAL_UINT16(kMotorStartupPulseUs + kNoHallRampStepUs, pulse);
+    for (uint8_t i = 0; i < kRampToCapTicks; i++) pulse = ctl.update(kNoHallMeasuredRpm);
+    TEST_ASSERT_EQUAL_UINT16(kNoHallStartupMaxPulseUs, pulse);
 }
 
 void test_motor_stopped_prevents_recompute() {
     cfg.motorStopped = true;
     cfg.escPulseUs = kStopPulseUs;
     JsonDocument doc;
-    doc["settings"]["targetHz"] = 60;
+    doc["settings"]["targetHz"] = kHighRefreshHz;
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
     TEST_ASSERT_EQUAL_UINT16(kStopPulseUs, cfg.escPulseUs);
 }
@@ -655,8 +705,12 @@ int main() {
     RUN_TEST(test_nvs_roundtrip);
     RUN_TEST(test_pattern_nvs_rejects_invalid_text_delay);
 
-    RUN_TEST(test_targetHz_recomputes_escPulse);
-    RUN_TEST(test_max_rpm_clamps_pulse);
+    RUN_TEST(test_target_rpm_uses_arm_count);
+    RUN_TEST(test_targetHz_does_not_open_loop_recompute_pulse);
+    RUN_TEST(test_hall_rpm_expires_when_trigger_is_stale);
+    RUN_TEST(test_motor_controller_starts_conservatively);
+    RUN_TEST(test_motor_controller_cuts_throttle_when_hz_too_high);
+    RUN_TEST(test_motor_controller_ramps_without_hall_feedback);
     RUN_TEST(test_motor_stopped_prevents_recompute);
     RUN_TEST(test_clearNvs_removes_stored_settings);
     RUN_TEST(test_resetToDefaults_restores_defaults);

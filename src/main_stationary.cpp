@@ -4,6 +4,7 @@
 #include "config.h"
 #include "hall_sensor.h"
 #include "motor.h"
+#include "motor_control.h"
 #include "web/web_server.h"
 #include "settings_registry.h"
 #include "comm/wifi_timing.h"
@@ -15,6 +16,7 @@
 static Config               cfg;
 static HallSensor           hall;
 static Motor                motor;
+static MotorSpeedController motorControl;
 static PovWebServer         webServer;
 static WifiTimingBroadcaster timingTx;
 static ConfigRelayBroadcaster configTx;
@@ -39,12 +41,55 @@ static void hallBroadcastTask(void*) {
 }
 
 static void configTask(void*) {
+    uint8_t lastTargetHz = cfg.targetHz;
+    uint8_t lastNumArms = cfg.numArms;
+    bool lastStopped = true;
+    uint32_t lastControlMs = 0;
+
     for (;;) {
-        if (configDirty) {
+        if (configDirty)
             configDirty = false;
-            motor.setPulseUs(cfg.escPulseUs);
+
+        bool stopped = cfg.motorStopped;
+        uint8_t targetHz = cfg.targetHz;
+        uint8_t numArms = cfg.numArms;
+
+        if (stopped) {
+            if (!lastStopped || cfg.escPulseUs != kStopPulseUs) {
+                motorControl.stop();
+                cfg.escPulseUs = motorControl.pulseUs();
+                motor.stop();
+            }
+            lastStopped = true;
+        } else {
+            uint32_t now = millis();
+            bool targetChanged = targetHz != lastTargetHz || numArms != lastNumArms;
+
+            if (lastStopped || !motorControl.running()) {
+                motorControl.start(targetHz, numArms);
+                cfg.escPulseUs = motorControl.pulseUs();
+                motor.setPulseUs(cfg.escPulseUs);
+                lastControlMs = now;
+            } else if (targetChanged) {
+                motorControl.setTarget(targetHz, numArms);
+            }
+
+            if (now - lastControlMs >= kMotorControlIntervalMs) {
+                uint32_t measuredRpm = freshHallRpm(hall.rpm(), hall.lastTriggerMs(), now);
+                uint16_t nextPulse = motorControl.update(measuredRpm);
+                if (nextPulse != cfg.escPulseUs) {
+                    cfg.escPulseUs = nextPulse;
+                    motor.setPulseUs(nextPulse);
+                }
+                lastControlMs = now;
+            }
+
+            lastStopped = false;
         }
-        vTaskDelay(pdMS_TO_TICKS(33));
+
+        lastTargetHz = targetHz;
+        lastNumArms = numArms;
+        vTaskDelay(pdMS_TO_TICKS(kMotorControlTaskDelayMs));
     }
 }
 

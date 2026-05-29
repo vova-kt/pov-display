@@ -146,7 +146,7 @@ No. The hall sensor fires once per revolution. Between hall events, the local `e
 
 At 30 Hz (1800 RPM with 2 arms), one revolution is 33 ms. A 3 ms WiFi delay means the rotating MCU's timer restarts 3 ms late — that's ~9% of a revolution, or ~32 slices of phase offset at 360 slices. This is a fixed offset (not jitter), and the phase control already exists in the UI.
 
-At steady RPM (motor under PID or constant ESC pulse), the offset is stable and the image is coherent. RPM transients during spinup will cause brief smearing — acceptable for testing.
+At steady RPM (motor under Hall-feedback speed control), the offset is stable and the image is coherent. RPM transients during spinup will cause brief smearing — acceptable for testing.
 
 ## Tradeoffs vs slip ring
 
