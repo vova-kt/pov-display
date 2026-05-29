@@ -272,6 +272,32 @@ void test_phase_offset_shifts_start_slice() {
     TEST_ASSERT_EQUAL_UINT8(3 * 30, g_sends[0].pixels[0].red);
 }
 
+void test_resize_barrier_drops_pending_timer_slice() {
+    fillSlice(0, 255, 0, 0);
+    fb.swap();
+
+    timing.periodUs = 100000;
+    sched.onNewRotation();
+    sched.beginFramebufferResize();
+    sched.endFramebufferResize();
+
+    TEST_ASSERT_FALSE(sched.processNotification());
+    TEST_ASSERT_EQUAL_UINT8(0, g_sendCount);
+}
+
+void test_resize_barrier_drops_pending_direct_push() {
+    fillSlice(0, 255, 0, 0);
+    fb.swap();
+
+    drainTimerSlices();
+    sched.requestDirectPush();
+    sched.beginFramebufferResize();
+    sched.endFramebufferResize();
+
+    TEST_ASSERT_FALSE(sched.processNotification());
+    TEST_ASSERT_EQUAL_UINT8(0, g_sendCount);
+}
+
 // --- Runner ---
 
 int main() {
@@ -287,5 +313,7 @@ int main() {
     RUN_TEST(test_timer_slice_takes_priority_over_direct_push);
     RUN_TEST(test_no_notification_returns_false);
     RUN_TEST(test_phase_offset_shifts_start_slice);
+    RUN_TEST(test_resize_barrier_drops_pending_timer_slice);
+    RUN_TEST(test_resize_barrier_drops_pending_direct_push);
     return UNITY_END();
 }

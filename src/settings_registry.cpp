@@ -9,22 +9,21 @@ static Config* s_cfg = nullptr;
 
 namespace settings_registry {
 
-void init(Config* cfg) { s_cfg = cfg; }
+void init(Config* cfg) {
+    s_cfg = cfg;
+    resetToDefaults();
+}
 Config* config() { return s_cfg; }
 
 } // namespace
 
 // --- Accessors bound to Config fields ---
 
-static int32_t  get_numLeds()               { return s_cfg->numLeds; }
-static void     set_numLeds(int32_t v)      { s_cfg->numLeds = (uint16_t)v; }
 static int32_t  get_brightness()            { return s_cfg->brightness; }
 static void     set_brightness(int32_t v)   {
     if (v > s_cfg->maxBrightness) v = s_cfg->maxBrightness;
     s_cfg->brightness = (uint8_t)v;
 }
-static int32_t  get_maxBrightness()          { return s_cfg->maxBrightness; }
-static void     set_maxBrightness(int32_t v) { s_cfg->maxBrightness = (uint8_t)v; }
 static int32_t  get_phaseOffset()            { return s_cfg->phaseOffset; }
 static void     set_phaseOffset(int32_t v)   { s_cfg->phaseOffset = (int16_t)v; }
 static int32_t  get_activePattern()          { return s_cfg->activePattern; }
@@ -47,19 +46,14 @@ static void     set_targetHz(int32_t v)      {
         s_cfg->escPulseUs = rpmToPulseUs(rpm);
     }
 }
-static int32_t  get_spiClock()               { return s_cfg->spiClockMhz; }
-static void     set_spiClock(int32_t v)      { s_cfg->spiClockMhz = (uint8_t)v; }
 static int32_t  get_mirror()                 { return s_cfg->mirrorPattern ? 1 : 0; }
 static void     set_mirror(int32_t v)        { s_cfg->mirrorPattern = v != 0; }
-static int32_t  get_stripReversed()          { return s_cfg->stripReversed ? 1 : 0; }
-static void     set_stripReversed(int32_t v) { s_cfg->stripReversed = v != 0; }
 static int32_t  get_radialBalance()          { return s_cfg->radialBalance ? 1 : 0; }
 static void     set_radialBalance(int32_t v) { s_cfg->radialBalance = v != 0; }
 
 // --- Enum option tables ---
 
 static const ParamOption kHzOptions[]       = {{"12", 12}, {"24", 24}, {"25", 25}, {"30", 30}, {"60", 60}};
-static const ParamOption kSpiOptions[]      = {{"20", 20}, {"40", 40}};
 static const ParamOption kPhaseOptions[]    = {{"0°", 0}, {"90°", 90}, {"180°", 180}, {"-90°", -90}};
 
 // --- Registry table ---
@@ -74,7 +68,7 @@ const Setting g_settings[] = {
       0xFF0000, 0, 0xFFFFFF, 1, nullptr, 0,
       get_color, set_color, nullptr, nullptr, "color" },
     { "activePattern", "Pattern",        "picture", "pattern", Scope::Both, ParamType::Enum,
-      1, 0, 5, 1, nullptr, 0,    // options synthesized from g_patterns at JSON time
+      3, 0, 5, 1, nullptr, 0,    // options synthesized from g_patterns at JSON time
       get_activePattern, set_activePattern, nullptr, nullptr, "pattern" },
     { "mirrorPattern", "Mirror",         "picture", "global", Scope::Both, ParamType::Bool,
       1, 0, 1, 1, nullptr, 0,
@@ -90,18 +84,6 @@ const Setting g_settings[] = {
     { "targetHz",      "Refresh rate",   "hardware", "hardware", Scope::Both, ParamType::Enum,
       12, 0, 240, 1, kHzOptions, 5,
       get_targetHz, set_targetHz, nullptr, nullptr, "target_hz" },
-    { "numLeds",       "LED count",      "hardware", "hardware", Scope::Both, ParamType::Int,
-      26, 1, MAX_LEDS, 1, nullptr, 0,
-      get_numLeds, set_numLeds, nullptr, nullptr, "num_leds" },
-    { "stripReversed", "Strip reversed",  "hardware", "hardware", Scope::Both, ParamType::Bool,
-      0, 0, 1, 1, nullptr, 0,
-      get_stripReversed, set_stripReversed, nullptr, nullptr, "strip_rev" },
-    { "spiClockMhz",   "SPI clock MHz",  "hardware", "hardware", Scope::Both, ParamType::Enum,
-      20, 0, 40, 1, kSpiOptions, 2,
-      get_spiClock, set_spiClock, nullptr, nullptr, "spi_clk" },
-    { "maxBrightness", "Max brightness", "hardware", "hardware", Scope::Both, ParamType::Int,
-      31, 0, 31, 1, nullptr, 0,
-      get_maxBrightness, set_maxBrightness, nullptr, nullptr, "max_bright" },
 };
 const uint16_t G_NUM_SETTINGS = sizeof(g_settings) / sizeof(g_settings[0]);
 
@@ -459,6 +441,10 @@ void resetToDefaults() {
         } else if (s.setInt) {
             s.setInt(s.defaultVal);
         }
+    }
+    if (s_cfg) {
+        s_cfg->motorStopped = true;
+        s_cfg->escPulseUs = kStopPulseUs;
     }
 }
 

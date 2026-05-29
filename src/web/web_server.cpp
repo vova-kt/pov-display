@@ -133,8 +133,10 @@ void PovWebServer::setupRoutes() {
         for (uint8_t i = 0; i < G_NUM_EFFECTS; i++)
             g_effects[i]->resetDefaults();
         settings_registry::clearNvs();
-        cfg_->motorStopped = false;
+        cfg_->motorStopped = true;
+        cfg_->escPulseUs = kStopPulseUs;
         xSemaphoreGive(cfgMutex_);
+        motor_->stop();
         if (configCb_) configCb_();
         req->send(200, "application/json", "{\"ok\":true}");
     });

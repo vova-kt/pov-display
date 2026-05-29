@@ -1,5 +1,7 @@
 # Dual-MCU wireless testing setup
 
+This is an archived testing design. The source files are still kept in `src/`, but `stationary` and `rotating` are not active PlatformIO environments; the only active firmware target is `esp32c6`.
+
 How to test the POV display hardware before the slip ring arrives, using two XIAO ESP32 boards communicating over WiFi. The stationary side runs a C6 (the production board); the rotating side can be any XIAO ESP32 variant — C6 or C3. Both are single-core RISC-V with WiFi and SPI, which is all the rotating side needs.
 
 ## Physical setup
@@ -106,7 +108,7 @@ Two implementations:
 
 ### Build modes
 
-Three PlatformIO environments, each with its own `main_*.cpp` and `build_src_filter`:
+The code was structured around three entry points, each with its own `main_*.cpp` and `build_src_filter` when the wireless setup was active:
 
 | Environment | Board | Entry point | What it includes |
 |-------------|-------|-------------|-----------------|
@@ -114,7 +116,7 @@ Three PlatformIO environments, each with its own `main_*.cpp` and `build_src_fil
 | `stationary` | C6 | `main_stationary.cpp` | Hall + motor + WiFi AP + web server + timing TX + config relay |
 | `rotating` | C3 | `main_rotating.cpp` | WiFi client + timing RX + config RX + patterns + LEDs |
 
-To use a C6 as the rotating board instead of C3, change `board = seeed_xiao_esp32c3` to `seeed_xiao_esp32c6` in `platformio.ini`.
+To use this setup again, reintroduce the `stationary` and `rotating` environments in `platformio.ini`. To use a C6 as the rotating board instead of C3, set that environment's board to `seeed_xiao_esp32c6`.
 
 Each entry point wires up the appropriate `TimingSource` and peripherals. No `#ifdef` soup in shared code — the `TimingSource` abstraction is the only seam.
 
@@ -134,11 +136,7 @@ The web server has a `RelayCallback` that fires with the raw POST body before th
 
 ## Build & flash
 
-```bash
-pio run -e stationary -t upload   # flash stationary MCU (C6)
-pio run -e rotating -t upload     # flash rotating MCU (C3)
-pio run -e esp32c6 -t upload      # flash single-MCU (unchanged)
-```
+The archived wireless targets do not build until their PlatformIO environments are restored. The active single-MCU firmware still uses `pio run -e esp32c6 -t upload`.
 
 ## Timing accuracy
 

@@ -30,6 +30,18 @@ constexpr uint8_t PIN_ESC      = D3;
 constexpr uint8_t NUM_ARMS = 2;    // physical arm count (overridable via -DNUM_ARMS=N)
 #endif
 
+#ifndef HW_NUM_LEDS
+#define HW_NUM_LEDS 40 // Physical LEDs mounted on the strip
+#endif
+#ifndef HW_STRIP_REVERSED
+#define HW_STRIP_REVERSED 0 // 1 when strip DI starts at outer tip
+#endif
+#ifndef HW_SPI_CLOCK_MHZ
+#define HW_SPI_CLOCK_MHZ 20 // HD107S SPI clock in MHz
+#endif
+#ifndef HW_MAX_BRIGHTNESS
+#define HW_MAX_BRIGHTNESS 31 // Safety cap for 5-bit HD107S brightness
+#endif
 
 // --- Hardware geometry (144 LEDs/m strip: 3.0 mm pixel, 3.5 mm gap, 6.5 mm pitch) ---
 constexpr float   LED_SIZE_MM    = 3.0f;
@@ -50,10 +62,10 @@ inline uint16_t rpmToPulseUs(uint32_t rpm) {
 
 // --- Runtime configuration ---
 struct Config {
-    uint16_t numLeds        = 40;
+    uint16_t numLeds        = HW_NUM_LEDS;
     uint16_t numSlices      = NUM_SLICES;
     uint8_t  brightness     = 16;     // 0..31 HD107S global brightness
-    uint8_t  maxBrightness  = 31;
+    uint8_t  maxBrightness  = HW_MAX_BRIGHTNESS;
     int16_t  phaseOffset    = 0;
 
     uint8_t  activePattern  = 3;
@@ -64,10 +76,10 @@ struct Config {
     uint8_t  numArms        = NUM_ARMS; // physical arm count (build-time constant)
     uint8_t  targetHz       = 12;     // target refresh rate (12, 24, 25, 30, 60)
     uint16_t escPulseUs     = kStopPulseUs; // derived from targetHz; 1000=stop
-    bool     motorStopped   = false;  // transient: true when user pressed Stop
-    uint8_t  spiClockMhz    = 20;
+    bool     motorStopped   = true;   // transient: default-safe stopped state
+    uint8_t  spiClockMhz    = HW_SPI_CLOCK_MHZ;
     bool     mirrorPattern  = true;
-    bool     stripReversed  = false;
+    bool     stripReversed  = HW_STRIP_REVERSED != 0;
     bool     radialBalance  = true;
 
     void loadFromNvs();

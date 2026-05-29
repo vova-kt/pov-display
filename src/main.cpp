@@ -57,7 +57,7 @@ static void patternTaskFunc(void*) {
                 Serial.printf("[pattern] resize fb: %ux%u -> %ux%u (need=%u, dma_free=%u)\n",
                               fb.numSlices(), fb.numLeds(), cfg.numSlices, cfg.numLeds,
                               need, dmaFree);
-                scheduler.stop();
+                scheduler.beginFramebufferResize();
                 bool ok = fb.resize(cfg.numSlices, cfg.numLeds);
                 if (ok) {
                     Serial.printf("[pattern] resize OK (heap=%u)\n", ESP.getFreeHeap());
@@ -65,8 +65,11 @@ static void patternTaskFunc(void*) {
                 } else {
                     Serial.printf("[pattern] resize FAILED — keeping %ux%u (heap=%u)\n",
                                   fb.numSlices(), fb.numLeds(), ESP.getFreeHeap());
+                    cfg.numSlices = fb.numSlices();
+                    cfg.numLeds = fb.numLeds();
+                    scheduler.setNumSlices(cfg.numSlices);
                 }
-                scheduler.start();
+                scheduler.endFramebufferResize();
             }
 
             scheduler.setPhaseOffset(cfg.phaseOffset);
@@ -178,7 +181,7 @@ void setup() {
     Serial.printf("  numLeds=%u  numSlices=%u\n", cfg.numLeds, cfg.numSlices);
     Serial.printf("  brightness=%u  maxBrightness=%u\n", cfg.brightness, cfg.maxBrightness);
     Serial.printf("  activePattern=%u  color=#%02X%02X%02X\n", cfg.activePattern, cfg.colorR, cfg.colorG, cfg.colorB);
-    Serial.printf("  numArms=%u (build)  targetHz=%u  escPulseUs=%u (derived)\n", cfg.numArms, cfg.targetHz, cfg.escPulseUs);
+    Serial.printf("  numArms=%u (build)  targetHz=%u  escPulseUs=%u\n", cfg.numArms, cfg.targetHz, cfg.escPulseUs);
     Serial.printf("  spiClockMhz=%u  mirror=%d  radialBalance=%d\n", cfg.spiClockMhz, cfg.mirrorPattern, cfg.radialBalance);
     Serial.printf("  phaseOffset=%d\n", cfg.phaseOffset);
     Serial.println("=== PIN MAP ===");
@@ -222,8 +225,8 @@ void setup() {
     scheduler.start();
     Serial.println("[scheduler] started");
 
-    // Apply derived throttle (set_targetHz computes escPulseUs during loadFromNvs)
-    Serial.printf("[motor] targetHz=%u numArms=%u -> escPulseUs=%u (derived)\n",
+    // Boot stays stopped; the Start command derives escPulseUs from targetHz.
+    Serial.printf("[motor] targetHz=%u numArms=%u -> escPulseUs=%u\n",
                   cfg.targetHz, cfg.numArms, cfg.escPulseUs);
     motor.setPulseUs(cfg.escPulseUs);
 

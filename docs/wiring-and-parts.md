@@ -65,7 +65,7 @@ Slip ring CLK ──── LED strip CKI (at outer tip)
 Slip ring MOSI ─── LED strip SDI (at outer tip)
 ```
 
-The rotating arm carries only the LED strip. Power and SPI data arrive through the slip ring — no MCU or active components on the rotating side. SPI data enters at the strip's outer tip (DI end); firmware reverses the pixel order so logical pixel 0 stays at the hub. See `STRIP_REVERSED` in `src/config.h`.
+The rotating arm carries only the LED strip. Power and SPI data arrive through the slip ring — no MCU or active components on the rotating side. SPI data enters at the strip's outer tip (DI end); firmware reverses the pixel order when `HW_STRIP_REVERSED` is enabled so logical pixel 0 stays at the hub. See `src/config.h`.
 
 ### Slip ring channels
 

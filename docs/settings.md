@@ -4,7 +4,7 @@
 
 Both the MCU web UI and the WASM simulator need the same set of controls. The old approach duplicated every setting twice: hand-written HTML on each side, separate JSON serialization, separate validation, defaults pasted into five files. Adding one setting meant five edits that could drift independently.
 
-The registry eliminates drift by making C++ the single source of truth. Both backends serialize from the same code; the shared JS renderer in `sim/js/settings_ui.js` builds the form from the resulting JSON model. Settings also carry a small display section tag so dynamic pattern and effect params can sit next to the selector that owns them instead of being appended later.
+The registry eliminates drift by making C++ the single source of truth for runtime settings. `settings_registry::init()` applies registry defaults before NVS is loaded, so a fresh boot and Reset Preferences start from the same values. Fixed hardware values stay in build config for the MCU, while the simulator publishes `SimOnly` controls for the same fields so hardware experiments do not require recompiling the browser build. Both backends serialize from the same code; the shared JS renderer in `sim/js/settings_ui.js` builds the form from the resulting JSON model. Settings also carry a small display section tag so dynamic pattern and effect params can sit next to the selector that owns them instead of being appended later.
 
 ## Param semantics
 
@@ -24,7 +24,7 @@ Centered text has one deliberate low-scale escape hatch in `src/patterns/text.cp
 
 ## Scope filter
 
-Settings carry a `Scope` tag: `Both`, `McuOnly`, or `SimOnly`. The registry's `toJson()` pre-filters by scope, so each client receives only what applies. `numArms` is `SimOnly` (build-time constant `NUM_ARMS` on MCU, runtime in sim). Sim diagnostics (jitter sliders, geometry mm, displayHz) are also `SimOnly`. Motor speed (`escPulseUs`) is derived from `targetHz` and `NUM_ARMS` via `rpmToPulseUs()` in the `set_targetHz` setter — no manual ESC setting in the UI.
+Settings carry a `Scope` tag: `Both`, `McuOnly`, or `SimOnly`. The registry's `toJson()` pre-filters by scope, so each client receives only what applies. Fixed hardware fields such as LED count, strip direction, SPI clock, brightness cap, and arm count are build-time constants on MCU targets but `SimOnly` controls in the browser. Sim diagnostics (jitter sliders, displayHz, overlays) are also `SimOnly`. Motor speed (`escPulseUs`) is derived from `targetHz` and `NUM_ARMS` when the motor is running or when the Start command is used; boot and Reset Preferences leave the transient motor state stopped.
 
 For the wire format and the full registered entry list, see `src/settings_registry.cpp` directly — duplicating the schema here would rot.
 
@@ -34,10 +34,11 @@ Build-time config is for hardware wiring, capacity, and environment behavior tha
 
 - **Pin wiring** — `PIN_LED_CLK`, `PIN_LED_MOSI`, `PIN_HALL`, and `PIN_ESC` bind firmware roles to board pins.
 - **Framebuffer and strip capacity** — `MAX_LEDS`, `MAX_SLICES`, and `NUM_SLICES` size fixed buffers and timing assumptions before runtime settings are applied.
+- **Fixed hardware build fields** — `HW_NUM_LEDS`, `HW_STRIP_REVERSED`, `HW_SPI_CLOCK_MHZ`, and `HW_MAX_BRIGHTNESS` describe the assembled display and power envelope. The simulator mirrors them as `SimOnly` controls.
 - **Physical arm count** — `NUM_ARMS` is a firmware build constant on MCU targets; the simulator exposes arm count separately so multi-arm rendering can be explored without reflashing.
 - **Hardware geometry** — `LED_SIZE_MM`, `LED_GAP_MM`, and `HUB_RADIUS_MM` describe the physical strip and hub geometry used by simulator and layout code.
 - **ESC pulse mapping** — `kStopPulseUs`, `kMinSpinPulseUs`, `kMaxPulseUs`, and `kMaxRpm` define the derived refresh-rate-to-motor command range.
-- **Platform behavior** — `CORE_DEBUG_LEVEL`, `CONFIG_ASYNC_TCP_USE_WDT`, and `MAX_BRIGHTNESS_CAP` are environment-level PlatformIO flags for diagnostics, AsyncTCP watchdog behavior, and rotating-side brightness limiting.
+- **Platform behavior** — `CORE_DEBUG_LEVEL` and `CONFIG_ASYNC_TCP_USE_WDT` are environment-level PlatformIO flags for diagnostics and AsyncTCP watchdog behavior.
 
 When changing one of these, update `platformio.ini` for the target environment and keep the defaults in `src/config.h` sensible for tests and simulator builds.
 
@@ -45,7 +46,7 @@ When changing one of these, update `platformio.ini` for the target environment a
 
 The renderer produces two tabs with section separators:
 - **Picture** (default) — Pattern, Effects, then Global. The active pattern's params render under the Pattern selector, and selected effect params render under their effect slot. Global holds top-level image controls such as brightness, color, mirror, radial balance, and phase offset.
-- **Hardware** — board/display controls plus sim-only playback, timing, and overlay sections when running in the browser.
+- **Hardware** — refresh rate on MCU; fixed hardware, playback, timing, and overlay controls appear only when running in the browser simulator.
 
 Pattern param panels are all rendered but only the active pattern's panel is visible. Switching the Pattern selector updates visibility client-side without a re-fetch.
 

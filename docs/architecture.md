@@ -22,6 +22,8 @@ Buffers are allocated with `MALLOC_CAP_DMA` so SPI can DMA directly from them wi
 
 Pattern generation owns only the back-buffer contents. The frame loop owns publication: generate the pattern, apply effects, then swap exactly once. Keeping that ownership boundary avoids one buffer carrying an effect phase while another buffer still carries the previous static image.
 
+Runtime framebuffer resize is coordinated by `SliceScheduler`: the timer is stopped, pending render work is neutralized, and the resize waits on the render mutex before freeing DMA buffers. That keeps the high-priority render task from reading a slice while the pattern task replaces the framebuffer.
+
 ## Why embedded HTML (not SPIFFS)
 
 SPIFFS requires a separate flash partition, upload step, and filesystem overhead. The web UI is ~10 KB of HTML/CSS/JS — trivially fits in a PROGMEM string. One `pio run -t upload` deploys everything. If the UI grows past ~50 KB, move to LittleFS.
@@ -37,13 +39,13 @@ At 1200 RPM / 360 slices / 36 LEDs @ 20 MHz SPI:
 - SPI transfer: ~60 µs
 - Headroom: ~79 µs
 
-At 144 LEDs the SPI transfer exceeds the slice interval at 360 slices. To accommodate longer strips, reduce the slice count via the compile-time build configuration (`NUM_SLICES` build flag/constant) or increase the SPI clock speed. Slice count still lives on `Config` so the framebuffer and scheduler share one runtime value after boot, but it is not exposed through the settings registry or UI.
+At 144 LEDs the SPI transfer exceeds the slice interval at 360 slices. To accommodate longer strips, reduce the slice count via the compile-time build configuration (`NUM_SLICES` build flag/constant) or increase the fixed SPI clock build setting. Slice count still lives on `Config` so the framebuffer and scheduler share one runtime value after boot, but it is not exposed through the settings registry or UI.
 
 ## Settings & params
 
-Every user-facing setting lives in a unified registry backed by the same `Param` type. Build-time capacity fields such as `numSlices` stay in `Config`/`src/config.h` and are deliberately not user-facing settings. There are three classes of parameters:
+Every runtime setting lives in a unified registry backed by the same `Param` type. Build-time capacity and fixed hardware fields, such as slice count, LED count, strip direction, SPI clock, and brightness cap, stay in `Config`/`src/config.h` and PlatformIO flags. The simulator re-exposes those fixed hardware fields as `SimOnly` controls so hardware variants can be explored without making them MCU runtime settings. There are three classes of parameters:
 
-- **Top-level settings** (brightness, color, LED count, etc.) — registered in `src/settings_registry.cpp` with getter/setter function pointers into `Config` fields.
+- **Top-level runtime settings** (brightness, color, refresh rate, etc.) — registered in `src/settings_registry.cpp` with getter/setter function pointers into `Config` fields.
 - **Pattern params** (e.g. TextPattern's text, mode, fixed delay cadence, margin) — declared inside each `Pattern` subclass, mirroring how effects work.
 - **Effect params** (e.g. RotationEffect's speed and direction) — declared inside each `Effect` subclass.
 
@@ -60,6 +62,8 @@ Rotation direction is modeled as an effect param, not a motor setting: it change
 The simulator can render display frames without regenerating the pattern every time. It therefore keeps the last generated effect phase and applies it while re-rendering the existing framebuffer, matching the MCU scheduler's persistent phase offset between pattern-task iterations.
 
 ## Source map
+
+Active firmware target: `esp32c6`. The dual-MCU stationary/rotating entry points remain in `src/` for reference, but they are not PlatformIO environments.
 
 Entry point and task creation: `src/main.cpp`
 Configuration: `src/config.h`, `src/config.cpp`

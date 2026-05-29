@@ -12,6 +12,9 @@ void SliceScheduler::init(Framebuffer* fb, LedDriver* leds, TimingSource* timing
     esp_err_t err = esp_timer_create(&args, &timer_);
     Serial.printf("[scheduler] timer create: %s\n", err == ESP_OK ? "OK" : "FAILED");
 
+    renderMutex_ = xSemaphoreCreateMutex();
+    Serial.printf("[scheduler] render mutex: %s\n", renderMutex_ ? "OK" : "FAILED");
+
     BaseType_t ok = xTaskCreate(renderTaskFunc, "render", 4096, this, 24, &renderTask_);
     Serial.printf("[scheduler] render task create: %s (pri=24)\n", ok == pdPASS ? "OK" : "FAILED");
 }
@@ -23,6 +26,18 @@ void SliceScheduler::start() {
 void SliceScheduler::stop() {
     running_ = false;
     esp_timer_stop(timer_);
+    currentSlice_ = numSlices_;
+    directPush_ = false;
+}
+
+void SliceScheduler::beginFramebufferResize() {
+    stop();
+    lockRender();
+}
+
+void SliceScheduler::endFramebufferResize() {
+    unlockRender();
+    start();
 }
 
 void SliceScheduler::onNewRotation() {
@@ -55,6 +70,15 @@ void SliceScheduler::requestDirectPush() {
     xTaskNotifyGive(renderTask_);
 }
 
+bool SliceScheduler::lockRender(TickType_t timeout) {
+    if (!renderMutex_) return true;
+    return xSemaphoreTake(renderMutex_, timeout) == pdTRUE;
+}
+
+void SliceScheduler::unlockRender() {
+    if (renderMutex_) xSemaphoreGive(renderMutex_);
+}
+
 void IRAM_ATTR SliceScheduler::timerCallback(void* arg) {
     auto* self = static_cast<SliceScheduler*>(arg);
 
@@ -69,6 +93,8 @@ void IRAM_ATTR SliceScheduler::timerCallback(void* arg) {
 }
 
 bool SliceScheduler::processNotification() {
+    if (!lockRender()) return false;
+    bool handled = false;
     if (currentSlice_ < numSlices_) {
         uint16_t slice = currentSlice_;
         currentSlice_++;
@@ -79,17 +105,17 @@ bool SliceScheduler::processNotification() {
             const Pixel* data = fb_->getSlice(fbSlice);
             leds_->sendSlice(data, fb_->numLeds());
         }
-        return true;
-    }
-    if (directPush_) {
+        handled = true;
+    } else if (directPush_) {
         directPush_ = false;
         uint16_t slice = directSlice_;
         directSlice_ = (directSlice_ + 1) % fb_->numSlices();
         const Pixel* data = fb_->getSlice(slice);
         leds_->sendSlice(data, fb_->numLeds());
-        return true;
+        handled = true;
     }
-    return false;
+    unlockRender();
+    return handled;
 }
 
 void SliceScheduler::renderTaskFunc(void* param) {

@@ -41,7 +41,7 @@ static void patternTaskFunc(void*) {
                 Serial.printf("[pattern] resize fb: %ux%u -> %ux%u (need=%u, dma_free=%u)\n",
                               fb.numSlices(), fb.numLeds(), cfg.numSlices, cfg.numLeds,
                               need, dmaFree);
-                scheduler.stop();
+                scheduler.beginFramebufferResize();
                 bool ok = fb.resize(cfg.numSlices, cfg.numLeds);
                 if (ok) {
                     Serial.printf("[pattern] resize OK (heap=%u)\n", ESP.getFreeHeap());
@@ -49,8 +49,11 @@ static void patternTaskFunc(void*) {
                 } else {
                     Serial.printf("[pattern] resize FAILED — keeping %ux%u (heap=%u)\n",
                                   fb.numSlices(), fb.numLeds(), ESP.getFreeHeap());
+                    cfg.numSlices = fb.numSlices();
+                    cfg.numLeds = fb.numLeds();
+                    scheduler.setNumSlices(cfg.numSlices);
                 }
-                scheduler.start();
+                scheduler.endFramebufferResize();
             }
 
             scheduler.setPhaseOffset(cfg.phaseOffset);

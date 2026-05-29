@@ -26,7 +26,7 @@ function sizeCanvas(canvas) {
 async function init() {
   const canvas = document.getElementById('pov-canvas');
 
-  sim = await PovSim.create(360, 26, canvas);
+  sim = await PovSim.create(360, 40, canvas);
   sizeCanvas(canvas);
 
   // Build the settings UI from the WASM model

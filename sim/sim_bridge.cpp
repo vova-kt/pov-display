@@ -33,14 +33,16 @@ extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
 bool sim_init(uint16_t numSlices, uint16_t numLeds) {
-    ts.numSlices = numSlices;
-    ts.numLeds = numLeds;
+    (void)numSlices;
+    (void)numLeds;
+    settings_registry::init(&cfg);
+    ts.numSlices = cfg.numSlices;
+    ts.numLeds = cfg.numLeds;
     timing_init(ts);
     effectPhase.reset();
-    bool ok = fb.init(numSlices, numLeds);
-    settings_registry::init(&cfg);
+    bool ok = fb.init(cfg.numSlices, cfg.numLeds);
     sim_registry_bind(&ts, &cfg, &fb);
-    sim_apply_geometry(numLeds);
+    sim_apply_geometry(cfg.numLeds);
     return ok;
 }
 

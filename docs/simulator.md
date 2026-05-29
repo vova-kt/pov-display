@@ -29,7 +29,7 @@ The timing model mathematically simulates the scheduling pipeline: hall sensor t
 
 WebGL 2 fragment shader maps each canvas pixel to polar `(slice, led)` coordinates and samples the WASM framebuffer texture directly — no CPU-side pixel loop. The canvas auto-sizes at `devicePixelRatio` for crisp HiDPI rendering. The shader supports 1, 2, or 4 arms via `mod(angleBehind, TAU/numArms)` — no loop needed.
 
-Geometry uses fixed hardware constants from `src/config.h` (LED size 3.0 mm, gap 3.5 mm, hub radius 0 mm). The renderer derives gap fraction and hub-to-arm ratio from `numLeds` and these constants — no sliders needed for geometry.
+Geometry uses fixed hardware constants from `src/config.h` (LED size 3.0 mm, gap 3.5 mm, hub radius 0 mm). The renderer derives gap fraction and hub-to-arm ratio from LED count and these constants. LED count, strip direction, SPI clock, brightness cap, and arm count are fixed build fields on MCU firmware but remain adjustable as simulator-only hardware controls.
 
 A game-style HUD overlay shows motor RPM, effective refresh Hz (RPM × arms / 60), and render FPS in the top-right corner of the canvas.
 
@@ -73,10 +73,10 @@ The SPI transfer time formula matches the real HD107S wire protocol: `(4 + numLe
 
 **New pattern**: Add it in `src/patterns/`, register in `src/patterns/registry.cpp`. To give it pattern-specific params, declare them in the constructor mirroring `TextPattern`. The simulator build links every `src/patterns/*.cpp`, and the shared JS renderer picks params up automatically.
 
-**New timing distortion or sim-only setting**: Add an entry to `g_sim_settings[]` in `sim/settings_registry_sim.cpp` with a getter/setter wired to `TimingState` or renderer state. Apply the effect in `timing_frame()` or the renderer. The settings UI picks it up automatically — no HTML changes needed.
+**New timing distortion or sim-only setting**: Add an entry to `g_sim_settings[]` in `sim/settings_registry_sim.cpp` with a getter/setter wired to `TimingState`, renderer state, or simulator-owned `Config` hardware fields. Apply the effect in `timing_frame()` or the renderer. The settings UI picks it up automatically — no HTML changes needed.
 
 **New shared config field** (appears in both MCU and sim): Add an entry to `g_settings[]` in `src/settings_registry.cpp` with `Scope::Both` and getter/setter referencing the Config field. Rebuild both WASM and firmware. No JS changes needed.
 
 **New effect**: Add an `Effect` subclass in `src/effects/` and register it in `src/effect.cpp`. If it needs to be selectable from the stack, no JS-specific work is needed; the shared settings renderer builds the slots and param controls from the registry JSON.
 
-**Changing a default**: The default lives exactly once — on the `Setting` entry in `src/settings_registry.cpp` (or on the `Param` member initializer inside the relevant `Pattern`/`Effect` subclass). Run `python3 tools/check_embedded_js.py` to confirm `settings_js.h` and `image_processor_js.h` are in sync with their source files — this runs as a pre-push hook.
+**Changing a default**: Runtime setting defaults live on the `Setting` entry in `src/settings_registry.cpp` (or on the `Param` member initializer inside the relevant `Pattern`/`Effect` subclass). Fixed hardware defaults live in `src/config.h` and PlatformIO build flags, with simulator-only mirrors in `sim/settings_registry_sim.cpp`. Run `python3 tools/check_embedded_js.py` to confirm `settings_js.h` and `image_processor_js.h` are in sync with their source files — this runs as a pre-push hook.

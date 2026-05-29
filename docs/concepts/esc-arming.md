@@ -78,7 +78,7 @@ The ESC expects standard servo-style PWM: 50 Hz (20 ms period), pulse width 1000
 
 The ESP32-C6 LEDC generates this at 16-bit resolution. At 80 MHz APB clock, the fractional divider (24 + 106/256) gives exactly 50 Hz — no frequency drift. One duty tick = 0.305 µs, so the 1000 µs pulse resolves to 3276 ticks (999.76 µs actual). Well within ESC tolerance.
 
-Throttle mapping: 1000 µs = stop, ~1150 µs = spin threshold, 1200 µs = default (~20%, slow spin for POV), 2000 µs = full. The `escPulseUs` setting in the web UI controls the operating point. Values below ~1150 µs fall in the ESC's deadband and won't spin the motor.
+Throttle mapping: 1000 µs = stop, ~1150 µs = spin threshold, and 2000 µs = full. The web UI exposes refresh rate and start/stop; firmware derives the ESC pulse from refresh rate only while the motor is running or when Start is pressed. Boot and Reset Preferences hold the 1000 µs stop pulse.
 
 ## Swapping ESCs
 

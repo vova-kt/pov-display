@@ -12,12 +12,14 @@ These are project rules. Follow them on every change.
 8. **Explain underlying concepts.** When a design decision, implementation, or discussion relies on EE, ME, physics, or other domain knowledge, write a short concept explainer in `docs/concepts/` (one file per concept, e.g. `docs/concepts/airfoil-noise.md`). Keep each to ≤1 page: what it is, why it matters for this project, and a practical takeaway. Link to the concept file from the relevant doc or conversation summary.
 9. **New features require tests.** Every new feature, pattern, or behavioral change must include tests in the appropriate `test/` suite. Update existing tests when refactoring changes observable behavior (e.g. moving `fb.swap()` out of patterns). Run `pio test -e native` before considering any change complete.
 10. **Simulator logic stays in C++.** All sim rendering, physics, and perception models live in `sim/*.cpp` compiled to WASM. JavaScript (`sim/js/`) is only DOM event glue and readout updates — no computation or GL calls. When adding sim features, implement in C++.
-11. **Sim/MCU settings parity.** Every user-facing setting must exist in both the simulator and the MCU firmware. When adding any config field, UI control, or runtime toggle, implement it in both `sim/` and `src/`.
+11. **Sim/MCU settings parity.** Every user-facing runtime setting must exist in both the simulator and the MCU firmware. Fixed hardware fields stay build-time on MCU and may appear as `SimOnly` controls for exploration.
 12. **No magic numbers.** Use named constants (`static constexpr`, `constexpr`, `#define`) instead of bare numeric literals. Each constant gets a short inline comment explaining what the value means (e.g. `static constexpr uint8_t kHd107sBrightnessPrefix = 0xE0; // HD107S top-3-bit marker`).
 
 These rules echo [Anthropic's CLAUDE.md guidance](https://code.claude.com/docs/en/best-practices) — keep this file lean (it loads every session);
 
 ## Build & flash
+
+Only `esp32c6` is an active PlatformIO firmware environment. The dual-MCU source files remain in `src/`, but `stationary` and `rotating` are not build targets.
 
 ```bash
 pio run              # compile
@@ -40,11 +42,11 @@ python3 tools/check_embedded_js.py  # verify settings_js.h and image_processor_j
 ```
 
 Tests run natively (no ESP32 needed). ESP32 APIs are stubbed in `test/stubs/`.
-Seven suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, matrix rain, text/image modes), `test_transform` (Canvas, PolarTransform, IdentityTransform), `test_output_scale` (radial balance LUT, overcompensation guard), `test_effects` (effect registry, stack order, rotation, scale, fisheye scale, bloom, applyEffects, sim phase persistence), `test_slice_scheduler` (render notification dispatch, timer vs direct-push priority, mirror, phase offset), and `test_settings_registry` (JSON round-trip, effect stack, scope filter, NVS persist, range/enum validation).
+Seven suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, matrix rain, text/image modes), `test_transform` (Canvas, PolarTransform, IdentityTransform), `test_output_scale` (radial balance LUT, overcompensation guard), `test_effects` (effect registry, stack order, rotation, scale, fisheye scale, bloom, applyEffects, sim phase persistence), `test_slice_scheduler` (render notification dispatch, timer vs direct-push priority, mirror, phase offset, resize quiesce), and `test_settings_registry` (JSON round-trip, effect stack, scope filter, NVS persist, registry defaults, range/enum validation).
 
 ## Config defaults
 
-`src/settings_registry.cpp` is the single source of truth for every user-facing setting. Defaults and display sections live on each `Setting` entry (or on the `Param` member initializer inside a `Pattern` / `Effect` subclass). The web UI and the WASM simulator both build their forms from this registry — no HTML/JS values to keep in sync. Build-time capacity fields stay in `Config`/`src/config.h` and are not settings.
+`src/settings_registry.cpp` is the single source of truth for every user-facing runtime setting. Defaults and display sections live on each `Setting` entry (or on the `Param` member initializer inside a `Pattern` / `Effect` subclass). `settings_registry::init()` applies those defaults before NVS is loaded, so fresh boot and Reset Preferences agree. Fixed hardware fields (`HW_NUM_LEDS`, `HW_STRIP_REVERSED`, `HW_SPI_CLOCK_MHZ`, `HW_MAX_BRIGHTNESS`, plus capacity fields) live in `src/config.h` and PlatformIO build flags; the simulator exposes matching `SimOnly` controls for exploration.
 
 For the two embedded JS files (`settings_js.h` from `sim/js/settings_ui.js`, `image_processor_js.h` from `sim/js/image-processor.js`), `deploy.sh`, `test.sh`, and `sim/build.sh` regenerate them automatically via `tools/gen_embedded_js.sh`. `python3 tools/check_embedded_js.py` verifies they're in sync — it runs as a pre-push hook (`.githooks/pre-push`).
 
@@ -54,11 +56,11 @@ One-time setup: `git config core.hooksPath .githooks`
 
 - **PlatformIO + Arduino framework** on XIAO ESP32-C6 (single-core RISC-V).
 - **Single-core**: WiFi, render task (HW timer ISR → SPI DMA), and pattern task share one core via FreeRTOS priorities. DMA and hardware timers keep rendering jitter-free.
-- **Double-buffered framebuffer** in DMA memory — patterns write back, renderer reads front. Pattern `generate()` never swaps; frame loops publish exactly once after effects.
+- **Double-buffered framebuffer** in DMA memory — patterns write back, renderer reads front. Pattern `generate()` never swaps; frame loops publish exactly once after effects. Runtime framebuffer resize goes through the scheduler's render mutex so no pending slice send can read freed DMA memory.
 - **Output scale pipeline** (`src/output_scale.h`) — composable per-LED brightness LUT applied in `buildFrame()` at SPI output. Currently: radial balance (compensates 1/r brightness falloff). Falls back to `memcpy` when no corrections are active.
 - **Power**: 3S LiPo → buck converter → 5 V. XIAO powered directly on the stationary side; LEDs get 5 V through the hollow slip ring.
 - **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, refresh rate, motor start/stop toggle, preferences reset. Motor speed is derived from refresh rate and `NUM_ARMS` (build-time constant). No reflash needed.
-- **Config persists** to NVS via "Save to Flash" button. "Reset Preferences" clears NVS and restores code defaults in-place (no reboot).
+- **Config persists** to NVS via "Save to Flash" button. "Reset Preferences" clears NVS, restores registry defaults in-place (no reboot), and leaves the motor stopped.
 - **Settings registry** (`src/settings_registry.h/cpp`) — all user-facing settings in one place, emitting a sectioned JSON model that drives both UIs. Scope flags (`Both`/`McuOnly`/`SimOnly`) control per-side visibility. See `docs/settings.md`.
 - **Pattern params** — `Pattern` base class supports self-describing `Param` arrays (same as effects). TextPattern's text, mode, fixed delay, and margin params live on the pattern instance, not in Config; MatrixPattern follows the same route for top-to-bottom fall speed, renders mixed-script glyphs through a Cartesian canvas before polar sampling, and hash-selects symbols per stream to avoid readable cycles. NVS keys use prefix `p_<patternKey>_<paramKey>`.
 - **Text rendering** — Text params are UTF-8 byte buffers. `src/fonts/text_font*.h` owns UTF-8 iteration, fixed-buffer run decoding, measurement, glyph lookup, and width metadata for compact script-specific tables; `TextPattern` caches the decoded run and refreshes it only when the text bytes change. Word mode selects one decoded word per step rather than accumulating prefixes. Text layout uses a Cartesian margin measured in LED pitches; centered modes use fixed-point fit scaling, and marquee treats the margin as its clipped scroll viewport. Low-scale odd-length centered text has a local, removable center-gap dodge in `src/patterns/text.cpp`.
@@ -67,7 +69,7 @@ One-time setup: `git config core.hooksPath .githooks`
 
 - **Arm layout**: 2-arm "golden star". 40 LEDs on a 144 LEDs/m HD107S strip (6.5 mm pitch), placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU on the stationary side; SPI data crosses the slip ring to the LED strip. Hub radius = 0.
 
-Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). `NUM_ARMS` defaults to 2, overridable via `-DNUM_ARMS=N`. Strip DI is at the outer tip; `stripReversed` (default true, in settings registry) makes `buildFrame()` emit pixels in reverse so logical pixel 0 stays at the hub. See `src/config.h`.
+Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). `NUM_ARMS` defaults to 2, overridable via `-DNUM_ARMS=N`. Strip DI orientation is fixed by the `HW_STRIP_REVERSED` build flag so `buildFrame()` can keep logical pixel 0 at the hub. See `src/config.h`.
 
 ## Browser simulator
 
@@ -78,11 +80,12 @@ python3 -m http.server 8080 # serve sim/ then open http://localhost:8080
 
 Compiles the real `src/patterns/*.cpp` + `src/framebuffer.cpp` to WebAssembly via Emscripten — zero code duplication. `sim/build.sh` links the pattern glob, so new pattern `.cpp` files are not hand-listed a second time. Uses the same `test/stubs/` headers as native tests. A thin `sim/sim_bridge.cpp` exports C-linkage functions to JS.
 
-C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates hardware pipeline (RPM jitter, hall sensor noise, SPI budget overruns, pattern lag). Refresh rate (12/24/25/30/60 Hz) and arm count (1/2/4) replace raw RPM — motor RPM is derived as `refreshRate × 60 / numArms`. Multi-arm rendering uses modular angle math in the fragment shader. Game-style HUD overlay shows RPM, effective Hz, and render FPS. Display Hz selector (60/120/144/240) controls observer persistence — decouples visible arc width from browser frame rate. Geometry sliders use physical mm units matching the actual build — defaults from `src/config.h`, hub radius = 0.
+C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates hardware pipeline (RPM jitter, hall sensor noise, SPI budget overruns, pattern lag). Refresh rate (12/24/25/30/60 Hz) and arm count (1/2/4) replace raw RPM — motor RPM is derived as `refreshRate × 60 / numArms`. Multi-arm rendering uses modular angle math in the fragment shader. Game-style HUD overlay shows RPM, effective Hz, and render FPS. Display Hz selector (60/120/144/240) controls observer persistence — decouples visible arc width from browser frame rate. Sim-only hardware controls can vary LED count, strip direction, SPI clock, and brightness cap without making those MCU runtime settings.
 
 ## Docs
 
 - `docs/architecture.md` — single-core scheduling rationale, timer vs loop, double-buffer design, timing budget.
+- `docs/dual-mcu.md` — archived wireless dual-MCU testing design; source is retained, but targets are not active in PlatformIO.
 - `docs/led-strip-and-driver.md` — HD107S wire protocol, SPI DMA data flow, why 20 MHz, end frame sizing.
 - `docs/wiring-and-parts.md` — pin map, parts list, power topology (3S + buck), slip ring channels, and why each part was chosen.
 - `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, ESC arming & calibration, fisheye distortion, power budget & runtime estimates, perception rendering, polar distortion correction.

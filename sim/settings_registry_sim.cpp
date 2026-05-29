@@ -62,10 +62,24 @@ static void    set_showHallMarker(int32_t v) {
 
 static int32_t get_numArms()  { return s_cfg ? s_cfg->numArms : NUM_ARMS; }
 static void    set_numArms(int32_t v) { if (s_cfg) s_cfg->numArms = (uint8_t)v; }
+static int32_t get_numLeds()  { return s_cfg ? s_cfg->numLeds : HW_NUM_LEDS; }
+static void    set_numLeds(int32_t v) { if (s_cfg) s_cfg->numLeds = (uint16_t)v; }
+static int32_t get_stripReversed() { return (s_cfg && s_cfg->stripReversed) ? 1 : 0; }
+static void    set_stripReversed(int32_t v) { if (s_cfg) s_cfg->stripReversed = v != 0; }
+static int32_t get_spiClock() { return s_cfg ? s_cfg->spiClockMhz : HW_SPI_CLOCK_MHZ; }
+static void    set_spiClock(int32_t v) { if (s_cfg) s_cfg->spiClockMhz = (uint8_t)v; }
+static int32_t get_maxBrightness() { return s_cfg ? s_cfg->maxBrightness : HW_MAX_BRIGHTNESS; }
+static void    set_maxBrightness(int32_t v) {
+    if (!s_cfg) return;
+    s_cfg->maxBrightness = (uint8_t)v;
+    if (s_cfg->brightness > s_cfg->maxBrightness)
+        s_cfg->brightness = s_cfg->maxBrightness;
+}
 
 // ── Enum option tables ─────────────────────────────────────────────────────
 
 static const ParamOption kArmOptions[]    = {{"1", 1}, {"2", 2}, {"4", 4}};
+static const ParamOption kSpiOptions[]    = {{"20", 20}, {"40", 40}};
 static const ParamOption kDisplayHzOpts[] = {
     {"60 Hz", 60}, {"120 Hz", 120}, {"144 Hz", 144}, {"240 Hz", 240}
 };
@@ -73,7 +87,19 @@ static const ParamOption kDisplayHzOpts[] = {
 // ── Registry ──────────────────────────────────────────────────────────────
 
 const Setting g_sim_settings[] = {
-    // arm count (build-time constant on MCU, runtime in sim)
+    // fixed hardware on MCU, runtime-adjustable in sim
+    { "numLeds",       "LED count",      "hardware", "hardware", Scope::SimOnly, ParamType::Int,
+       HW_NUM_LEDS, 1, MAX_LEDS, 1, nullptr, 0,
+       get_numLeds, set_numLeds, nullptr, nullptr, nullptr },
+    { "stripReversed", "Strip reversed", "hardware", "hardware", Scope::SimOnly, ParamType::Bool,
+       HW_STRIP_REVERSED, 0, 1, 1, nullptr, 0,
+       get_stripReversed, set_stripReversed, nullptr, nullptr, nullptr },
+    { "spiClockMhz",   "SPI clock MHz",  "hardware", "hardware", Scope::SimOnly, ParamType::Enum,
+       HW_SPI_CLOCK_MHZ, 0, 40, 1, kSpiOptions, 2,
+       get_spiClock, set_spiClock, nullptr, nullptr, nullptr },
+    { "maxBrightness", "Max brightness", "hardware", "hardware", Scope::SimOnly, ParamType::Int,
+       HW_MAX_BRIGHTNESS, 0, 31, 1, nullptr, 0,
+       get_maxBrightness, set_maxBrightness, nullptr, nullptr, nullptr },
     { "numArms",       "Arms",           "hardware", "hardware", Scope::SimOnly, ParamType::Enum,
        NUM_ARMS, 1, 4, 1, kArmOptions, 3,
        get_numArms, set_numArms, nullptr, nullptr, nullptr },

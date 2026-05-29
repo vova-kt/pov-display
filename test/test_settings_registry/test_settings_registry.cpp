@@ -276,6 +276,25 @@ void test_apply_numSlices_ignored_by_settings() {
     TEST_ASSERT_EQUAL_UINT16(prev, cfg.numSlices);
 }
 
+void test_apply_fixed_hardware_ignored_on_mcu() {
+    uint16_t prevLeds = cfg.numLeds;
+    bool prevReversed = cfg.stripReversed;
+    uint8_t prevSpi = cfg.spiClockMhz;
+    uint8_t prevMaxBrightness = cfg.maxBrightness;
+
+    JsonDocument doc;
+    doc["settings"]["numLeds"] = prevLeds + 1;
+    doc["settings"]["stripReversed"] = !prevReversed;
+    doc["settings"]["spiClockMhz"] = 40;
+    doc["settings"]["maxBrightness"] = 1;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+
+    TEST_ASSERT_EQUAL_UINT16(prevLeds, cfg.numLeds);
+    TEST_ASSERT_EQUAL(prevReversed, cfg.stripReversed);
+    TEST_ASSERT_EQUAL_UINT8(prevSpi, cfg.spiClockMhz);
+    TEST_ASSERT_EQUAL_UINT8(prevMaxBrightness, cfg.maxBrightness);
+}
+
 void test_apply_ignores_unknown_key() {
     uint8_t prev = cfg.brightness;
     JsonDocument doc;
@@ -462,8 +481,38 @@ void test_scope_removed_settings_absent() {
                              "numArms is now build-time constant, not a setting");
     TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "numSlices").isNull(),
                              "numSlices is a config field, not a setting");
+    TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "numLeds").isNull(),
+                             "numLeds is fixed hardware on MCU");
+    TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "stripReversed").isNull(),
+                             "stripReversed is fixed hardware on MCU");
+    TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "spiClockMhz").isNull(),
+                             "spiClockMhz is fixed hardware on MCU");
+    TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "maxBrightness").isNull(),
+                             "maxBrightness is fixed hardware on MCU");
     TEST_ASSERT_FALSE_MESSAGE(findSetting(doc, "targetHz").isNull(),
                               "targetHz should still appear");
+}
+
+void test_init_applies_registry_defaults() {
+    cfg.numLeds = 1;
+    cfg.stripReversed = true;
+    cfg.spiClockMhz = 40;
+    cfg.maxBrightness = 20;
+    cfg.activePattern = 0;
+    cfg.brightness = 1;
+    cfg.motorStopped = false;
+    cfg.escPulseUs = 1500;
+
+    settings_registry::init(&cfg);
+
+    TEST_ASSERT_EQUAL_UINT16(1, cfg.numLeds);
+    TEST_ASSERT_TRUE(cfg.stripReversed);
+    TEST_ASSERT_EQUAL_UINT8(40, cfg.spiClockMhz);
+    TEST_ASSERT_EQUAL_UINT8(20, cfg.maxBrightness);
+    TEST_ASSERT_EQUAL_UINT8(3, cfg.activePattern);
+    TEST_ASSERT_EQUAL_UINT8(16, cfg.brightness);
+    TEST_ASSERT_TRUE(cfg.motorStopped);
+    TEST_ASSERT_EQUAL_UINT16(kStopPulseUs, cfg.escPulseUs);
 }
 
 // ── NVS round-trip ────────────────────────────────────────────────────────
@@ -539,9 +588,23 @@ void test_clearNvs_removes_stored_settings() {
 void test_resetToDefaults_restores_defaults() {
     cfg.brightness = 25;
     cfg.targetHz = 60;
+    cfg.numLeds = 12;
+    cfg.stripReversed = true;
+    cfg.spiClockMhz = 40;
+    cfg.maxBrightness = 20;
+    cfg.activePattern = 0;
+    cfg.motorStopped = false;
+    cfg.escPulseUs = 1500;
     settings_registry::resetToDefaults();
     TEST_ASSERT_EQUAL_UINT8(16, cfg.brightness);
     TEST_ASSERT_EQUAL_UINT8(12, cfg.targetHz);
+    TEST_ASSERT_EQUAL_UINT16(12, cfg.numLeds);
+    TEST_ASSERT_TRUE(cfg.stripReversed);
+    TEST_ASSERT_EQUAL_UINT8(40, cfg.spiClockMhz);
+    TEST_ASSERT_EQUAL_UINT8(20, cfg.maxBrightness);
+    TEST_ASSERT_EQUAL_UINT8(3, cfg.activePattern);
+    TEST_ASSERT_TRUE(cfg.motorStopped);
+    TEST_ASSERT_EQUAL_UINT16(kStopPulseUs, cfg.escPulseUs);
 }
 
 int main() {
@@ -567,6 +630,7 @@ int main() {
     RUN_TEST(test_apply_clamps_brightness_to_max);
     RUN_TEST(test_apply_numArms_ignored_on_mcu);
     RUN_TEST(test_apply_numSlices_ignored_by_settings);
+    RUN_TEST(test_apply_fixed_hardware_ignored_on_mcu);
     RUN_TEST(test_apply_ignores_unknown_key);
     RUN_TEST(test_apply_color_unpacks_rgb);
     RUN_TEST(test_apply_mirror_bool);
@@ -586,6 +650,7 @@ int main() {
     RUN_TEST(test_apply_effect_stack_rejects_unknown);
 
     RUN_TEST(test_scope_removed_settings_absent);
+    RUN_TEST(test_init_applies_registry_defaults);
 
     RUN_TEST(test_nvs_roundtrip);
     RUN_TEST(test_pattern_nvs_rejects_invalid_text_delay);
