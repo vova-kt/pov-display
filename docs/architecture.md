@@ -37,7 +37,7 @@ At 1200 RPM / 360 slices / 36 LEDs @ 20 MHz SPI:
 - SPI transfer: ~60 µs
 - Headroom: ~79 µs
 
-At 144 LEDs the SPI transfer exceeds the slice interval — reduce to ~180 slices or increase SPI clock. The system doesn't auto-adjust yet; this is a manual tradeoff via the web UI.
+At 144 LEDs the SPI transfer exceeds the slice interval at 360 slices. To accommodate longer strips, reduce the slice count via the compile-time build configuration (`NUM_SLICES` build flag/constant) or increase the SPI clock speed.
 
 ## Settings & params
 

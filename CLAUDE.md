@@ -67,7 +67,7 @@ One-time setup: `git config core.hooksPath .githooks`
 
 - **Arm layout**: 2-arm "golden star". 40 LEDs on a 144 LEDs/m HD107S strip (6.5 mm pitch), placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU on the stationary side; SPI data crosses the slip ring to the LED strip. Hub radius = 0.
 
-Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). `NUM_ARMS` defaults to 2, overridable via `-DNUM_ARMS=N`. Strip DI is at the outer tip; `stripReversed` (default true, in settings registry) makes `buildFrame()` emit pixels in reverse so logical pixel 0 stays at the hub. See `src/config.h`.
+Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). `NUM_ARMS` defaults to 2, overridable via `-DNUM_ARMS=N`. Strip DI is at the outer tip; `stripReversed` (default true, in settings registry) makes `buildFrame()` emit pixels in reverse so logical pixel 0 stays at the hub. `numSlices` is fixed via the `NUM_SLICES` build flag/constant (default 360). See `src/config.h`.
 
 ## Browser simulator
 

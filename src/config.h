@@ -23,9 +23,13 @@ constexpr uint8_t PIN_ESC      = D3;
 #ifndef MAX_SLICES
 #define MAX_SLICES 720
 #endif
+#ifndef NUM_SLICES
+#define NUM_SLICES 360
+#endif
 #ifndef NUM_ARMS
 constexpr uint8_t NUM_ARMS = 2;    // physical arm count (overridable via -DNUM_ARMS=N)
 #endif
+
 
 // --- Hardware geometry (144 LEDs/m strip: 3.0 mm pixel, 3.5 mm gap, 6.5 mm pitch) ---
 constexpr float   LED_SIZE_MM    = 3.0f;
@@ -47,7 +51,7 @@ inline uint16_t rpmToPulseUs(uint32_t rpm) {
 // --- Runtime configuration ---
 struct Config {
     uint16_t numLeds        = 40;
-    uint16_t numSlices      = 360;
+    uint16_t numSlices      = NUM_SLICES;
     uint8_t  brightness     = 16;     // 0..31 HD107S global brightness
     uint8_t  maxBrightness  = 31;
     int16_t  phaseOffset    = 0;

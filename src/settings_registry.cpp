@@ -18,8 +18,6 @@ Config* config() { return s_cfg; }
 
 static int32_t  get_numLeds()               { return s_cfg->numLeds; }
 static void     set_numLeds(int32_t v)      { s_cfg->numLeds = (uint16_t)v; }
-static int32_t  get_numSlices()             { return s_cfg->numSlices; }
-static void     set_numSlices(int32_t v)    { s_cfg->numSlices = (uint16_t)v; }
 static int32_t  get_brightness()            { return s_cfg->brightness; }
 static void     set_brightness(int32_t v)   {
     if (v > s_cfg->maxBrightness) v = s_cfg->maxBrightness;
@@ -61,7 +59,6 @@ static void     set_radialBalance(int32_t v) { s_cfg->radialBalance = v != 0; }
 // --- Enum option tables ---
 
 static const ParamOption kHzOptions[]       = {{"12", 12}, {"24", 24}, {"25", 25}, {"30", 30}, {"60", 60}};
-static const ParamOption kSliceOptions[]    = {{"90", 90}, {"180", 180}, {"270", 270}, {"360", 360}};
 static const ParamOption kSpiOptions[]      = {{"20", 20}, {"40", 40}};
 static const ParamOption kPhaseOptions[]    = {{"0°", 0}, {"90°", 90}, {"180°", 180}, {"-90°", -90}};
 
