@@ -24,29 +24,30 @@ constexpr uint8_t PIN_ESC      = D3;
 #define MAX_SLICES 720
 #endif
 
-// --- Hardware geometry (fixed LED strip: 3.0 mm pixel, 3.5 mm pitch) ---
-constexpr float   LED_SIZE_MM    = 3.5f;
-constexpr float   LED_GAP_MM     = 3.0f;
+// --- Hardware geometry (144 LEDs/m strip: 3.0 mm pixel, 3.5 mm gap, 6.5 mm pitch) ---
+constexpr float   LED_SIZE_MM    = 3.0f;
+constexpr float   LED_GAP_MM     = 3.5f;
 constexpr uint8_t HUB_RADIUS_MM  = 1;
 
 // --- Runtime configuration ---
 struct Config {
-    uint16_t numLeds        = 26;
+    uint16_t numLeds        = 40;
     uint16_t numSlices      = 360;
     uint8_t  brightness     = 16;     // 0..31 HD107S global brightness
     uint8_t  maxBrightness  = 31;
     int16_t  phaseOffset    = 0;
 
-    uint8_t  activePattern  = 5;
+    uint8_t  activePattern  = 3;
     uint8_t  colorR         = 255;
     uint8_t  colorG         = 0;
     uint8_t  colorB         = 0;
 
     uint8_t  numArms        = 2;      // 1, 2, or 4 — physical arm count
-    uint8_t  targetHz       = 60;     // target refresh rate (12, 24, 25, 30, 60)
-    uint16_t escPulseUs     = 1000;   // 1000=stop, 2000=full
+    uint8_t  targetHz       = 12;     // target refresh rate (12, 24, 25, 30, 60)
+    uint16_t escPulseUs     = 1200;   // 1000=stop, ~1150=spin threshold, 2000=full
     uint8_t  spiClockMhz    = 20;
     bool     mirrorPattern  = true;
+    bool     stripReversed  = false;
     bool     radialBalance  = true;
 
     void loadFromNvs();

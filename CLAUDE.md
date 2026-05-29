@@ -26,11 +26,6 @@ pio device monitor   # serial console (115200 baud)
 ./deploy.sh                # compile + flash + monitor in one shot
 ./deploy.sh --no-monitor   # compile + flash, skip monitor
 ./deploy.sh --monitor-only # just open serial monitor
-
-# Dual-MCU wireless testing (no slip ring)
-./deploy_st.sh             # compile + flash stationary firmware + monitor
-./deploy_rot.sh            # compile + flash rotating firmware + monitor
-# Both accept --no-monitor and --monitor-only like deploy.sh
 ```
 
 ## Tests
@@ -60,7 +55,7 @@ One-time setup: `git config core.hooksPath .githooks`
 - **Single-core**: WiFi, render task (HW timer ISR → SPI DMA), and pattern task share one core via FreeRTOS priorities. DMA and hardware timers keep rendering jitter-free.
 - **Double-buffered framebuffer** in DMA memory — patterns write back, renderer reads front. Pattern `generate()` never swaps; frame loops publish exactly once after effects.
 - **Output scale pipeline** (`src/output_scale.h`) — composable per-LED brightness LUT applied in `buildFrame()` at SPI output. Currently: radial balance (compensates 1/r brightness falloff). Falls back to `memcpy` when no corrections are active.
-- **Power**: 3S LiPo (stationary) → buck converter → 5 V through hollow slip ring. LEDs and XIAO share the same 5 V rail on the rotating arm.
+- **Power**: 3S LiPo → buck converter → 5 V. XIAO powered directly on the stationary side; LEDs get 5 V through the hollow slip ring.
 - **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, refresh rate, arm count, motor control. No reflash needed.
 - **Config persists** to NVS via "Save to Flash" button.
 - **Settings registry** (`src/settings_registry.h/cpp`) — all user-facing settings in one place, emitting a sectioned JSON model that drives both UIs. Scope flags (`Both`/`McuOnly`/`SimOnly`) control per-side visibility. See `docs/settings.md`.
@@ -69,11 +64,9 @@ One-time setup: `git config core.hooksPath .githooks`
 - **Effect pipeline** (`src/effect.h`) — polymorphic `Effect` base class with self-describing `Param` parameters. Global registry and four-slot stack live in `src/effect.cpp`. Effects run in stack order after pattern generation but before `fb.swap()`; they can mutate the back framebuffer (scale, fisheye scale, bloom) or emit `EffectState` (rotation `sliceOffset`). The simulator persists the last rotation phase across render-only frames so reused framebuffers do not draw a static duplicate. Adding a new effect: one class in `src/effects/`, one registry line — frame loops never change.
 - **Shared UI renderer** — `sim/js/settings_ui.js` builds the two-tab sectioned settings form (Picture / Hardware) from the registry JSON. Pattern and effect params render next to their owning selectors. Embedded in the MCU UI via `/js/settings.js`. Both UIs share the same renderer code.
 
-- **Dual-MCU wireless mode** — for testing without a slip ring. Stationary C6 (hall + motor + WiFi AP + web UI) broadcasts rotation timing and config patches over UDP to a rotating C3/C6 (patterns + LEDs + WiFi client). `TimingSource` interface (`src/timing_source.h`) decouples `SliceScheduler` from `HallSensor`; `HallTimingSource` wraps the local sensor, `WifiTimingSource` receives UDP. Three PlatformIO envs: `esp32c6` (single-MCU), `stationary`, `rotating`. See `docs/dual-mcu.md`.
+- **Arm layout**: 2-arm "golden star". 40 LEDs on a 144 LEDs/m HD107S strip (6.5 mm pitch), placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU on the stationary side; SPI data crosses the slip ring to the LED strip. Hub radius = 0.
 
-- **Arm layout**: 2-arm "golden star". LED strip placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU mounts behind the blade. Hub radius = 0.
-
-Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). See `src/config.h`.
+Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). Strip DI is at the outer tip; `stripReversed` (default true, in settings registry) makes `buildFrame()` emit pixels in reverse so logical pixel 0 stays at the hub. See `src/config.h`.
 
 ## Browser simulator
 
@@ -91,8 +84,7 @@ C++ timing model + WebGL renderer compile to WASM alongside patterns. Simulates 
 - `docs/architecture.md` — single-core scheduling rationale, timer vs loop, double-buffer design, timing budget.
 - `docs/led-strip-and-driver.md` — HD107S wire protocol, SPI DMA data flow, why 20 MHz, end frame sizing.
 - `docs/wiring-and-parts.md` — pin map, parts list, power topology (3S + buck), slip ring channels, and why each part was chosen.
-- `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, fisheye distortion, power budget & runtime estimates, perception rendering, polar distortion correction.
+- `docs/concepts/` — short explainers on EE/ME/physics concepts: blade aerodynamics, ESC arming & calibration, fisheye distortion, power budget & runtime estimates, perception rendering, polar distortion correction.
 - `docs/simulator.md` — WASM simulator architecture, timing model, how to extend.
 - `docs/settings.md` — settings registry design, Param semantics, scope filter, UI structure.
-- `docs/dual-mcu.md` — wireless dual-MCU testing setup, power budget, communication protocol, build modes.
 - `docs/effect-proposals.md` — short candidate effect ideas for text, image, and shared categories.

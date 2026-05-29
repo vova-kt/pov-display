@@ -86,7 +86,7 @@ const imageEl = document.getElementById('imageFile');
 imageEl.addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-  const numLeds = 26; // sensible default; server triggers resize via configCb
+  const numLeds = 40; // sensible default; server triggers resize via configCb
   const sz = numLeds * 2;
   const result = await preprocessImage(file, sz);
   await fetch('/api/image?w=' + result.width + '&h=' + result.height, {

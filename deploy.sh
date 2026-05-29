@@ -2,15 +2,17 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $(basename "$0") [--no-monitor] [--monitor-only]"
+    echo "Usage: $(basename "$0") [--env=ENV] [--no-monitor] [--monitor-only]"
     exit 1
 }
 
+ENV=esp32c6
 MONITOR=true
 SKIP_BUILD=false
 
 for arg in "$@"; do
     case "$arg" in
+        --env=*)         ENV="${arg#--env=}" ;;
         --no-monitor)    MONITOR=false ;;
         --monitor-only)  SKIP_BUILD=true ;;
         -h|--help)       usage ;;
@@ -25,11 +27,11 @@ if [ "$SKIP_BUILD" = false ]; then
     tools/gen_embedded_js.sh sim/js/settings_ui.js    SETTINGS_JS        src/web/settings_js.h
     tools/gen_embedded_js.sh sim/js/image-processor.js IMAGE_PROCESSOR_JS src/web/image_processor_js.h
 
-    echo "==> Compiling..."
-    pio run
+    echo "==> Compiling ($ENV)..."
+    pio run -e "$ENV"
 
-    echo "==> Flashing..."
-    pio run -t upload
+    echo "==> Flashing ($ENV)..."
+    pio run -e "$ENV" -t upload
 fi
 
 if [ "$MONITOR" = true ]; then

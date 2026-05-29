@@ -10,6 +10,7 @@ public:
     void sendSlice(const Pixel* pixels, uint16_t count);
     void allOff(uint16_t count);
     void recomputeScale(uint16_t numLeds, bool radialBalance);
+    void setReversed(bool rev) { reversed_ = rev; }
 
 private:
     spi_device_handle_t spi_ = nullptr;
@@ -17,6 +18,7 @@ private:
     uint16_t maxLeds_        = 0;
     uint8_t  outputScale_[MAX_LEDS];
     bool     applyScale_     = false;
+    bool     reversed_       = false;
 
     uint16_t buildFrame(const Pixel* pixels, uint16_t count);
 };

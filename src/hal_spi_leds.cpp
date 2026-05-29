@@ -2,6 +2,7 @@
 #include "output_scale.h"
 #include <cstring>
 #include <esp_heap_caps.h>
+#include <Arduino.h>
 
 void LedDriver::recomputeScale(uint16_t numLeds, bool radialBalance) {
     applyScale_ = compute_output_scale(outputScale_, maxLeds_, numLeds, radialBalance);
@@ -40,17 +41,18 @@ uint16_t LedDriver::buildFrame(const Pixel* pixels, uint16_t count) {
     memset(txBuf_, 0x00, 4);
     uint16_t pos = 4;
 
-    if (applyScale_) {
-        for (uint16_t i = 0; i < count; i++) {
-            uint16_t s = outputScale_[i];
-            txBuf_[pos++] = pixels[i].brightness;
-            txBuf_[pos++] = (uint8_t)((pixels[i].blue  * s) >> 8);
-            txBuf_[pos++] = (uint8_t)((pixels[i].green * s) >> 8);
-            txBuf_[pos++] = (uint8_t)((pixels[i].red   * s) >> 8);
-        }
-    } else {
+    if (!reversed_ && !applyScale_) {
         memcpy(txBuf_ + pos, pixels, count * sizeof(Pixel));
         pos += count * sizeof(Pixel);
+    } else {
+        for (uint16_t i = 0; i < count; i++) {
+            uint16_t src = reversed_ ? (count - 1 - i) : i;
+            uint16_t s = applyScale_ ? outputScale_[src] : 256;
+            txBuf_[pos++] = pixels[src].brightness;
+            txBuf_[pos++] = (uint8_t)((pixels[src].blue  * s) >> 8);
+            txBuf_[pos++] = (uint8_t)((pixels[src].green * s) >> 8);
+            txBuf_[pos++] = (uint8_t)((pixels[src].red   * s) >> 8);
+        }
     }
 
     uint16_t endBytes = (count + 15) / 16;
@@ -63,10 +65,23 @@ uint16_t LedDriver::buildFrame(const Pixel* pixels, uint16_t count) {
 void LedDriver::sendSlice(const Pixel* pixels, uint16_t count) {
     uint16_t len = buildFrame(pixels, count);
 
+    static uint32_t spiSendCount = 0;
+    if (spiSendCount < 3) {
+        Serial.printf("[spi] send #%lu: %u leds, %u bytes. first 16 bytes:",
+                      spiSendCount, count, len);
+        for (int i = 0; i < 16 && i < len; i++)
+            Serial.printf(" %02X", txBuf_[i]);
+        Serial.println();
+    }
+    spiSendCount++;
+
     spi_transaction_t t = {};
     t.length    = len * 8;
     t.tx_buffer = txBuf_;
-    spi_device_transmit(spi_, &t);
+    esp_err_t err = spi_device_transmit(spi_, &t);
+    if (err != ESP_OK && spiSendCount <= 5) {
+        Serial.printf("[spi] transmit ERROR: %d\n", err);
+    }
 }
 
 void LedDriver::allOff(uint16_t count) {

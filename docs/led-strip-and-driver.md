@@ -27,7 +27,7 @@ The TX buffer is allocated once at init with `MALLOC_CAP_DMA` (must be in DMA-ca
 
 ## Why 20 MHz clock (not 40 MHz)
 
-HD107S is rated to 40 MHz, but the wires on the rotating arm are subject to vibration and centrifugal stress. 20 MHz is conservative and reliable; it can be increased via the `spiClockMhz` config field if the wiring is clean. Note: SPI data no longer crosses the slip ring (both the XIAO and LED strip are on the rotating arm), so signal integrity is better than the old layout.
+HD107S is rated to 40 MHz, but the wires on the rotating arm are subject to vibration and centrifugal stress. 20 MHz is conservative and reliable; it can be increased via the `spiClockMhz` config field if the wiring is clean. In the single-MCU build, SPI crosses the slip ring (stationary MCU → rotating LED strip); in the dual-MCU wireless build, both MCU and LEDs are on the arm so SPI stays local.
 
 ## Why no chip-select pin
 

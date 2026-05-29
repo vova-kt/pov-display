@@ -5,6 +5,7 @@ class Motor {
 public:
     void init(uint8_t pin);
     void arm();
+    void calibrateRange();
     void setPulseUs(uint16_t pulseUs);
     void stop();
 

@@ -10,7 +10,7 @@ struct TimingState {
     float patternLagMs   = 0.0f;
     float spiClockMhz    = 20.0f;
     float displayHz      = 60.0f;
-    int   numLeds        = 26;
+    int   numLeds        = 40;
     int   numSlices      = 360;
     float patternFps     = 60.0f;
 

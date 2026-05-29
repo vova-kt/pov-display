@@ -41,11 +41,11 @@ Computing `cos` and `sin` per pixel per frame is wasteful. Instead, `PolarTransf
 
 At render time, `apply()` loops through the LUT — one integer read, one canvas sample, one framebuffer write per pixel. No floating-point, no trig.
 
-LUT memory for 360 slices × 26 LEDs × 4 bytes = ~37 KB. The Canvas itself at 52×52 pixels × 4 bytes = ~11 KB.
+LUT memory for 360 slices × 40 LEDs × 4 bytes = ~57 KB. The Canvas itself at 80×80 pixels × 4 bytes = ~25 KB.
 
 ## Canvas sizing
 
-The canvas should be `2 × numLeds` per side — matching radial resolution (numLeds pixels across the radius, 2× that across the diameter). For 26 LEDs this gives a 52×52 canvas.
+The canvas should be `2 × numLeds` per side — matching radial resolution (numLeds pixels across the radius, 2× that across the diameter). For 40 LEDs this gives an 80×80 canvas.
 
 At the outer edge, one canvas pixel spans roughly one LED pitch — 1:1 radial resolution. Inner LEDs heavily oversample the canvas (many polar pixels map to the same canvas pixel), which naturally provides anti-aliasing at the center where distortion would otherwise be worst.
 

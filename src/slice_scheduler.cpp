@@ -1,6 +1,7 @@
 #include "slice_scheduler.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <Arduino.h>
 
 void SliceScheduler::init(Framebuffer* fb, LedDriver* leds, TimingSource* timing) {
     fb_     = fb;
@@ -11,9 +12,11 @@ void SliceScheduler::init(Framebuffer* fb, LedDriver* leds, TimingSource* timing
     args.callback = timerCallback;
     args.arg      = this;
     args.name     = "slice";
-    esp_timer_create(&args, &timer_);
+    esp_err_t err = esp_timer_create(&args, &timer_);
+    Serial.printf("[scheduler] timer create: %s\n", err == ESP_OK ? "OK" : "FAILED");
 
-    xTaskCreate(renderTaskFunc, "render", 4096, this, 24, &renderTask_);
+    BaseType_t ok = xTaskCreate(renderTaskFunc, "render", 4096, this, 24, &renderTask_);
+    Serial.printf("[scheduler] render task create: %s (pri=24)\n", ok == pdPASS ? "OK" : "FAILED");
 }
 
 void SliceScheduler::start() {
@@ -32,12 +35,19 @@ void SliceScheduler::onNewRotation() {
     if (periodUs == 0) return;
 
     uint32_t sliceIntervalUs = periodUs / numSlices_;
-    if (sliceIntervalUs < 10) return;  // sanity: minimum 10µs per slice
+    if (sliceIntervalUs < 10) return;
 
     currentSlice_ = (uint16_t)((int16_t)0 + phaseOffset_);
     if ((int16_t)currentSlice_ < 0)
         currentSlice_ += numSlices_;
     currentSlice_ %= numSlices_;
+
+    static uint32_t rotCount = 0;
+    if (rotCount % 100 == 0) {
+        Serial.printf("[scheduler] rot #%lu period=%luus sliceInt=%luus slices=%u\n",
+                      rotCount, periodUs, sliceIntervalUs, numSlices_);
+    }
+    rotCount++;
 
     esp_timer_stop(timer_);
     esp_timer_start_periodic(timer_, sliceIntervalUs);

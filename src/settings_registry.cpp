@@ -51,6 +51,8 @@ static int32_t  get_spiClock()               { return s_cfg->spiClockMhz; }
 static void     set_spiClock(int32_t v)      { s_cfg->spiClockMhz = (uint8_t)v; }
 static int32_t  get_mirror()                 { return s_cfg->mirrorPattern ? 1 : 0; }
 static void     set_mirror(int32_t v)        { s_cfg->mirrorPattern = v != 0; }
+static int32_t  get_stripReversed()          { return s_cfg->stripReversed ? 1 : 0; }
+static void     set_stripReversed(int32_t v) { s_cfg->stripReversed = v != 0; }
 static int32_t  get_radialBalance()          { return s_cfg->radialBalance ? 1 : 0; }
 static void     set_radialBalance(int32_t v) { s_cfg->radialBalance = v != 0; }
 
@@ -91,7 +93,7 @@ const Setting g_settings[] = {
       2, 1, 4, 1, kArmOptions, 3,
       get_numArms, set_numArms, nullptr, nullptr, "num_arms" },
     { "targetHz",      "Refresh rate",   "hardware", "hardware", Scope::Both, ParamType::Enum,
-      60, 0, 240, 1, kHzOptions, 5,
+      12, 0, 240, 1, kHzOptions, 5,
       get_targetHz, set_targetHz, nullptr, nullptr, "target_hz" },
     { "numLeds",       "LED count",      "hardware", "hardware", Scope::Both, ParamType::Int,
       26, 1, MAX_LEDS, 1, nullptr, 0,
@@ -102,6 +104,9 @@ const Setting g_settings[] = {
     { "escPulseUs",    "ESC pulse µs",   "hardware", "hardware", Scope::McuOnly, ParamType::Int,
       1000, 1000, 2000, 1, nullptr, 0,
       get_escPulse, set_escPulse, nullptr, nullptr, "esc_pulse" },
+    { "stripReversed", "Strip reversed",  "hardware", "hardware", Scope::Both, ParamType::Bool,
+      0, 0, 1, 1, nullptr, 0,
+      get_stripReversed, set_stripReversed, nullptr, nullptr, "strip_rev" },
     { "spiClockMhz",   "SPI clock MHz",  "hardware", "hardware", Scope::Both, ParamType::Enum,
       20, 0, 40, 1, kSpiOptions, 2,
       get_spiClock, set_spiClock, nullptr, nullptr, "spi_clk" },
