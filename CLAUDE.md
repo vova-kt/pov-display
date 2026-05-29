@@ -44,7 +44,7 @@ Seven suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` 
 
 ## Config defaults
 
-`src/settings_registry.cpp` is the single source of truth for every user-facing setting. Defaults and display sections live on each `Setting` entry (or on the `Param` member initializer inside a `Pattern` / `Effect` subclass). The web UI and the WASM simulator both build their forms from this registry — no HTML/JS values to keep in sync.
+`src/settings_registry.cpp` is the single source of truth for every user-facing setting. Defaults and display sections live on each `Setting` entry (or on the `Param` member initializer inside a `Pattern` / `Effect` subclass). The web UI and the WASM simulator both build their forms from this registry — no HTML/JS values to keep in sync. Build-time capacity fields stay in `Config`/`src/config.h` and are not settings.
 
 For the two embedded JS files (`settings_js.h` from `sim/js/settings_ui.js`, `image_processor_js.h` from `sim/js/image-processor.js`), `deploy.sh`, `test.sh`, and `sim/build.sh` regenerate them automatically via `tools/gen_embedded_js.sh`. `python3 tools/check_embedded_js.py` verifies they're in sync — it runs as a pre-push hook (`.githooks/pre-push`).
 
@@ -67,7 +67,7 @@ One-time setup: `git config core.hooksPath .githooks`
 
 - **Arm layout**: 2-arm "golden star". 40 LEDs on a 144 LEDs/m HD107S strip (6.5 mm pitch), placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU on the stationary side; SPI data crosses the slip ring to the LED strip. Hub radius = 0.
 
-Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). `NUM_ARMS` defaults to 2, overridable via `-DNUM_ARMS=N`. Strip DI is at the outer tip; `stripReversed` (default true, in settings registry) makes `buildFrame()` emit pixels in reverse so logical pixel 0 stays at the hub. `numSlices` is fixed via the `NUM_SLICES` build flag/constant (default 360). See `src/config.h`.
+Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). `NUM_ARMS` defaults to 2, overridable via `-DNUM_ARMS=N`. Strip DI is at the outer tip; `stripReversed` (default true, in settings registry) makes `buildFrame()` emit pixels in reverse so logical pixel 0 stays at the hub. See `src/config.h`.
 
 ## Browser simulator
 

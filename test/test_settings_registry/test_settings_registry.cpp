@@ -268,6 +268,14 @@ void test_apply_numArms_ignored_on_mcu() {
     TEST_ASSERT_EQUAL_UINT8(prev, cfg.numArms);
 }
 
+void test_apply_numSlices_ignored_by_settings() {
+    uint16_t prev = cfg.numSlices;
+    JsonDocument doc;
+    doc["settings"]["numSlices"] = 720;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+    TEST_ASSERT_EQUAL_UINT16(prev, cfg.numSlices);
+}
+
 void test_apply_ignores_unknown_key() {
     uint8_t prev = cfg.brightness;
     JsonDocument doc;
@@ -452,6 +460,8 @@ void test_scope_removed_settings_absent() {
                              "escPulseUs removed from registry");
     TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "numArms").isNull(),
                              "numArms is now build-time constant, not a setting");
+    TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "numSlices").isNull(),
+                             "numSlices is a config field, not a setting");
     TEST_ASSERT_FALSE_MESSAGE(findSetting(doc, "targetHz").isNull(),
                               "targetHz should still appear");
 }
@@ -556,6 +566,7 @@ int main() {
     RUN_TEST(test_apply_sets_brightness);
     RUN_TEST(test_apply_clamps_brightness_to_max);
     RUN_TEST(test_apply_numArms_ignored_on_mcu);
+    RUN_TEST(test_apply_numSlices_ignored_by_settings);
     RUN_TEST(test_apply_ignores_unknown_key);
     RUN_TEST(test_apply_color_unpacks_rgb);
     RUN_TEST(test_apply_mirror_bool);

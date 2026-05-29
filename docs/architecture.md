@@ -37,13 +37,13 @@ At 1200 RPM / 360 slices / 36 LEDs @ 20 MHz SPI:
 - SPI transfer: ~60 µs
 - Headroom: ~79 µs
 
-At 144 LEDs the SPI transfer exceeds the slice interval at 360 slices. To accommodate longer strips, reduce the slice count via the compile-time build configuration (`NUM_SLICES` build flag/constant) or increase the SPI clock speed.
+At 144 LEDs the SPI transfer exceeds the slice interval at 360 slices. To accommodate longer strips, reduce the slice count via the compile-time build configuration (`NUM_SLICES` build flag/constant) or increase the SPI clock speed. Slice count still lives on `Config` so the framebuffer and scheduler share one runtime value after boot, but it is not exposed through the settings registry or UI.
 
 ## Settings & params
 
-Every user-facing setting lives in a unified registry backed by the same `Param` type. There are three classes of parameters:
+Every user-facing setting lives in a unified registry backed by the same `Param` type. Build-time capacity fields such as `numSlices` stay in `Config`/`src/config.h` and are deliberately not user-facing settings. There are three classes of parameters:
 
-- **Top-level settings** (brightness, color, numArms, etc.) — registered in `src/settings_registry.cpp` with getter/setter function pointers into `Config` fields.
+- **Top-level settings** (brightness, color, LED count, etc.) — registered in `src/settings_registry.cpp` with getter/setter function pointers into `Config` fields.
 - **Pattern params** (e.g. TextPattern's text, mode, fixed delay cadence, margin) — declared inside each `Pattern` subclass, mirroring how effects work.
 - **Effect params** (e.g. RotationEffect's speed and direction) — declared inside each `Effect` subclass.
 

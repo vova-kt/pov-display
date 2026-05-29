@@ -28,6 +28,19 @@ Settings carry a `Scope` tag: `Both`, `McuOnly`, or `SimOnly`. The registry's `t
 
 For the wire format and the full registered entry list, see `src/settings_registry.cpp` directly — duplicating the schema here would rot.
 
+## Build-time config
+
+Build-time config is for hardware wiring, capacity, and environment behavior that should not move through the browser settings API. The guarded project defaults live in `src/config.h`; concrete PlatformIO environment overrides live in `platformio.ini`.
+
+- **Pin wiring** — `PIN_LED_CLK`, `PIN_LED_MOSI`, `PIN_HALL`, and `PIN_ESC` bind firmware roles to board pins.
+- **Framebuffer and strip capacity** — `MAX_LEDS`, `MAX_SLICES`, and `NUM_SLICES` size fixed buffers and timing assumptions before runtime settings are applied.
+- **Physical arm count** — `NUM_ARMS` is a firmware build constant on MCU targets; the simulator exposes arm count separately so multi-arm rendering can be explored without reflashing.
+- **Hardware geometry** — `LED_SIZE_MM`, `LED_GAP_MM`, and `HUB_RADIUS_MM` describe the physical strip and hub geometry used by simulator and layout code.
+- **ESC pulse mapping** — `kStopPulseUs`, `kMinSpinPulseUs`, `kMaxPulseUs`, and `kMaxRpm` define the derived refresh-rate-to-motor command range.
+- **Platform behavior** — `CORE_DEBUG_LEVEL`, `CONFIG_ASYNC_TCP_USE_WDT`, and `MAX_BRIGHTNESS_CAP` are environment-level PlatformIO flags for diagnostics, AsyncTCP watchdog behavior, and rotating-side brightness limiting.
+
+When changing one of these, update `platformio.ini` for the target environment and keep the defaults in `src/config.h` sensible for tests and simulator builds.
+
 ## UI structure
 
 The renderer produces two tabs with section separators:
