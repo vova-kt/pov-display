@@ -1,7 +1,10 @@
 #include "config_relay.h"
+#include "../log_tags.h"
 #include "../settings_registry.h"
 #include <ArduinoJson.h>
 #include <Arduino.h>
+
+LOG_TAG(relay);
 
 // --- Broadcaster (stationary MCU) ---
 
@@ -36,12 +39,12 @@ void ConfigRelayReceiver::poll() {
 
     JsonDocument doc;
     if (deserializeJson(doc, buf, n) != DeserializationError::Ok) {
-        Serial.println("[config_relay] bad JSON");
+        POV_LOGW("bad JSON");
         return;
     }
 
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
-    Serial.printf("[config_relay] applied %d bytes\n", n);
+    POV_LOGI("applied %d bytes", n);
 
     if (cb_) cb_();
 }

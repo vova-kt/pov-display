@@ -2,6 +2,7 @@
 #include <WiFi.h>
 
 #include "config.h"
+#include "log_tags.h"
 #include "hall_sensor.h"
 #include "motor.h"
 #include "motor_control.h"
@@ -12,6 +13,8 @@
 
 #include "effect.h"
 #include "patterns/registry.h"
+
+LOG_TAG(main);
 
 static Config               cfg;
 static HallSensor           hall;
@@ -95,10 +98,12 @@ static void configTask(void*) {
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("POV Stationary MCU starting...");
+    POV_LOGI("POV Stationary MCU starting...");
 
     settings_registry::init(&cfg);
     settings_registry::loadFromNvs();
+    esp_log_level_set("*", (esp_log_level_t)cfg.logLevel);
+    pov_log_apply_exclusions();
     loadPatternsFromNvs();
     loadEffectsFromNvs();
 
@@ -107,8 +112,8 @@ void setup() {
 
     WiFi.mode(WIFI_AP);
     bool apOk = WiFi.softAP("POV-Display", "756Rhebpv!");
-    Serial.printf("softAP: %s\n", apOk ? "OK" : "FAILED");
-    Serial.printf("AP IP: %s\n", WiFi.softAPIP().toString().c_str());
+    POV_LOGI("softAP: %s", apOk ? "OK" : "FAILED");
+    POV_LOGI("AP IP: %s", WiFi.softAPIP().toString().c_str());
 
     timingTx.init();
     configTx.init();
@@ -116,12 +121,12 @@ void setup() {
     webServer.init(&cfg, &hall, nullptr, &motor);
     webServer.onConfigChange(onConfigChanged);
     webServer.onConfigRelay(onConfigRelay);
-    Serial.println("Web server started on port 80");
+    POV_LOGI("Web server started on port 80");
 
     xTaskCreate(hallBroadcastTask, "hallbc", 2048, nullptr, 20, nullptr);
     xTaskCreate(configTask, "config", 4096, nullptr, 10, nullptr);
 
-    Serial.println("Stationary MCU ready.");
+    POV_LOGI("Stationary MCU ready.");
 }
 
 void loop() {

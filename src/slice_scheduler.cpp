@@ -1,4 +1,7 @@
 #include "slice_scheduler.h"
+#include "log_tags.h"
+
+LOG_TAG(scheduler);
 
 void SliceScheduler::init(Framebuffer* fb, LedDriver* leds, TimingSource* timing) {
     fb_     = fb;
@@ -10,13 +13,13 @@ void SliceScheduler::init(Framebuffer* fb, LedDriver* leds, TimingSource* timing
     args.arg      = this;
     args.name     = "slice";
     esp_err_t err = esp_timer_create(&args, &timer_);
-    Serial.printf("[scheduler] timer create: %s\n", err == ESP_OK ? "OK" : "FAILED");
+    POV_LOGI("timer create: %s", err == ESP_OK ? "OK" : "FAILED");
 
     renderMutex_ = xSemaphoreCreateMutex();
-    Serial.printf("[scheduler] render mutex: %s\n", renderMutex_ ? "OK" : "FAILED");
+    POV_LOGI("render mutex: %s", renderMutex_ ? "OK" : "FAILED");
 
     BaseType_t ok = xTaskCreate(renderTaskFunc, "render", 4096, this, 24, &renderTask_);
-    Serial.printf("[scheduler] render task create: %s (pri=24)\n", ok == pdPASS ? "OK" : "FAILED");
+    POV_LOGI("render task create: %s (pri=24)", ok == pdPASS ? "OK" : "FAILED");
 }
 
 void SliceScheduler::start() {
@@ -56,8 +59,8 @@ void SliceScheduler::onNewRotation() {
 
     static uint32_t rotCount = 0;
     if (rotCount % 100 == 0) {
-        Serial.printf("[scheduler] rot #%lu period=%luus sliceInt=%luus slices=%u\n",
-                      rotCount, periodUs, sliceIntervalUs, numSlices_);
+        POV_LOGD("rot #%lu period=%luus sliceInt=%luus slices=%u",
+                 rotCount, periodUs, sliceIntervalUs, numSlices_);
     }
     rotCount++;
 

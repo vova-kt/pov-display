@@ -1,6 +1,7 @@
 #include "settings_registry.h"
 #include "config.h"
 #include "effect.h"
+#include "log_tags.h"
 #include "patterns/registry.h"
 #include <Preferences.h>
 #include <cstring>
@@ -46,11 +47,19 @@ static int32_t  get_mirror()                 { return s_cfg->mirrorPattern ? 1 :
 static void     set_mirror(int32_t v)        { s_cfg->mirrorPattern = v != 0; }
 static int32_t  get_radialBalance()          { return s_cfg->radialBalance ? 1 : 0; }
 static void     set_radialBalance(int32_t v) { s_cfg->radialBalance = v != 0; }
+static int32_t  get_logLevel()               { return s_cfg->logLevel; }
+static void     set_logLevel(int32_t v)      {
+    if (v < 1) v = 1;
+    if (v > 4) v = 4;
+    s_cfg->logLevel = (uint8_t)v;
+    esp_log_level_set("*", (esp_log_level_t)v);
+}
 
 // --- Enum option tables ---
 
 static const ParamOption kHzOptions[]       = {{"12", 12}, {"24", 24}, {"25", 25}, {"30", 30}, {"60", 60}};
 static const ParamOption kPhaseOptions[]    = {{"0°", 0}, {"90°", 90}, {"180°", 180}, {"-90°", -90}};
+static const ParamOption kLogLevelOptions[] = {{"Error", 1}, {"Warning", 2}, {"Info", 3}, {"Debug", 4}};
 
 // --- Registry table ---
 // Picture group then hardware group; activePattern's enum options are synthesized at JSON time from g_patterns.
@@ -80,6 +89,9 @@ const Setting g_settings[] = {
     { "targetHz",      "Refresh rate",   "hardware", "hardware", Scope::Both, ParamType::Enum,
       12, 0, 240, 1, kHzOptions, 5,
       get_targetHz, set_targetHz, nullptr, nullptr, "target_hz" },
+    { "logLevel",      "Log level",      "hardware", "hardware", Scope::McuOnly, ParamType::Enum,
+      3, 1, 4, 1, kLogLevelOptions, 4,
+      get_logLevel, set_logLevel, nullptr, nullptr, "log_level" },
 };
 const uint16_t G_NUM_SETTINGS = sizeof(g_settings) / sizeof(g_settings[0]);
 

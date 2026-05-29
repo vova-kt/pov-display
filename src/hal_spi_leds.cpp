@@ -1,8 +1,11 @@
 #include "hal_spi_leds.h"
+#include "log_tags.h"
 #include "output_scale.h"
 #include <cstring>
 #include <esp_heap_caps.h>
 #include <Arduino.h>
+
+LOG_TAG(spi);
 
 void LedDriver::recomputeScale(uint16_t numLeds, bool radialBalance) {
     applyScale_ = compute_output_scale(outputScale_, maxLeds_, numLeds, radialBalance);
@@ -67,11 +70,7 @@ void LedDriver::sendSlice(const Pixel* pixels, uint16_t count) {
 
     static uint32_t spiSendCount = 0;
     if (spiSendCount < 3) {
-        Serial.printf("[spi] send #%lu: %u leds, %u bytes. first 16 bytes:",
-                      spiSendCount, count, len);
-        for (int i = 0; i < 16 && i < len; i++)
-            Serial.printf(" %02X", txBuf_[i]);
-        Serial.println();
+        POV_LOGD("send #%lu: %u leds, %u bytes", spiSendCount, count, len);
     }
     spiSendCount++;
 
@@ -80,7 +79,7 @@ void LedDriver::sendSlice(const Pixel* pixels, uint16_t count) {
     t.tx_buffer = txBuf_;
     esp_err_t err = spi_device_transmit(spi_, &t);
     if (err != ESP_OK && spiSendCount <= 5) {
-        Serial.printf("[spi] transmit ERROR: %d\n", err);
+        POV_LOGE("transmit ERROR: %d", err);
     }
 }
 

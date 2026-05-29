@@ -85,6 +85,7 @@ struct Config {
     bool     mirrorPattern  = true;
     bool     stripReversed  = HW_STRIP_REVERSED != 0;
     bool     radialBalance  = true;
+    uint8_t  logLevel       = 3;      // ESP_LOG_INFO; 1=Error 2=Warn 3=Info 4=Debug
 
     void loadFromNvs();
     void saveToNvs();

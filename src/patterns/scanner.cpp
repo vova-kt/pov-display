@@ -1,5 +1,7 @@
 #include "scanner.h"
-#include <Arduino.h>
+#include "../log_tags.h"
+
+LOG_TAG(scanner);
 
 void ScannerPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeMs) {
     fb.clearBack();
@@ -15,8 +17,8 @@ void ScannerPattern::generate(Framebuffer& fb, const Config& cfg, uint32_t timeM
     static uint32_t lastLog = 0;
     if (timeMs - lastLog >= 10000) {
         lastLog = timeMs;
-        Serial.printf("[scanner] pos=%u/%u delay=%ums rgb=(%u,%u,%u) br=%u slices=%u\n",
-                      pos, n, delay, cfg.colorR, cfg.colorG, cfg.colorB,
-                      cfg.brightness, fb.numSlices());
+        POV_LOGD("pos=%u/%u delay=%ums rgb=(%u,%u,%u) br=%u slices=%u",
+                 pos, n, delay, cfg.colorR, cfg.colorG, cfg.colorB,
+                 cfg.brightness, fb.numSlices());
     }
 }

@@ -3,10 +3,13 @@
 #include "image_processor_js.h"
 #include "settings_js.h"
 #include "../effect.h"
+#include "../log_tags.h"
 #include "../settings_registry.h"
 #include "../motor_control.h"
 #include "../patterns/registry.h"
 #include <ArduinoJson.h>
+
+LOG_TAG(web);
 
 static constexpr uint32_t kRebootDelayMs = 250; // allow HTTP response to flush
 static constexpr uint16_t kRebootTaskStackBytes = 2048; // enough for a delay then restart
@@ -23,21 +26,21 @@ void PovWebServer::init(Config* cfg, HallSensor* hall, Framebuffer* fb, Motor* m
     fb_    = fb;
     motor_ = motor;
     cfgMutex_ = xSemaphoreCreateMutex();
-    Serial.printf("WebServer: mutex=%s\n", cfgMutex_ ? "OK" : "FAILED");
+    POV_LOGI("mutex=%s", cfgMutex_ ? "OK" : "FAILED");
     setupRoutes();
-    Serial.println("WebServer: routes registered");
+    POV_LOGI("routes registered");
     server_.begin();
-    Serial.printf("WebServer: listening on port 80 (free heap: %u)\n", ESP.getFreeHeap());
+    POV_LOGI("listening on port 80 (free heap: %u)", ESP.getFreeHeap());
 }
 
 void PovWebServer::setupRoutes() {
     server_.onNotFound([](AsyncWebServerRequest* req) {
-        Serial.printf("WebServer: 404 %s %s\n", req->methodToString(), req->url().c_str());
+        ESP_LOGD("web", "404 %s %s", req->methodToString(), req->url().c_str());
         req->send(404, "text/plain", "Not found");
     });
 
     server_.on("/", HTTP_GET, [](AsyncWebServerRequest* req) {
-        Serial.printf("WebServer: GET / from %s\n", req->client()->remoteIP().toString().c_str());
+        ESP_LOGD("web", "GET / from %s", req->client()->remoteIP().toString().c_str());
         req->send(200, "text/html", INDEX_HTML);
     });
 
@@ -61,7 +64,7 @@ void PovWebServer::setupRoutes() {
                 bodyOverflow_ = false;
                 return;
             }
-            Serial.printf("WebServer: POST /api/config (%u bytes)\n", bodyBuffer_.length());
+            ESP_LOGD("web", "POST /api/config (%u bytes)", bodyBuffer_.length());
             JsonDocument doc;
             DeserializationError err = deserializeJson(doc, bodyBuffer_);
             if (err) {
@@ -112,7 +115,7 @@ void PovWebServer::setupRoutes() {
     });
 
     server_.on("/api/motor/stop", HTTP_POST, [this](AsyncWebServerRequest* req) {
-        Serial.println("WebServer: POST /api/motor/stop");
+        ESP_LOGI("web", "POST /api/motor/stop");
         xSemaphoreTake(cfgMutex_, portMAX_DELAY);
         cfg_->motorStopped = true;
         cfg_->escPulseUs = kStopPulseUs;
@@ -122,7 +125,7 @@ void PovWebServer::setupRoutes() {
     });
 
     server_.on("/api/motor/start", HTTP_POST, [this](AsyncWebServerRequest* req) {
-        Serial.println("WebServer: POST /api/motor/start");
+        ESP_LOGI("web", "POST /api/motor/start");
         xSemaphoreTake(cfgMutex_, portMAX_DELAY);
         cfg_->motorStopped = false;
         cfg_->escPulseUs = kMotorStartupPulseUs;
@@ -133,7 +136,7 @@ void PovWebServer::setupRoutes() {
     });
 
     server_.on("/api/reset", HTTP_POST, [this](AsyncWebServerRequest* req) {
-        Serial.println("WebServer: POST /api/reset — restoring defaults");
+        ESP_LOGI("web", "POST /api/reset — restoring defaults");
         xSemaphoreTake(cfgMutex_, portMAX_DELAY);
         settings_registry::resetToDefaults();
         for (uint8_t i = 0; i < G_NUM_PATTERNS; i++)
@@ -151,7 +154,7 @@ void PovWebServer::setupRoutes() {
     });
 
     server_.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest* req) {
-        Serial.println("WebServer: POST /api/reboot — restarting");
+        ESP_LOGI("web", "POST /api/reboot — restarting");
         BaseType_t started = xTaskCreate(
             delayedRebootTask,
             "webReboot",

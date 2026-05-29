@@ -3,6 +3,7 @@
 #include <esp_heap_caps.h>
 
 #include "config.h"
+#include "log_tags.h"
 #include "framebuffer.h"
 #include "hal_spi_leds.h"
 #include "slice_scheduler.h"
@@ -14,6 +15,8 @@
 #include "patterns/pattern.h"
 #include "patterns/registry.h"
 #include "patterns/image.h"
+
+LOG_TAG(main);
 
 static Config              cfg;
 static Framebuffer         fb;
@@ -38,17 +41,17 @@ static void patternTaskFunc(void*) {
             if (cfg.numLeds != fb.numLeds() || cfg.numSlices != fb.numSlices()) {
                 size_t need = (size_t)cfg.numSlices * cfg.numLeds * sizeof(Pixel) * 2;
                 size_t dmaFree = heap_caps_get_free_size(MALLOC_CAP_DMA);
-                Serial.printf("[pattern] resize fb: %ux%u -> %ux%u (need=%u, dma_free=%u)\n",
-                              fb.numSlices(), fb.numLeds(), cfg.numSlices, cfg.numLeds,
-                              need, dmaFree);
+                ESP_LOGI("pattern", "resize fb: %ux%u -> %ux%u (need=%u, dma_free=%u)",
+                         fb.numSlices(), fb.numLeds(), cfg.numSlices, cfg.numLeds,
+                         need, dmaFree);
                 scheduler.beginFramebufferResize();
                 bool ok = fb.resize(cfg.numSlices, cfg.numLeds);
                 if (ok) {
-                    Serial.printf("[pattern] resize OK (heap=%u)\n", ESP.getFreeHeap());
+                    ESP_LOGI("pattern", "resize OK (heap=%u)", ESP.getFreeHeap());
                     scheduler.setNumSlices(cfg.numSlices);
                 } else {
-                    Serial.printf("[pattern] resize FAILED — keeping %ux%u (heap=%u)\n",
-                                  fb.numSlices(), fb.numLeds(), ESP.getFreeHeap());
+                    ESP_LOGE("pattern", "resize FAILED — keeping %ux%u (heap=%u)",
+                             fb.numSlices(), fb.numLeds(), ESP.getFreeHeap());
                     cfg.numSlices = fb.numSlices();
                     cfg.numLeds = fb.numLeds();
                     scheduler.setNumSlices(cfg.numSlices);
@@ -82,12 +85,12 @@ static void patternTaskFunc(void*) {
         bool spinning = (lastTrig > 0) && ((millis() - lastTrig) < 500);
         if (!spinning) {
             if (!wasDirectMode) {
-                Serial.printf("[pattern] direct mode: pushing slice 0 to strip (%u leds)\n", fb.numLeds());
+                ESP_LOGI("pattern", "direct mode: pushing slice 0 to strip (%u leds)", fb.numLeds());
                 wasDirectMode = true;
             }
             scheduler.requestDirectPush();
         } else if (wasDirectMode) {
-            Serial.println("[pattern] scheduler mode: wifi timing active");
+            ESP_LOGI("pattern", "scheduler mode: wifi timing active");
             wasDirectMode = false;
         }
 
@@ -114,10 +117,12 @@ static void configRecvTask(void*) {
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("POV Rotating MCU starting...");
+    POV_LOGI("POV Rotating MCU starting...");
 
     settings_registry::init(&cfg);
     settings_registry::loadFromNvs();
+    esp_log_level_set("*", (esp_log_level_t)cfg.logLevel);
+    pov_log_apply_exclusions();
     loadPatternsFromNvs();
     loadEffectsFromNvs();
 
@@ -129,7 +134,7 @@ void setup() {
 #endif
 
     if (!leds.init(PIN_LED_CLK, PIN_LED_MOSI, cfg.spiClockMhz, MAX_LEDS)) {
-        Serial.println("SPI init failed!");
+        ESP_LOGE("spi", "init failed!");
         return;
     }
     leds.allOff(cfg.numLeds);
@@ -137,21 +142,20 @@ void setup() {
 
     size_t dmaFree = heap_caps_get_free_size(MALLOC_CAP_DMA);
     size_t fbNeed  = (size_t)cfg.numSlices * cfg.numLeds * sizeof(Pixel) * 2;
-    Serial.printf("DMA free: %u bytes, FB needs: %u bytes (%ux%u)\n",
-                  dmaFree, fbNeed, cfg.numSlices, cfg.numLeds);
+    ESP_LOGI("fb", "DMA free: %u bytes, need: %u bytes (%ux%u)",
+             dmaFree, fbNeed, cfg.numSlices, cfg.numLeds);
     if (!fb.init(cfg.numSlices, cfg.numLeds)) {
-        Serial.println("Framebuffer alloc failed!");
+        ESP_LOGE("fb", "alloc failed!");
         return;
     }
 
     WiFi.mode(WIFI_STA);
     WiFi.begin("POV-Display", "756Rhebpv!");
-    Serial.print("Connecting to AP");
+    POV_LOGI("Connecting to AP...");
     while (WiFi.status() != WL_CONNECTED) {
         delay(100);
-        Serial.print(".");
     }
-    Serial.printf("\nConnected, IP: %s\n", WiFi.localIP().toString().c_str());
+    POV_LOGI("Connected, IP: %s", WiFi.localIP().toString().c_str());
 
     timing.init();
     configRx.init();
@@ -172,7 +176,7 @@ void setup() {
     xTaskCreate(timingTask, "timing", 2048, nullptr, 20, nullptr);
     xTaskCreate(configRecvTask, "cfgrecv", 4096, nullptr, 5, nullptr);
 
-    Serial.println("Rotating MCU ready.");
+    POV_LOGI("Rotating MCU ready.");
 }
 
 void loop() {
