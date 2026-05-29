@@ -21,6 +21,10 @@ input[type=color]{width:60px;height:32px;border:none;background:none;cursor:poin
 .val{font-size:.8em;color:#7fdbca;margin-bottom:10px;display:block}
 button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:.9em;font-weight:600}
 .btn-save{background:#00c853;color:#fff;width:100%;margin-top:8px}
+.btn-motor{width:100%;margin-top:10px;padding:14px 16px;font-size:1.1em}
+.btn-motor.stopped{background:#00c853;color:#fff}
+.btn-motor.running{background:#d32f2f;color:#fff}
+.btn-reset{background:#555;color:#ccc;width:100%;margin-top:8px;font-size:.8em}
 .chk{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:.85em}
 .chk input{width:auto;margin:0}
 .tab-bar{display:flex;gap:4px;margin-bottom:12px}
@@ -51,8 +55,10 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
 </div>
 
 <input type="file" id="imageFile" accept="image/*" style="margin-bottom:12px;font-size:.85em">
+<button class="btn-motor running" id="motorBtn" onclick="toggleMotor()">Stop Motor</button>
 <div id="settings-root"></div>
 <button class="btn-save" onclick="save()">Save to Flash</button>
+<button class="btn-reset" onclick="resetPrefs()">Reset Preferences</button>
 
 <script type="module">
 import { SettingsUI } from '/js/settings.js';
@@ -81,6 +87,20 @@ async function save() {
 }
 window.save = save;
 
+let motorStopped = false;
+async function toggleMotor() {
+  const endpoint = motorStopped ? '/api/motor/start' : '/api/motor/stop';
+  await fetch(endpoint, {method: 'POST'});
+}
+window.toggleMotor = toggleMotor;
+
+async function resetPrefs() {
+  if (!confirm('Reset all settings to defaults?')) return;
+  await fetch('/api/reset', {method: 'POST'});
+  if (ui) await ui.load();
+}
+window.resetPrefs = resetPrefs;
+
 // Image upload — out-of-band, not via settings registry
 const imageEl = document.getElementById('imageFile');
 imageEl.addEventListener('change', async e => {
@@ -102,9 +122,12 @@ setInterval(async () => {
   try {
     const s = await (await fetch('/api/status')).json();
     document.getElementById('rpm').textContent = s.rpm;
-    const arms = 2; // default; accurate enough for status display
-    document.getElementById('effHz').textContent = (s.rpm * arms / 60).toFixed(1);
+    document.getElementById('effHz').textContent = (s.rpm * (s.numArms || 2) / 60).toFixed(1);
     document.getElementById('heap').textContent = Math.round(s.freeHeap / 1024);
+    motorStopped = s.motorStopped;
+    const btn = document.getElementById('motorBtn');
+    btn.textContent = motorStopped ? 'Start Motor' : 'Stop Motor';
+    btn.className = 'btn-motor ' + (motorStopped ? 'stopped' : 'running');
   } catch(_) {}
 }, 1000);
 </script>

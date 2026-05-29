@@ -24,7 +24,7 @@ Centered text has one deliberate low-scale escape hatch in `src/patterns/text.cp
 
 ## Scope filter
 
-Settings carry a `Scope` tag: `Both`, `McuOnly`, or `SimOnly`. The registry's `toJson()` pre-filters by scope, so each client receives only what applies. `escPulseUs` is `McuOnly` (no motor in the sim). Sim diagnostics (jitter sliders, geometry mm, displayHz) are `SimOnly`.
+Settings carry a `Scope` tag: `Both`, `McuOnly`, or `SimOnly`. The registry's `toJson()` pre-filters by scope, so each client receives only what applies. `numArms` is `SimOnly` (build-time constant `NUM_ARMS` on MCU, runtime in sim). Sim diagnostics (jitter sliders, geometry mm, displayHz) are also `SimOnly`. Motor speed (`escPulseUs`) is derived from `targetHz` and `NUM_ARMS` via `rpmToPulseUs()` in the `set_targetHz` setter — no manual ESC setting in the UI.
 
 For the wire format and the full registered entry list, see `src/settings_registry.cpp` directly — duplicating the schema here would rot.
 

@@ -260,19 +260,12 @@ void test_apply_clamps_brightness_to_max() {
     TEST_ASSERT_EQUAL_UINT8(20, cfg.brightness);
 }
 
-void test_apply_rejects_invalid_numArms_enum() {
+void test_apply_numArms_ignored_on_mcu() {
     uint8_t prev = cfg.numArms;
-    JsonDocument doc;
-    doc["settings"]["numArms"] = 3;
-    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
-    TEST_ASSERT_EQUAL_UINT8(prev, cfg.numArms);
-}
-
-void test_apply_accepts_valid_numArms_enum() {
     JsonDocument doc;
     doc["settings"]["numArms"] = 4;
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
-    TEST_ASSERT_EQUAL_UINT8(4, cfg.numArms);
+    TEST_ASSERT_EQUAL_UINT8(prev, cfg.numArms);
 }
 
 void test_apply_ignores_unknown_key() {
@@ -452,33 +445,28 @@ void test_apply_effect_stack_rejects_unknown() {
 
 // ── Scope filter ───────────────────────────────────────────────────────────
 
-void test_scope_mcu_no_sim_settings() {
+void test_scope_removed_settings_absent() {
     JsonDocument doc;
     settings_registry::toJson(doc.to<JsonObject>(), Scope::McuOnly);
-    // SimOnly keys (from g_sim_settings) — stub is empty so no SimOnly entries
-    // exist anyway. Confirm escPulseUs IS present (McuOnly).
-    TEST_ASSERT_FALSE_MESSAGE(findSetting(doc, "escPulseUs").isNull(),
-                              "escPulseUs should appear in McuOnly model");
-}
-
-void test_scope_sim_no_mcu_only() {
-    JsonDocument doc;
-    settings_registry::toJson(doc.to<JsonObject>(), Scope::SimOnly);
     TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "escPulseUs").isNull(),
-                             "escPulseUs should NOT appear in SimOnly model");
+                             "escPulseUs removed from registry");
+    TEST_ASSERT_TRUE_MESSAGE(findSetting(doc, "numArms").isNull(),
+                             "numArms is now build-time constant, not a setting");
+    TEST_ASSERT_FALSE_MESSAGE(findSetting(doc, "targetHz").isNull(),
+                              "targetHz should still appear");
 }
 
 // ── NVS round-trip ────────────────────────────────────────────────────────
 
 void test_nvs_roundtrip() {
     cfg.brightness = 22;
-    cfg.numArms = 4;
+    cfg.targetHz = 30;
     settings_registry::saveToNvs();
     cfg.brightness = 0;
-    cfg.numArms = 1;
+    cfg.targetHz = 12;
     settings_registry::loadFromNvs();
     TEST_ASSERT_EQUAL_UINT8(22, cfg.brightness);
-    TEST_ASSERT_EQUAL_UINT8(4, cfg.numArms);
+    TEST_ASSERT_EQUAL_UINT8(30, cfg.targetHz);
 }
 
 void test_pattern_nvs_rejects_invalid_text_delay() {
@@ -496,6 +484,54 @@ void test_pattern_nvs_rejects_invalid_text_delay() {
     loadPatternsFromNvs();
 
     TEST_ASSERT_EQUAL_INT32(500, delay->value);
+}
+
+// ── Motor pulse derivation ────────────────────────────────────────────────
+
+void test_targetHz_recomputes_escPulse() {
+    cfg.motorStopped = false;
+    cfg.numArms = 2;
+    JsonDocument doc;
+    doc["settings"]["targetHz"] = 30;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+    // 30 Hz × 60 / 2 arms = 900 RPM → 1150 + 900*850/3600 = 1362
+    TEST_ASSERT_EQUAL_UINT16(1362, cfg.escPulseUs);
+}
+
+void test_max_rpm_clamps_pulse() {
+    cfg.motorStopped = false;
+    cfg.numArms = 1;
+    JsonDocument doc;
+    doc["settings"]["targetHz"] = 60;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+    // 60 Hz × 60 / 1 arm = 3600 RPM → 1150 + 850 = 2000 (max)
+    TEST_ASSERT_EQUAL_UINT16(2000, cfg.escPulseUs);
+}
+
+void test_motor_stopped_prevents_recompute() {
+    cfg.motorStopped = true;
+    cfg.escPulseUs = kStopPulseUs;
+    JsonDocument doc;
+    doc["settings"]["targetHz"] = 60;
+    settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
+    TEST_ASSERT_EQUAL_UINT16(kStopPulseUs, cfg.escPulseUs);
+}
+
+void test_clearNvs_removes_stored_settings() {
+    cfg.brightness = 22;
+    settings_registry::saveToNvs();
+    settings_registry::clearNvs();
+    cfg.brightness = 5;
+    settings_registry::loadFromNvs();
+    TEST_ASSERT_EQUAL_UINT8(5, cfg.brightness);
+}
+
+void test_resetToDefaults_restores_defaults() {
+    cfg.brightness = 25;
+    cfg.targetHz = 60;
+    settings_registry::resetToDefaults();
+    TEST_ASSERT_EQUAL_UINT8(16, cfg.brightness);
+    TEST_ASSERT_EQUAL_UINT8(12, cfg.targetHz);
 }
 
 int main() {
@@ -519,8 +555,7 @@ int main() {
 
     RUN_TEST(test_apply_sets_brightness);
     RUN_TEST(test_apply_clamps_brightness_to_max);
-    RUN_TEST(test_apply_rejects_invalid_numArms_enum);
-    RUN_TEST(test_apply_accepts_valid_numArms_enum);
+    RUN_TEST(test_apply_numArms_ignored_on_mcu);
     RUN_TEST(test_apply_ignores_unknown_key);
     RUN_TEST(test_apply_color_unpacks_rgb);
     RUN_TEST(test_apply_mirror_bool);
@@ -539,11 +574,16 @@ int main() {
     RUN_TEST(test_apply_effect_stack_order);
     RUN_TEST(test_apply_effect_stack_rejects_unknown);
 
-    RUN_TEST(test_scope_mcu_no_sim_settings);
-    RUN_TEST(test_scope_sim_no_mcu_only);
+    RUN_TEST(test_scope_removed_settings_absent);
 
     RUN_TEST(test_nvs_roundtrip);
     RUN_TEST(test_pattern_nvs_rejects_invalid_text_delay);
+
+    RUN_TEST(test_targetHz_recomputes_escPulse);
+    RUN_TEST(test_max_rpm_clamps_pulse);
+    RUN_TEST(test_motor_stopped_prevents_recompute);
+    RUN_TEST(test_clearNvs_removes_stored_settings);
+    RUN_TEST(test_resetToDefaults_restores_defaults);
 
     return UNITY_END();
 }

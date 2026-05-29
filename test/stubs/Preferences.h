@@ -41,4 +41,11 @@ public:
         return n;
     }
     void putString(const char* k, const char* v) { if (!ro_) pref_store::strs()[ns_][k] = v; }
+
+    bool clear() {
+        if (ro_) return false;
+        pref_store::ints()[ns_].clear();
+        pref_store::strs()[ns_].clear();
+        return true;
+    }
 };

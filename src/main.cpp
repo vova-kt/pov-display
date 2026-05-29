@@ -178,7 +178,7 @@ void setup() {
     Serial.printf("  numLeds=%u  numSlices=%u\n", cfg.numLeds, cfg.numSlices);
     Serial.printf("  brightness=%u  maxBrightness=%u\n", cfg.brightness, cfg.maxBrightness);
     Serial.printf("  activePattern=%u  color=#%02X%02X%02X\n", cfg.activePattern, cfg.colorR, cfg.colorG, cfg.colorB);
-    Serial.printf("  numArms=%u  targetHz=%u  escPulseUs=%u\n", cfg.numArms, cfg.targetHz, cfg.escPulseUs);
+    Serial.printf("  numArms=%u (build)  targetHz=%u  escPulseUs=%u (derived)\n", cfg.numArms, cfg.targetHz, cfg.escPulseUs);
     Serial.printf("  spiClockMhz=%u  mirror=%d  radialBalance=%d\n", cfg.spiClockMhz, cfg.mirrorPattern, cfg.radialBalance);
     Serial.printf("  phaseOffset=%d\n", cfg.phaseOffset);
     Serial.println("=== PIN MAP ===");
@@ -222,10 +222,9 @@ void setup() {
     scheduler.start();
     Serial.println("[scheduler] started");
 
-    // Apply saved throttle now that config is loaded
-    uint32_t targetRpm = (uint32_t)cfg.targetHz * 60 / cfg.numArms;
-    Serial.printf("[motor] targetHz=%u numArms=%u -> targetRpm=%lu\n", cfg.targetHz, cfg.numArms, targetRpm);
-    Serial.printf("[motor] applying escPulseUs=%u (1000=stop, 1100=slow, 2000=full)\n", cfg.escPulseUs);
+    // Apply derived throttle (set_targetHz computes escPulseUs during loadFromNvs)
+    Serial.printf("[motor] targetHz=%u numArms=%u -> escPulseUs=%u (derived)\n",
+                  cfg.targetHz, cfg.numArms, cfg.escPulseUs);
     motor.setPulseUs(cfg.escPulseUs);
 
     // Generate initial frame

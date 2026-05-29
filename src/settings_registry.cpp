@@ -41,12 +41,14 @@ static void     set_color(int32_t v)         {
     s_cfg->colorG = (uint8_t)((v >>  8) & 0xFF);
     s_cfg->colorB = (uint8_t)( v        & 0xFF);
 }
-static int32_t  get_numArms()                { return s_cfg->numArms; }
-static void     set_numArms(int32_t v)       { s_cfg->numArms = (uint8_t)v; }
 static int32_t  get_targetHz()               { return s_cfg->targetHz; }
-static void     set_targetHz(int32_t v)      { s_cfg->targetHz = (uint8_t)v; }
-static int32_t  get_escPulse()               { return s_cfg->escPulseUs; }
-static void     set_escPulse(int32_t v)      { s_cfg->escPulseUs = (uint16_t)v; }
+static void     set_targetHz(int32_t v)      {
+    s_cfg->targetHz = (uint8_t)v;
+    if (!s_cfg->motorStopped) {
+        uint32_t rpm = (uint32_t)s_cfg->targetHz * 60 / s_cfg->numArms;
+        s_cfg->escPulseUs = rpmToPulseUs(rpm);
+    }
+}
 static int32_t  get_spiClock()               { return s_cfg->spiClockMhz; }
 static void     set_spiClock(int32_t v)      { s_cfg->spiClockMhz = (uint8_t)v; }
 static int32_t  get_mirror()                 { return s_cfg->mirrorPattern ? 1 : 0; }
@@ -58,7 +60,6 @@ static void     set_radialBalance(int32_t v) { s_cfg->radialBalance = v != 0; }
 
 // --- Enum option tables ---
 
-static const ParamOption kArmOptions[]      = {{"1", 1}, {"2", 2}, {"4", 4}};
 static const ParamOption kHzOptions[]       = {{"12", 12}, {"24", 24}, {"25", 25}, {"30", 30}, {"60", 60}};
 static const ParamOption kSliceOptions[]    = {{"90", 90}, {"180", 180}, {"270", 270}, {"360", 360}};
 static const ParamOption kSpiOptions[]      = {{"20", 20}, {"40", 40}};
@@ -89,9 +90,6 @@ const Setting g_settings[] = {
       get_phaseOffset, set_phaseOffset, nullptr, nullptr, "phase_off" },
 
     // ── Hardware ───────────────────────────────────────────────────────────
-    { "numArms",       "Arms",           "hardware", "hardware", Scope::Both, ParamType::Enum,
-      2, 1, 4, 1, kArmOptions, 3,
-      get_numArms, set_numArms, nullptr, nullptr, "num_arms" },
     { "targetHz",      "Refresh rate",   "hardware", "hardware", Scope::Both, ParamType::Enum,
       12, 0, 240, 1, kHzOptions, 5,
       get_targetHz, set_targetHz, nullptr, nullptr, "target_hz" },
@@ -101,9 +99,6 @@ const Setting g_settings[] = {
     { "numSlices",     "Slice count",    "hardware", "hardware", Scope::Both, ParamType::Enum,
       360, 0, 720, 1, kSliceOptions, 4,
       get_numSlices, set_numSlices, nullptr, nullptr, "num_slices" },
-    { "escPulseUs",    "ESC pulse µs",   "hardware", "hardware", Scope::McuOnly, ParamType::Int,
-      1000, 1000, 2000, 1, nullptr, 0,
-      get_escPulse, set_escPulse, nullptr, nullptr, "esc_pulse" },
     { "stripReversed", "Strip reversed",  "hardware", "hardware", Scope::Both, ParamType::Bool,
       0, 0, 1, 1, nullptr, 0,
       get_stripReversed, set_stripReversed, nullptr, nullptr, "strip_rev" },
@@ -453,6 +448,24 @@ void saveToNvs() {
         }
     }
     prefs.end();
+}
+
+void clearNvs() {
+    Preferences prefs;
+    if (!prefs.begin(NVS_NS, false)) return;
+    prefs.clear();
+    prefs.end();
+}
+
+void resetToDefaults() {
+    for (uint16_t i = 0; i < G_NUM_SETTINGS; i++) {
+        const Setting& s = g_settings[i];
+        if (s.type == ParamType::Text) {
+            if (s.setText) s.setText("");
+        } else if (s.setInt) {
+            s.setInt(s.defaultVal);
+        }
+    }
 }
 
 } // namespace settings_registry

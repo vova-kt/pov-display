@@ -45,6 +45,8 @@ namespace settings_registry {
 
     void loadFromNvs();
     void saveToNvs();
+    void clearNvs();
+    void resetToDefaults();
 
     // Filter: Scope::McuOnly emits Both + McuOnly entries; Scope::SimOnly emits Both + SimOnly.
     bool entryVisible(const Setting& s, Scope side);

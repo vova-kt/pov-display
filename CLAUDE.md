@@ -57,8 +57,8 @@ One-time setup: `git config core.hooksPath .githooks`
 - **Double-buffered framebuffer** in DMA memory — patterns write back, renderer reads front. Pattern `generate()` never swaps; frame loops publish exactly once after effects.
 - **Output scale pipeline** (`src/output_scale.h`) — composable per-LED brightness LUT applied in `buildFrame()` at SPI output. Currently: radial balance (compensates 1/r brightness falloff). Falls back to `memcpy` when no corrections are active.
 - **Power**: 3S LiPo → buck converter → 5 V. XIAO powered directly on the stationary side; LEDs get 5 V through the hollow slip ring.
-- **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, refresh rate, arm count, motor control. No reflash needed.
-- **Config persists** to NVS via "Save to Flash" button.
+- **Web UI** at `192.168.4.1` (AP mode, SSID "POV-Display") — patterns, color, brightness, phase, refresh rate, motor start/stop toggle, preferences reset. Motor speed is derived from refresh rate and `NUM_ARMS` (build-time constant). No reflash needed.
+- **Config persists** to NVS via "Save to Flash" button. "Reset Preferences" clears NVS and restores code defaults in-place (no reboot).
 - **Settings registry** (`src/settings_registry.h/cpp`) — all user-facing settings in one place, emitting a sectioned JSON model that drives both UIs. Scope flags (`Both`/`McuOnly`/`SimOnly`) control per-side visibility. See `docs/settings.md`.
 - **Pattern params** — `Pattern` base class supports self-describing `Param` arrays (same as effects). TextPattern's text, mode, fixed delay, and margin params live on the pattern instance, not in Config; MatrixPattern follows the same route for top-to-bottom fall speed, renders mixed-script glyphs through a Cartesian canvas before polar sampling, and hash-selects symbols per stream to avoid readable cycles. NVS keys use prefix `p_<patternKey>_<paramKey>`.
 - **Text rendering** — Text params are UTF-8 byte buffers. `src/fonts/text_font*.h` owns UTF-8 iteration, fixed-buffer run decoding, measurement, glyph lookup, and width metadata for compact script-specific tables; `TextPattern` caches the decoded run and refreshes it only when the text bytes change. Word mode selects one decoded word per step rather than accumulating prefixes. Text layout uses a Cartesian margin measured in LED pitches; centered modes use fixed-point fit scaling, and marquee treats the margin as its clipped scroll viewport. Low-scale odd-length centered text has a local, removable center-gap dodge in `src/patterns/text.cpp`.
@@ -67,7 +67,7 @@ One-time setup: `git config core.hooksPath .githooks`
 
 - **Arm layout**: 2-arm "golden star". 40 LEDs on a 144 LEDs/m HD107S strip (6.5 mm pitch), placed so the inter-pixel gap falls on the center of rotation (no LED at r=0). MCU on the stationary side; SPI data crosses the slip ring to the LED strip. Hub radius = 0.
 
-Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). Strip DI is at the outer tip; `stripReversed` (default true, in settings registry) makes `buildFrame()` emit pixels in reverse so logical pixel 0 stays at the hub. See `src/config.h`.
+Pin map: SPI CLK=D8, MOSI=D10, Hall=D2, ESC=D3 (overridable via build flags). `NUM_ARMS` defaults to 2, overridable via `-DNUM_ARMS=N`. Strip DI is at the outer tip; `stripReversed` (default true, in settings registry) makes `buildFrame()` emit pixels in reverse so logical pixel 0 stays at the hub. See `src/config.h`.
 
 ## Browser simulator
 

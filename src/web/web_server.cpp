@@ -82,9 +82,11 @@ void PovWebServer::setupRoutes() {
 
     server_.on("/api/status", HTTP_GET, [this](AsyncWebServerRequest* req) {
         JsonDocument doc;
-        doc["rpm"]      = hall_->rpm();
-        doc["freeHeap"] = ESP.getFreeHeap();
-        doc["uptime"]   = millis();
+        doc["rpm"]          = hall_->rpm();
+        doc["freeHeap"]     = ESP.getFreeHeap();
+        doc["uptime"]       = millis();
+        doc["motorStopped"] = cfg_->motorStopped;
+        doc["numArms"]      = cfg_->numArms;
         String out;
         serializeJson(doc, out);
         req->send(200, "application/json", out);
@@ -96,6 +98,44 @@ void PovWebServer::setupRoutes() {
         savePatternsToNvs();
         saveEffectsToNvs();
         xSemaphoreGive(cfgMutex_);
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+
+    server_.on("/api/motor/stop", HTTP_POST, [this](AsyncWebServerRequest* req) {
+        Serial.println("WebServer: POST /api/motor/stop");
+        xSemaphoreTake(cfgMutex_, portMAX_DELAY);
+        cfg_->motorStopped = true;
+        cfg_->escPulseUs = kStopPulseUs;
+        xSemaphoreGive(cfgMutex_);
+        motor_->stop();
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+
+    server_.on("/api/motor/start", HTTP_POST, [this](AsyncWebServerRequest* req) {
+        Serial.println("WebServer: POST /api/motor/start");
+        xSemaphoreTake(cfgMutex_, portMAX_DELAY);
+        cfg_->motorStopped = false;
+        uint32_t rpm = (uint32_t)cfg_->targetHz * 60 / cfg_->numArms;
+        cfg_->escPulseUs = rpmToPulseUs(rpm);
+        xSemaphoreGive(cfgMutex_);
+        motor_->setPulseUs(cfg_->escPulseUs);
+        if (configCb_) configCb_();
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+
+    server_.on("/api/reset", HTTP_POST, [this](AsyncWebServerRequest* req) {
+        Serial.println("WebServer: POST /api/reset — restoring defaults");
+        xSemaphoreTake(cfgMutex_, portMAX_DELAY);
+        settings_registry::resetToDefaults();
+        for (uint8_t i = 0; i < G_NUM_PATTERNS; i++)
+            g_patterns[i]->resetDefaults();
+        resetEffectStackDefaults();
+        for (uint8_t i = 0; i < G_NUM_EFFECTS; i++)
+            g_effects[i]->resetDefaults();
+        settings_registry::clearNvs();
+        cfg_->motorStopped = false;
+        xSemaphoreGive(cfgMutex_);
+        if (configCb_) configCb_();
         req->send(200, "application/json", "{\"ok\":true}");
     });
 

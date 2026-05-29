@@ -60,8 +60,12 @@ static void    set_showHallMarker(int32_t v) {
     renderer_set_show_hall_marker(g_showHallMarker);
 }
 
+static int32_t get_numArms()  { return s_cfg ? s_cfg->numArms : NUM_ARMS; }
+static void    set_numArms(int32_t v) { if (s_cfg) s_cfg->numArms = (uint8_t)v; }
+
 // ── Enum option tables ─────────────────────────────────────────────────────
 
+static const ParamOption kArmOptions[]    = {{"1", 1}, {"2", 2}, {"4", 4}};
 static const ParamOption kDisplayHzOpts[] = {
     {"60 Hz", 60}, {"120 Hz", 120}, {"144 Hz", 144}, {"240 Hz", 240}
 };
@@ -69,6 +73,10 @@ static const ParamOption kDisplayHzOpts[] = {
 // ── Registry ──────────────────────────────────────────────────────────────
 
 const Setting g_sim_settings[] = {
+    // arm count (build-time constant on MCU, runtime in sim)
+    { "numArms",       "Arms",           "hardware", "hardware", Scope::SimOnly, ParamType::Enum,
+       NUM_ARMS, 1, 4, 1, kArmOptions, 3,
+       get_numArms, set_numArms, nullptr, nullptr, nullptr },
     // timing distortion
     { "rpmJitter",   "RPM jitter",    "hardware", "timing", Scope::SimOnly, ParamType::Int,
        0, 0, 200, 10, nullptr, 0,
