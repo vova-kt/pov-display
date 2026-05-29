@@ -18,7 +18,8 @@ public:
     uint16_t pulseUs() const { return pulseUs_; }
 
 private:
-    bool     running_   = false;
-    uint32_t targetRpm_ = 0;
-    uint16_t pulseUs_   = kStopPulseUs;
+    bool     running_      = false;
+    uint32_t targetRpm_    = 0;
+    uint16_t pulseUs_      = kStopPulseUs;
+    uint32_t filteredRpm_  = 0;
 };

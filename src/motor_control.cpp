@@ -21,8 +21,12 @@ uint32_t targetRefreshHzToRpm(uint8_t targetHz, uint8_t numArms) {
 
 uint32_t freshHallRpm(uint32_t measuredRpm, uint32_t lastTriggerMs, uint32_t nowMs) {
     if (lastTriggerMs == 0) return 0;
-    if (nowMs - lastTriggerMs > kHallFreshTimeoutMs) return 0;
-    return measuredRpm;
+    uint32_t elapsedMs = nowMs - lastTriggerMs;
+    if (elapsedMs > kHallFreshTimeoutMs) return 0;
+    if (measuredRpm == 0) return 0;
+    uint32_t lastPeriodMs = 60000 / measuredRpm;
+    if (elapsedMs <= lastPeriodMs) return measuredRpm;
+    return 60000 / elapsedMs;
 }
 
 void MotorSpeedController::start(uint8_t targetHz, uint8_t numArms) {
@@ -33,12 +37,14 @@ void MotorSpeedController::start(uint8_t targetHz, uint8_t numArms) {
     }
     running_ = true;
     pulseUs_ = kMotorStartupPulseUs;
+    filteredRpm_ = 0;
 }
 
 void MotorSpeedController::stop() {
     running_ = false;
     targetRpm_ = 0;
     pulseUs_ = kStopPulseUs;
+    filteredRpm_ = 0;
 }
 
 void MotorSpeedController::setTarget(uint8_t targetHz, uint8_t numArms) {
@@ -53,12 +59,20 @@ uint16_t MotorSpeedController::update(uint32_t measuredRpm) {
     }
 
     if (measuredRpm == 0) {
+        filteredRpm_ = 0;
         int32_t next = (int32_t)pulseUs_ + kNoHallRampStepUs;
         pulseUs_ = (uint16_t)(next > kNoHallStartupMaxPulseUs ? kNoHallStartupMaxPulseUs : next);
         return pulseUs_;
     }
 
-    int32_t error = (int32_t)targetRpm_ - (int32_t)measuredRpm;
+    if (filteredRpm_ == 0) {
+        filteredRpm_ = measuredRpm;
+    } else {
+        int32_t diff = (int32_t)measuredRpm - (int32_t)filteredRpm_;
+        filteredRpm_ = (uint32_t)((int32_t)filteredRpm_ + (diff >> kEmaAlphaShift));
+    }
+
+    int32_t error = (int32_t)targetRpm_ - (int32_t)filteredRpm_;
     if (abs32(error) <= kMotorControlDeadbandRpm) return pulseUs_;
 
     int32_t step = error / kMotorControlRpmPerUs;

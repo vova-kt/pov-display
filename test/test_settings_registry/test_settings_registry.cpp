@@ -564,6 +564,12 @@ static constexpr uint32_t kHallMeasuredRpm = 146;    // slow but valid Hall meas
 static constexpr uint32_t kNowMs = 2000;             // arbitrary control-loop timestamp
 static constexpr uint8_t kStaleExtraMs = 1;          // just past freshness timeout
 static constexpr uint8_t kRampToCapTicks = 40;       // enough ticks to hit no-Hall startup cap
+static constexpr uint32_t kPredictionTestRpm = 360;     // target RPM for prediction tests
+static constexpr uint32_t kPredictionPeriodMs = 166;    // 60000/360 ≈ 166ms
+static constexpr uint32_t kPredictionElapsedMs = 300;   // > 166ms, within timeout
+static constexpr uint32_t kPredictionExpectedRpm = 200; // 60000/300
+static constexpr uint32_t kEmaInputHigh = 400;          // RPM above target for EMA test
+static constexpr uint32_t kEmaInputLow = 200;           // RPM below target for EMA test
 
 void test_target_rpm_uses_arm_count() {
     TEST_ASSERT_EQUAL_UINT32(kConfiguredMaxRpm, HW_MAX_RPM);
@@ -584,10 +590,18 @@ void test_targetHz_does_not_open_loop_recompute_pulse() {
 }
 
 void test_hall_rpm_expires_when_trigger_is_stale() {
+    uint32_t periodMs = 60000 / kHallMeasuredRpm;
+    // Within one implied period: returns exact measured RPM
     TEST_ASSERT_EQUAL_UINT32(kHallMeasuredRpm,
-        freshHallRpm(kHallMeasuredRpm, kNowMs - kHallFreshTimeoutMs, kNowMs));
+        freshHallRpm(kHallMeasuredRpm, kNowMs - periodMs, kNowMs));
+    // Beyond one period but within timeout: returns predicted (lower) RPM
+    uint32_t atTimeout = freshHallRpm(kHallMeasuredRpm, kNowMs - kHallFreshTimeoutMs, kNowMs);
+    TEST_ASSERT_GREATER_THAN(0, atTimeout);
+    TEST_ASSERT_LESS_THAN(kHallMeasuredRpm, atTimeout);
+    // Past timeout: stale, returns zero
     TEST_ASSERT_EQUAL_UINT32(kNoHallMeasuredRpm,
         freshHallRpm(kHallMeasuredRpm, kNowMs - kHallFreshTimeoutMs - kStaleExtraMs, kNowMs));
+    // Never triggered: returns zero
     TEST_ASSERT_EQUAL_UINT32(kNoHallMeasuredRpm,
         freshHallRpm(kHallMeasuredRpm, 0, kNowMs));
 }
@@ -605,7 +619,8 @@ void test_motor_controller_cuts_throttle_when_hz_too_high() {
     ctl.start(kLowRefreshHz, kTwoArmCount);
     uint16_t pulse = ctl.update(kObservedFastRpm);
     TEST_ASSERT_LESS_THAN(kMotorStartupPulseUs, pulse);
-    TEST_ASSERT_EQUAL_UINT16(kMotorStartupPulseUs - kMotorControlMaxStepUs, pulse);
+    int32_t expectedStep = ((int32_t)kLowTwoArmRpm - (int32_t)kObservedFastRpm) / kMotorControlRpmPerUs;
+    TEST_ASSERT_EQUAL_UINT16((uint16_t)((int32_t)kMotorStartupPulseUs + expectedStep), pulse);
 }
 
 void test_motor_controller_ramps_without_hall_feedback() {
@@ -624,6 +639,53 @@ void test_motor_stopped_prevents_recompute() {
     doc["settings"]["targetHz"] = kHighRefreshHz;
     settings_registry::applyJson(doc.as<JsonObjectConst>(), Scope::McuOnly);
     TEST_ASSERT_EQUAL_UINT16(kStopPulseUs, cfg.escPulseUs);
+}
+
+void test_freshHallRpm_returns_measured_within_period() {
+    uint32_t withinPeriod = kPredictionPeriodMs / 2;
+    TEST_ASSERT_EQUAL_UINT32(kPredictionTestRpm,
+        freshHallRpm(kPredictionTestRpm, kNowMs - withinPeriod, kNowMs));
+}
+
+void test_freshHallRpm_predicts_deceleration() {
+    uint32_t predicted = freshHallRpm(kPredictionTestRpm, kNowMs - kPredictionElapsedMs, kNowMs);
+    TEST_ASSERT_EQUAL_UINT32(kPredictionExpectedRpm, predicted);
+    TEST_ASSERT_LESS_THAN(kPredictionTestRpm, predicted);
+}
+
+void test_ema_filter_seeds_on_first_reading() {
+    MotorSpeedController ctl;
+    ctl.start(kLowRefreshHz, kTwoArmCount);
+    uint16_t pulse = ctl.update(kLowTwoArmRpm);
+    TEST_ASSERT_EQUAL_UINT16(kMotorStartupPulseUs, pulse);
+}
+
+void test_ema_filter_resets_on_zero() {
+    MotorSpeedController ctl;
+    ctl.start(kLowRefreshHz, kTwoArmCount);
+    ctl.update(kLowTwoArmRpm);
+    uint16_t pulse = ctl.update(kNoHallMeasuredRpm);
+    TEST_ASSERT_EQUAL_UINT16(kMotorStartupPulseUs + kNoHallRampStepUs, pulse);
+}
+
+void test_ema_filter_smooths_rpm() {
+    MotorSpeedController ctl;
+    ctl.start(kLowRefreshHz, kTwoArmCount);
+    ctl.update(kLowTwoArmRpm);
+    // filtered = 360 + (400-360)>>2 = 370, error = -10, within deadband
+    uint16_t pulse = ctl.update(kEmaInputHigh);
+    TEST_ASSERT_EQUAL_UINT16(kMotorStartupPulseUs, pulse);
+}
+
+void test_motor_controller_converges_to_target() {
+    MotorSpeedController ctl;
+    ctl.start(kLowRefreshHz, kTwoArmCount);
+    uint16_t pulse = ctl.update(kEmaInputLow);
+    TEST_ASSERT_GREATER_THAN(kMotorStartupPulseUs, pulse);
+    for (int i = 0; i < 20; i++) ctl.update(kLowTwoArmRpm);
+    uint16_t stablePulse = ctl.update(kLowTwoArmRpm);
+    pulse = ctl.update(kLowTwoArmRpm);
+    TEST_ASSERT_EQUAL_UINT16(stablePulse, pulse);
 }
 
 void test_clearNvs_removes_stored_settings() {
@@ -712,6 +774,12 @@ int main() {
     RUN_TEST(test_motor_controller_cuts_throttle_when_hz_too_high);
     RUN_TEST(test_motor_controller_ramps_without_hall_feedback);
     RUN_TEST(test_motor_stopped_prevents_recompute);
+    RUN_TEST(test_freshHallRpm_returns_measured_within_period);
+    RUN_TEST(test_freshHallRpm_predicts_deceleration);
+    RUN_TEST(test_ema_filter_seeds_on_first_reading);
+    RUN_TEST(test_ema_filter_resets_on_zero);
+    RUN_TEST(test_ema_filter_smooths_rpm);
+    RUN_TEST(test_motor_controller_converges_to_target);
     RUN_TEST(test_clearNvs_removes_stored_settings);
     RUN_TEST(test_resetToDefaults_restores_defaults);
 

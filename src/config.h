@@ -53,16 +53,21 @@ constexpr uint8_t HUB_RADIUS_MM  = 1;
 
 // --- ESC pulse bounds and closed-loop motor control ---
 static constexpr uint16_t kStopPulseUs              = 1000; // ESC calibrated minimum/stop pulse
-static constexpr uint16_t kMotorStartupPulseUs      = 1150; // conservative first pulse before Hall feedback
+static constexpr uint16_t kMotorStartupPulseUs      = 1160; // conservative first pulse, 20us above 1140 min-to-spin
 static constexpr uint16_t kMaxPulseUs               = 2000; // ESC calibrated maximum pulse
-static constexpr uint16_t kNoHallStartupMaxPulseUs  = 1250; // cap while waiting for the first Hall pulse
+// Blind-ramp cap: must stay above kMotorStartupPulseUs but below the
+// steady-state pulse for the default target RPM.  When changing the default
+// targetHz (currently 12 Hz → 360 RPM with 2 arms), re-measure steady-state
+// pulse at the new RPM and set this ~40-60 us above it.
+static constexpr uint16_t kNoHallStartupMaxPulseUs  = 1200;
 static constexpr uint8_t  kNoHallRampStepUs         = 5;    // slow startup ramp per control tick
 static constexpr uint16_t kMotorControlIntervalMs   = 100;  // throttle correction cadence
 static constexpr uint8_t  kMotorControlTaskDelayMs  = 25;   // task poll interval for start/stop changes
 static constexpr uint16_t kMotorControlDeadbandRpm  = 15;   // ignore tiny Hall measurement noise
-static constexpr uint8_t  kMotorControlRpmPerUs     = 8;    // RPM error represented by one pulse µs step
+static constexpr uint8_t  kMotorControlRpmPerUs     = 15;   // RPM error represented by one pulse µs step
 static constexpr uint8_t  kMotorControlMaxStepUs    = 100;  // largest pulse correction per tick
-static constexpr uint16_t kHallFreshTimeoutMs       = 500;  // Hall RPM is stale after this quiet interval
+static constexpr uint16_t kHallFreshTimeoutMs       = 1500; // Hall RPM is stale after this quiet interval
+static constexpr uint8_t  kEmaAlphaShift            = 2;    // EMA smoothing: alpha ≈ 1/(1<<2) = 0.25
 
 // --- Runtime configuration ---
 struct Config {
