@@ -26,7 +26,7 @@ Runtime framebuffer resize is coordinated by `SliceScheduler`: the timer is stop
 
 ## Why embedded HTML (not SPIFFS)
 
-SPIFFS requires a separate flash partition, upload step, and filesystem overhead. The web UI is ~10 KB of HTML/CSS/JS — trivially fits in a PROGMEM string. One `pio run -t upload` deploys everything. If the UI grows past ~50 KB, move to LittleFS.
+SPIFFS requires a separate flash partition, upload step, and filesystem overhead. The web UI is ~10 KB of HTML/CSS/JS — trivially fits in a PROGMEM string. One `pio run -t upload` deploys everything. Maintenance actions such as preferences reset and controller reboot stay in the same page so field use does not need serial access. If the UI grows past ~50 KB, move to LittleFS.
 
 ## Why AsyncWebServer
 

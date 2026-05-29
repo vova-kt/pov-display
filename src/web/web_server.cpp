@@ -7,6 +7,15 @@
 #include "../patterns/registry.h"
 #include <ArduinoJson.h>
 
+static constexpr uint32_t kRebootDelayMs = 250; // allow HTTP response to flush
+static constexpr uint16_t kRebootTaskStackBytes = 2048; // enough for a delay then restart
+static constexpr UBaseType_t kRebootTaskPriority = 1; // low-priority one-shot task
+
+static void delayedRebootTask(void*) {
+    vTaskDelay(pdMS_TO_TICKS(kRebootDelayMs));
+    ESP.restart();
+}
+
 void PovWebServer::init(Config* cfg, HallSensor* hall, Framebuffer* fb, Motor* motor) {
     cfg_   = cfg;
     hall_  = hall;
@@ -138,6 +147,23 @@ void PovWebServer::setupRoutes() {
         xSemaphoreGive(cfgMutex_);
         motor_->stop();
         if (configCb_) configCb_();
+        req->send(200, "application/json", "{\"ok\":true}");
+    });
+
+    server_.on("/api/reboot", HTTP_POST, [](AsyncWebServerRequest* req) {
+        Serial.println("WebServer: POST /api/reboot — restarting");
+        BaseType_t started = xTaskCreate(
+            delayedRebootTask,
+            "webReboot",
+            kRebootTaskStackBytes,
+            nullptr,
+            kRebootTaskPriority,
+            nullptr
+        );
+        if (started != pdPASS) {
+            req->send(500, "application/json", "{\"error\":\"reboot task failed\"}");
+            return;
+        }
         req->send(200, "application/json", "{\"ok\":true}");
     });
 

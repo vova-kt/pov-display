@@ -25,6 +25,7 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
 .btn-motor.stopped{background:#00c853;color:#fff}
 .btn-motor.running{background:#d32f2f;color:#fff}
 .btn-reset{background:#555;color:#ccc;width:100%;margin-top:8px;font-size:.8em}
+.btn-reboot{background:#3d4f78;color:#d8e2ff;width:100%;margin-top:8px;font-size:.8em}
 .chk{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:.85em}
 .chk input{width:auto;margin:0}
 .tab-bar{display:flex;gap:4px;margin-bottom:12px}
@@ -59,6 +60,7 @@ button{padding:10px 16px;border:none;border-radius:4px;cursor:pointer;font-size:
 <div id="settings-root"></div>
 <button class="btn-save" onclick="save()">Save to Flash</button>
 <button class="btn-reset" onclick="resetPrefs()">Reset Preferences</button>
+<button class="btn-reboot" onclick="rebootDevice()">Reboot Device</button>
 
 <script type="module">
 import { SettingsUI } from '/js/settings.js';
@@ -100,6 +102,12 @@ async function resetPrefs() {
   if (ui) await ui.load();
 }
 window.resetPrefs = resetPrefs;
+
+async function rebootDevice() {
+  if (!confirm('Reboot the display controller now?')) return;
+  await fetch('/api/reboot', {method: 'POST'});
+}
+window.rebootDevice = rebootDevice;
 
 // Image upload — out-of-band, not via settings registry
 const imageEl = document.getElementById('imageFile');
