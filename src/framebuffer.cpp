@@ -2,6 +2,20 @@
 #include <esp_heap_caps.h>
 #include <cstring>
 
+// Seed one pixel, then exponentially double with memcpy.
+// ~log2(count) memcpy calls instead of count scalar stores.
+static void fillBlack(Pixel* buf, size_t count) {
+    if (count == 0) return;
+    buf[0] = kBlackPixel;
+    size_t filled = 1;
+    while (filled < count) {
+        size_t chunk = count - filled;
+        if (chunk > filled) chunk = filled;
+        memcpy(buf + filled, buf, chunk * sizeof(Pixel));
+        filled += chunk;
+    }
+}
+
 size_t Framebuffer::bufferSize() const {
     return (size_t)numSlices_ * numLeds_ * sizeof(Pixel);
 }
@@ -19,8 +33,7 @@ bool Framebuffer::init(uint16_t numSlices, uint16_t numLeds) {
             release();
             return false;
         }
-        for (size_t j = 0; j < count; j++)
-            buffers_[i][j] = kBlackPixel;
+        fillBlack(buffers_[i], count);
     }
     return true;
 }
@@ -45,8 +58,7 @@ bool Framebuffer::resize(uint16_t numSlices, uint16_t numLeds) {
             for (int j = 0; j < i; j++) heap_caps_free(newBufs[j]);
             return false;
         }
-        for (size_t j = 0; j < count; j++)
-            newBufs[i][j] = kBlackPixel;
+        fillBlack(newBufs[i], count);
     }
 
     release();
@@ -70,10 +82,7 @@ void Framebuffer::setPixel(uint16_t slice, uint16_t led,
 
 void Framebuffer::clearBack() {
     uint8_t back = 1 - front_;
-    size_t count = (size_t)numSlices_ * numLeds_;
-    Pixel* buf = buffers_[back];
-    for (size_t i = 0; i < count; i++)
-        buf[i] = kBlackPixel;
+    fillBlack(buffers_[back], (size_t)numSlices_ * numLeds_);
 }
 
 const Pixel* Framebuffer::getSlice(uint16_t sliceIndex) const {

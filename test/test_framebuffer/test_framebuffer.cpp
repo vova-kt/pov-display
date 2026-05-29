@@ -146,6 +146,86 @@ void test_pixel_struct_size() {
     TEST_ASSERT_EQUAL(4, sizeof(Pixel));
 }
 
+static void assertAllBlack(Framebuffer& f, const char* msg) {
+    for (uint16_t s = 0; s < f.numSlices(); s++) {
+        const Pixel* slice = f.getSlice(s);
+        for (uint16_t l = 0; l < f.numLeds(); l++) {
+            TEST_ASSERT_EQUAL_UINT8_MESSAGE(kHd107sBrightnessPrefix, slice[l].brightness, msg);
+            TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, slice[l].red, msg);
+            TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, slice[l].green, msg);
+            TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, slice[l].blue, msg);
+        }
+    }
+}
+
+void test_clear_single_pixel_buffer() {
+    fb.release();
+    TEST_ASSERT_TRUE(fb.init(1, 1));
+    fb.setPixel(0, 0, 255, 128, 64, 31);
+    fb.swap();
+    fb.clearBack();
+    fb.swap();
+    assertAllBlack(fb, "1x1");
+}
+
+void test_clear_two_pixel_buffer() {
+    fb.release();
+    TEST_ASSERT_TRUE(fb.init(1, 2));
+    fb.clearBack();
+    fb.swap();
+    assertAllBlack(fb, "1x2");
+}
+
+void test_clear_three_pixel_buffer() {
+    fb.release();
+    TEST_ASSERT_TRUE(fb.init(1, 3));
+    fb.clearBack();
+    fb.swap();
+    assertAllBlack(fb, "1x3");
+}
+
+void test_clear_power_of_two_buffer() {
+    fb.release();
+    TEST_ASSERT_TRUE(fb.init(4, 8));
+    fb.clearBack();
+    fb.swap();
+    assertAllBlack(fb, "4x8");
+}
+
+void test_clear_non_power_of_two_buffer() {
+    fb.release();
+    TEST_ASSERT_TRUE(fb.init(7, 13));
+    fb.clearBack();
+    fb.swap();
+    assertAllBlack(fb, "7x13");
+}
+
+void test_init_fills_both_buffers() {
+    fb.release();
+    TEST_ASSERT_TRUE(fb.init(5, 3));
+    assertAllBlack(fb, "front after init");
+    fb.swap();
+    assertAllBlack(fb, "back after init");
+}
+
+void test_resize_fills_non_power_of_two() {
+    TEST_ASSERT_TRUE(fb.resize(11, 7));
+    assertAllBlack(fb, "front after resize 11x7");
+    fb.swap();
+    assertAllBlack(fb, "back after resize 11x7");
+}
+
+void test_clear_overwrites_dirty_buffer() {
+    fb.release();
+    TEST_ASSERT_TRUE(fb.init(6, 5));
+    for (uint16_t s = 0; s < 6; s++)
+        for (uint16_t l = 0; l < 5; l++)
+            fb.setPixel(s, l, 0xFF, 0xFF, 0xFF, 31);
+    fb.clearBack();
+    fb.swap();
+    assertAllBlack(fb, "clear after full dirty");
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_init_sets_dimensions);
@@ -164,5 +244,13 @@ int main() {
     RUN_TEST(test_resize_clears_buffers);
     RUN_TEST(test_back_buffer_pointer);
     RUN_TEST(test_pixel_struct_size);
+    RUN_TEST(test_clear_single_pixel_buffer);
+    RUN_TEST(test_clear_two_pixel_buffer);
+    RUN_TEST(test_clear_three_pixel_buffer);
+    RUN_TEST(test_clear_power_of_two_buffer);
+    RUN_TEST(test_clear_non_power_of_two_buffer);
+    RUN_TEST(test_init_fills_both_buffers);
+    RUN_TEST(test_resize_fills_non_power_of_two);
+    RUN_TEST(test_clear_overwrites_dirty_buffer);
     return UNITY_END();
 }
