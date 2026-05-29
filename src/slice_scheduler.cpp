@@ -1,7 +1,4 @@
 #include "slice_scheduler.h"
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <Arduino.h>
 
 void SliceScheduler::init(Framebuffer* fb, LedDriver* leds, TimingSource* timing) {
     fb_     = fb;
@@ -53,6 +50,11 @@ void SliceScheduler::onNewRotation() {
     esp_timer_start_periodic(timer_, sliceIntervalUs);
 }
 
+void SliceScheduler::requestDirectPush() {
+    directPush_ = true;
+    xTaskNotifyGive(renderTask_);
+}
+
 void IRAM_ATTR SliceScheduler::timerCallback(void* arg) {
     auto* self = static_cast<SliceScheduler*>(arg);
 
@@ -61,10 +63,33 @@ void IRAM_ATTR SliceScheduler::timerCallback(void* arg) {
         return;
     }
 
-    // Notify render task — the task reads currentSlice_ and sends SPI
     BaseType_t woken = pdFALSE;
     vTaskNotifyGiveFromISR(self->renderTask_, &woken);
     portYIELD_FROM_ISR(woken);
+}
+
+bool SliceScheduler::processNotification() {
+    if (currentSlice_ < numSlices_) {
+        uint16_t slice = currentSlice_;
+        currentSlice_++;
+
+        if (slice < fb_->numSlices()) {
+            uint16_t fbSlice = mirror_
+                ? (numSlices_ - 1 - slice) : slice;
+            const Pixel* data = fb_->getSlice(fbSlice);
+            leds_->sendSlice(data, fb_->numLeds());
+        }
+        return true;
+    }
+    if (directPush_) {
+        directPush_ = false;
+        uint16_t slice = directSlice_;
+        directSlice_ = (directSlice_ + 1) % fb_->numSlices();
+        const Pixel* data = fb_->getSlice(slice);
+        leds_->sendSlice(data, fb_->numLeds());
+        return true;
+    }
+    return false;
 }
 
 void SliceScheduler::renderTaskFunc(void* param) {
@@ -72,15 +97,6 @@ void SliceScheduler::renderTaskFunc(void* param) {
 
     for (;;) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-        uint16_t slice = self->currentSlice_;
-        self->currentSlice_++;
-
-        if (slice < self->fb_->numSlices()) {
-            uint16_t fbSlice = self->mirror_
-                ? (self->numSlices_ - 1 - slice) : slice;
-            const Pixel* data = self->fb_->getSlice(fbSlice);
-            self->leds_->sendSlice(data, self->fb_->numLeds());
-        }
+        self->processNotification();
     }
 }

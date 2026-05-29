@@ -39,7 +39,7 @@ python3 tools/check_embedded_js.py  # verify settings_js.h and image_processor_j
 ```
 
 Tests run natively (no ESP32 needed). ESP32 APIs are stubbed in `test/stubs/`.
-Six suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, matrix rain, text/image modes), `test_transform` (Canvas, PolarTransform, IdentityTransform), `test_output_scale` (radial balance LUT, overcompensation guard), `test_effects` (effect registry, stack order, rotation, scale, fisheye scale, bloom, applyEffects, sim phase persistence), and `test_settings_registry` (JSON round-trip, effect stack, scope filter, NVS persist, range/enum validation).
+Seven suites: `test_framebuffer` (double-buffer, swap, resize), `test_patterns` (solid, rainbow, scanner, matrix rain, text/image modes), `test_transform` (Canvas, PolarTransform, IdentityTransform), `test_output_scale` (radial balance LUT, overcompensation guard), `test_effects` (effect registry, stack order, rotation, scale, fisheye scale, bloom, applyEffects, sim phase persistence), `test_slice_scheduler` (render notification dispatch, timer vs direct-push priority, mirror, phase offset), and `test_settings_registry` (JSON round-trip, effect stack, scope filter, NVS persist, range/enum validation).
 
 ## Config defaults
 

@@ -3,6 +3,10 @@
 #include <cstdio>
 #include <cstdarg>
 
+#ifndef IRAM_ATTR
+#define IRAM_ATTR
+#endif
+
 #ifndef D0
 #define D0  0
 #define D1  1

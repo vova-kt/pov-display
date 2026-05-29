@@ -86,7 +86,7 @@ static void patternTaskFunc(void*) {
         fb.swap();
         scheduler.setPhaseOffset(cfg.phaseOffset + effectState.sliceOffset);
 
-        // When not spinning, push slice 0 directly to the strip
+        // When not spinning, ask the render task to push slice 0
         uint32_t lastHall = hallTiming.lastTriggerMs();
         bool spinning = (lastHall > 0) && ((millis() - lastHall) < 500);
         if (!spinning) {
@@ -94,9 +94,9 @@ static void patternTaskFunc(void*) {
                 Serial.printf("[pattern] direct mode: pushing slice 0 to strip (%u leds)\n", fb.numLeds());
                 wasDirectMode = true;
             }
-            const Pixel* data = fb.getSlice(0);
 
             if (frameCount % 90 == 0) {
+                const Pixel* data = fb.getSlice(0);
                 uint32_t nonZero = 0;
                 for (uint16_t i = 0; i < fb.numLeds(); i++) {
                     if (data[i].red || data[i].green || data[i].blue) nonZero++;
@@ -113,7 +113,7 @@ static void patternTaskFunc(void*) {
                 }
             }
 
-            leds.sendSlice(data, fb.numLeds());
+            scheduler.requestDirectPush();
         } else if (wasDirectMode) {
             Serial.println("[pattern] scheduler mode: hall sensor active");
             wasDirectMode = false;
@@ -129,6 +129,7 @@ static void patternTaskFunc(void*) {
 static void hallPollTaskFunc(void*) {
     uint32_t trigCount = 0;
     uint32_t lastLogMs = 0;
+    uint32_t lastIdleLogMs = 0;
     for (;;) {
         if (hallTiming.consumeNewRotation()) {
             trigCount++;
@@ -141,6 +142,19 @@ static void hallPollTaskFunc(void*) {
             }
             scheduler.onNewRotation();
         }
+
+        uint32_t now = millis();
+        uint32_t lastHall = hall.lastTriggerMs();
+        bool spinning = (lastHall > 0) && ((now - lastHall) < 500);
+        if (!spinning && (now - lastIdleLogMs > 1000)) {
+            Serial.printf("[hall-dbg] pin=%d  lastTrig=%lums ago  rpm=%lu  period=%luus  trigs=%lu\n",
+                          digitalRead(PIN_HALL),
+                          lastHall ? (now - lastHall) : 0,
+                          hall.rpm(), hall.rotationPeriodUs(),
+                          trigCount);
+            lastIdleLogMs = now;
+        }
+
         vTaskDelay(1);
     }
 }

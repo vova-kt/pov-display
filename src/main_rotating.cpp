@@ -82,8 +82,7 @@ static void patternTaskFunc(void*) {
                 Serial.printf("[pattern] direct mode: pushing slice 0 to strip (%u leds)\n", fb.numLeds());
                 wasDirectMode = true;
             }
-            const Pixel* data = fb.getSlice(0);
-            leds.sendSlice(data, fb.numLeds());
+            scheduler.requestDirectPush();
         } else if (wasDirectMode) {
             Serial.println("[pattern] scheduler mode: wifi timing active");
             wasDirectMode = false;

@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <Arduino.h>
 #include <esp_timer.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include "framebuffer.h"
 #include "hal_spi_leds.h"
 #include "timing_source.h"
@@ -15,6 +17,8 @@ public:
     void setNumSlices(uint16_t n)       { numSlices_ = n; }
     void setMirror(bool m)              { mirror_ = m; }
 
+    void requestDirectPush();
+    bool processNotification();
     static void renderTaskFunc(void* param);
     void onNewRotation();
 
@@ -32,4 +36,6 @@ private:
     volatile int16_t  phaseOffset_  = 0;
     volatile bool     mirror_       = true;
     volatile bool     running_      = false;
+    volatile bool     directPush_   = false;
+    uint16_t          directSlice_  = 0;
 };
